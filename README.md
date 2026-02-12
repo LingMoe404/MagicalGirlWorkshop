@@ -110,7 +110,7 @@
 
 1.  前往 Releases 页面下载 `MagicWorkshop_v1.1.0_Full.zip`。
 2.  解压至任意目录。
-3.  双击 `魔法少女工坊.exe` 即可直接使用 (已内置所有核心组件)。
+3.  双击 `魔法少女工坊.exe` 即可直接使用 (已嵌入所有核心组件)。
 
 ### 方式二：下载纯净版 (Lite)
 
@@ -206,3 +206,4 @@ A: 程序会自动判断：如果是 MP4 源文件，字幕会转为 SRT 以兼�
 *   **License**: MagicWorkshop by 泠萌404 is licensed under GPL-3.0.
 
 Copyright © 2026 泠萌404
+
