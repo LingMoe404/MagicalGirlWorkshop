@@ -3,8 +3,6 @@ name: Build (Nuitka + zstd)
 on:
   workflow_dispatch:
   push:
-    tags:
-      - "v*"
 
 permissions:
   contents: read
@@ -32,24 +30,50 @@ jobs:
           uv run --locked --with nuitka --with zstandard python -m nuitka main.py
           --onefile
           --windows-console-mode=disable
-          --enable-plugin=pyqt6
+          --enable-plugin=pyside6
           --assume-yes-for-downloads
           --windows-icon-from-ico=logo.ico
           --output-dir=build/nuitka
-          --output-filename=MagicWorkshop-Nuitka.exe
+          --output-filename=魔法少女工坊.exe
+
+      - name: Ensure 7-Zip is available
+        shell: pwsh
+        run: |
+          if (-not (Get-Command 7z -ErrorAction SilentlyContinue)) {
+            choco install 7zip -y
+          }
+          7z i | Select-Object -First 5
+
+      - name: Package release archive (high compression)
+        shell: pwsh
+        run: |
+          $exe = "build/nuitka/魔法少女工坊.exe"
+          $tools = "tools"
+          $stage = "build/package/MagicWorkshop"
+          $archive = "build/package/MagicWorkshop.7z"
+
+          if (!(Test-Path $exe)) { throw "Build output not found: $exe" }
+          if (!(Test-Path $tools)) { throw "Tools folder not found: $tools" }
+
+          New-Item -ItemType Directory -Force -Path $stage | Out-Null
+          Copy-Item $exe -Destination (Join-Path $stage "魔法少女工坊.exe") -Force
+          Copy-Item $tools -Destination (Join-Path $stage "tools") -Recurse -Force
+
+          if (Test-Path $archive) { Remove-Item $archive -Force }
+          7z a -t7z $archive "$stage\\*" -m0=lzma2 -mx=9 -mfb=273 -md=128m -ms=on -mmt=on
 
       - name: Show artifact info
         shell: pwsh
         run: |
-          $exe = "build/nuitka/MagicWorkshop-Nuitka.exe"
-          if (!(Test-Path $exe)) { throw "Build output not found: $exe" }
-          $sizeMB = [math]::Round((Get-Item $exe).Length / 1MB, 2)
-          Write-Host "Built: $exe"
+          $archive = "build/package/MagicWorkshop.7z"
+          if (!(Test-Path $archive)) { throw "Archive not found: $archive" }
+          $sizeMB = [math]::Round((Get-Item $archive).Length / 1MB, 2)
+          Write-Host "Built: $archive"
           Write-Host "Size: ${sizeMB} MB"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: MagicWorkshop-Nuitka-Windows
-          path: build/nuitka/MagicWorkshop-Nuitka.exe
+          name: MagicWorkshop-7z
+          path: build/package/MagicWorkshop.7z
           if-no-files-found: error

@@ -37,8 +37,8 @@ name = "magicworkshop"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
-    { name = "pyqt6" },
-    { name = "pyqt6-fluent-widgets" },
+    { name = "pyside6" },
+    { name = "pyside6-fluent-widgets" },
 ]
 
 [package.dev-dependencies]
@@ -48,8 +48,8 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "pyqt6", specifier = ">=6.10.2" },
-    { name = "pyqt6-fluent-widgets", specifier = ">=1.11.1" },
+    { name = "pyside6", specifier = ">=6.10.1" },
+    { name = "pyside6-fluent-widgets", specifier = ">=1.11.1" },
 ]
 
 [package.metadata.requires-dev]
@@ -2436,38 +2436,69 @@ wheels = [
 ]
 
 [[package]]
-name = "pyqt6"
+name = "pyside6"
 version = "6.10.2"
 source = { registry = "https://mirrors.cloud.tencent.com/pypi/simple/" }
 dependencies = [
-    { name = "pyqt6-qt6" },
-    { name = "pyqt6-sip" },
+    { name = "pyside6-addons" },
+    { name = "pyside6-essentials" },
+    { name = "shiboken6" },
 ]
-sdist = { url = "https://mirrors.cloud.tencent.com/pypi/packages/96/03/e756f52e8b0d7bb5527baf8c46d59af0746391943bdb8655acba22ee4168/pyqt6-6.10.2.tar.gz", hash = "sha256:6c0db5d8cbb9a3e7e2b5b51d0ff3f283121fa27b864db6d2f35b663c9be5cc83" }
 wheels = [
-    { url = "https://mirrors.cloud.tencent.com/pypi/packages/fb/3f/f073a980969aa485ef288eb2e3b94c223ba9c7ac9941543f19b51659b98d/pyqt6-6.10.2-cp39-abi3-macosx_10_14_universal2.whl", hash = "sha256:37ae7c1183fe4dd0c6aefd2006a35731245de1cb6f817bb9e414a3e4848dfd6d" },
-    { url = "https://mirrors.cloud.tencent.com/pypi/packages/ec/3e/9a015651ec71cea2e2f960c37edeb21623ba96a74956c0827def837f7c6b/pyqt6-6.10.2-cp39-abi3-manylinux_2_34_x86_64.whl", hash = "sha256:78e1b3d5763e4cbc84485aef600e0aba5e1932fd263b716f92cd1a40dfa5e924" },
-    { url = "https://mirrors.cloud.tencent.com/pypi/packages/51/74/a88fec2b99700270ca5d7dc7d650236a4990ed6fc88e055ca0fc8a339ee3/pyqt6-6.10.2-cp39-abi3-manylinux_2_39_aarch64.whl", hash = "sha256:bbc3af541bbecd27301bfe69fe445aa1611a9b490bd3de77306b12df632f7ec6" },
-    { url = "https://mirrors.cloud.tencent.com/pypi/packages/75/34/be7a55529607b21db00a49ca53cb07c3092d2a5a95ea19bb95cfa0346904/pyqt6-6.10.2-cp39-abi3-win_amd64.whl", hash = "sha256:bd328cb70bc382c48861cd5f0a11b2b8ae6f5692d5a2d6679ba52785dced327b" },
-    { url = "https://mirrors.cloud.tencent.com/pypi/packages/af/de/d9c88f976602b7884fec4ad54a4575d48e23e4f390e5357ea83917358846/pyqt6-6.10.2-cp39-abi3-win_arm64.whl", hash = "sha256:7901ba1df024b7ee9fdacfb2b7661aeb3749ae8b0bef65428077de3e0450eabb" },
+    { url = "https://mirrors.cloud.tencent.com/pypi/packages/35/0f/5736889fc850794623692cb369e295a994175e51295fa52134626f486296/pyside6-6.10.2-cp39-abi3-macosx_13_0_universal2.whl", hash = "sha256:4b084293caa7845d0064aaf6af258e0f7caae03a14a33537d0a552131afddaf0" },
+    { url = "https://mirrors.cloud.tencent.com/pypi/packages/35/d3/ab5cd2fac3d34469c7376e0cd18eec92905dbe44748c70bda7699a2a7206/pyside6-6.10.2-cp39-abi3-manylinux_2_34_x86_64.whl", hash = "sha256:1b89ce8558d4b4f35b85bff1db90d680912e4d3ce9e79ff804d6fef1d1a151ef" },
+    { url = "https://mirrors.cloud.tencent.com/pypi/packages/ea/8c/55bbd50c138c8dc12edc9f25e9d94760a33e574905468e98dff399094baa/pyside6-6.10.2-cp39-abi3-manylinux_2_39_aarch64.whl", hash = "sha256:0439f5e9b10ebe6177981bac9e219096ec970ac6ec215bef055279802ba50601" },
+    { url = "https://mirrors.cloud.tencent.com/pypi/packages/4f/d4/673b8112b4a260377f760be835c4e357163fdaf68a56a1aec59aeb8e584b/pyside6-6.10.2-cp39-abi3-win_amd64.whl", hash = "sha256:032bad6b18a17fcbf4dddd0397f49b07f8aae7f1a45b7e4de7037bf7fd6e0edf" },
+    { url = "https://mirrors.cloud.tencent.com/pypi/packages/14/95/bda648fcccf61fe58cb417284716ae30acdddd44f7d4cbad6eea4ccaa872/pyside6-6.10.2-cp39-abi3-win_arm64.whl", hash = "sha256:65a59ad0bc92525639e3268d590948ce07a80ee97b55e7a9200db41d493cac31" },
 ]
 
 [[package]]
-name = "pyqt6-fluent-widgets"
+name = "pyside6-addons"
+version = "6.10.2"
+source = { registry = "https://mirrors.cloud.tencent.com/pypi/simple/" }
+dependencies = [
+    { name = "pyside6-essentials" },
+    { name = "shiboken6" },
+]
+wheels = [
+    { url = "https://mirrors.cloud.tencent.com/pypi/packages/61/06/c283567628ffa2cefc3c72374ad607f1dfc9842a03db65f1347b9ae52bee/pyside6_addons-6.10.2-cp39-abi3-macosx_13_0_universal2.whl", hash = "sha256:0de7d0c9535e17d5e3b634b61314a1867f3b0f6d35c3d7cdc99efc353192faff" },
+    { url = "https://mirrors.cloud.tencent.com/pypi/packages/a5/69/e1ab8c756fd3984b1fd7b186446227f524f6b561160bfbfdba8874b4709a/pyside6_addons-6.10.2-cp39-abi3-manylinux_2_34_x86_64.whl", hash = "sha256:030a851163b51dbf0063be59e9ddb6a9e760bde89a28e461ccc81a224d286eaf" },
+    { url = "https://mirrors.cloud.tencent.com/pypi/packages/df/e5/18ba86ba86d1231c486d36f9accfe862ed6eb52ca0b698aeaf6e837a87ca/pyside6_addons-6.10.2-cp39-abi3-manylinux_2_39_aarch64.whl", hash = "sha256:fcee0373e3fd7b98f014094e5e37b4a39e4de7c5a47c13f654a7d557d4a426ad" },
+    { url = "https://mirrors.cloud.tencent.com/pypi/packages/99/13/503bec9201881968c372cb634069535e80aec2489f3907d676e151a1023f/pyside6_addons-6.10.2-cp39-abi3-win_amd64.whl", hash = "sha256:c20150068525a17494f3b6576c5d61c417cf9a5870659e29f5ebd83cd20a78ea" },
+    { url = "https://mirrors.cloud.tencent.com/pypi/packages/b6/39/44d6710b4dd18d745077b5fc6ded4ba6f32987a6e49c5834529e50f02155/pyside6_addons-6.10.2-cp39-abi3-win_arm64.whl", hash = "sha256:3d18db739b46946ba7b722d8ad4cc2097135033aa6ea57076e64d591e6a345f3" },
+]
+
+[[package]]
+name = "pyside6-essentials"
+version = "6.10.2"
+source = { registry = "https://mirrors.cloud.tencent.com/pypi/simple/" }
+dependencies = [
+    { name = "shiboken6" },
+]
+wheels = [
+    { url = "https://mirrors.cloud.tencent.com/pypi/packages/1d/2e/5f18a77f5e0bd730bacec93a690d0ef3c96a9711d213653eacecbf241b8d/pyside6_essentials-6.10.2-cp39-abi3-macosx_13_0_universal2.whl", hash = "sha256:1dee2cb9803ff135f881dadeb5c0edcef793d1ec4f8a9140a1348cecb71074e1" },
+    { url = "https://mirrors.cloud.tencent.com/pypi/packages/99/20/3a6ca95052e1744b5a3eba164e2dd451d358a3dcaf78179de4b45c8e3f47/pyside6_essentials-6.10.2-cp39-abi3-manylinux_2_34_x86_64.whl", hash = "sha256:660aea45bfa36f1e06f799b934c2a7df963bd31abc5083e8bb8a5bfaef45686b" },
+    { url = "https://mirrors.cloud.tencent.com/pypi/packages/93/a6/6073e4ddc2a5c7b3941606e4bc8bbaadcf0737f57450620b0793041c8d22/pyside6_essentials-6.10.2-cp39-abi3-manylinux_2_39_aarch64.whl", hash = "sha256:c2b028e4c6f8047a02c31f373408e23b4eedfd405f56c6aba8d0525c29472835" },
+    { url = "https://mirrors.cloud.tencent.com/pypi/packages/22/a8/616bbbd009efd3e17bf9a2db09d90c6764c010565cd2bdea2a240bfd18f7/pyside6_essentials-6.10.2-cp39-abi3-win_amd64.whl", hash = "sha256:0741018c2b6395038cad4c41775cfae3f13a409e87995ac9f7d89e5b1fb6b22a" },
+    { url = "https://mirrors.cloud.tencent.com/pypi/packages/b9/f9/c9757a984c4ffb6d12fab69e966d95dfc862a5d44e12b7900f3a03780b76/pyside6_essentials-6.10.2-cp39-abi3-win_arm64.whl", hash = "sha256:db5f4913648bb6afddb8b347edae151ee2378f12bceb03c8b2515a530a4b38d9" },
+]
+
+[[package]]
+name = "pyside6-fluent-widgets"
 version = "1.11.1"
 source = { registry = "https://mirrors.cloud.tencent.com/pypi/simple/" }
 dependencies = [
     { name = "darkdetect" },
-    { name = "pyqt6" },
-    { name = "pyqt6-frameless-window" },
+    { name = "pyside6" },
+    { name = "pysidesix-frameless-window" },
 ]
-sdist = { url = "https://mirrors.cloud.tencent.com/pypi/packages/9e/a9/1798a8521463713aade2cb1af3f1a2e42e2408710f6360c5a48329f9036b/pyqt6_fluent_widgets-1.11.1.tar.gz", hash = "sha256:d844061dc789b8deeefebe655600f3e62a36b1d4333b23d8cb41aa8f682376be" }
+sdist = { url = "https://mirrors.cloud.tencent.com/pypi/packages/9e/5f/da3f4f4b89cde08fa8f945d96b5f8b16203bcdab41b583538e24c30804ed/pyside6_fluent_widgets-1.11.1.tar.gz", hash = "sha256:8da3b1bb1a888e760c33d1b964653f8308ba512da8243d4abbe6e93623eac269" }
 wheels = [
-    { url = "https://mirrors.cloud.tencent.com/pypi/packages/0c/39/1fe583d1a62e85bee65a7b584a08bb2acb6b9305dff06ee81a7ffaab340b/pyqt6_fluent_widgets-1.11.1-py3-none-any.whl", hash = "sha256:01d0991bc1d17365c9deb6efde5676f7da356e7857016a7ad04b949d12973ed7" },
+    { url = "https://mirrors.cloud.tencent.com/pypi/packages/b0/94/528a7e7d2fbb6c464a4f31d16c234e6799ca5d95400a0ef7a1a9548362fa/pyside6_fluent_widgets-1.11.1-py3-none-any.whl", hash = "sha256:72655744b41cea212a6ea32d1457e9acfc17d50d41d3780dc67ad4fa36ba7ac4" },
 ]
 
 [[package]]
-name = "pyqt6-frameless-window"
+name = "pysidesix-frameless-window"
 version = "0.8.0"
 source = { registry = "https://mirrors.cloud.tencent.com/pypi/simple/" }
 dependencies = [
@@ -2475,35 +2506,9 @@ dependencies = [
     { name = "pyobjc", marker = "sys_platform == 'darwin'" },
     { name = "pywin32", marker = "sys_platform == 'win32'" },
 ]
-sdist = { url = "https://mirrors.cloud.tencent.com/pypi/packages/14/fd/b19e080eabc2dcd6bf906115045333a179c544cfb5e040dd301c37371ecc/pyqt6_frameless_window-0.8.0.tar.gz", hash = "sha256:77d6ceb4ec680ef2f510f5d6ce6accc7b3326e4c83e86b432e720262f2dbf4e4" }
+sdist = { url = "https://mirrors.cloud.tencent.com/pypi/packages/da/96/cf1ce5673b6239d79251a458d9acd8a789f7f1be496f0b8880dd66cc41cf/pysidesix_frameless_window-0.8.0.tar.gz", hash = "sha256:e200e4b68edb1b2e03aa00d76d0e8b8d1daf6f289a5b91fba974578b6700ad94" }
 wheels = [
-    { url = "https://mirrors.cloud.tencent.com/pypi/packages/c4/35/b1c5793dab82df6043d4cd9f3c5913be41f3c9b7927b169bbd665b129707/pyqt6_frameless_window-0.8.0-py3-none-any.whl", hash = "sha256:64dfd0659a1b1696bc930d06d93fdb1fbb4c2da56f970ac0cfc518c9f671dc86" },
-]
-
-[[package]]
-name = "pyqt6-qt6"
-version = "6.10.2"
-source = { registry = "https://mirrors.cloud.tencent.com/pypi/simple/" }
-wheels = [
-    { url = "https://mirrors.cloud.tencent.com/pypi/packages/9a/eb/f04d547d8ed9f20c7b246db4ef5d93b49cab4692009a10652ed0a8b9d2aa/pyqt6_qt6-6.10.2-py3-none-macosx_10_14_x86_64.whl", hash = "sha256:5761cfccc721da2311c3f1213577f0ff1df07bbbbe3fa3a209a256b82cf057e3" },
-    { url = "https://mirrors.cloud.tencent.com/pypi/packages/ce/c8/d99e65ab01c2402fb6bc4f77abef7244f7d5fb2f2e6d5b0abdf71bb2e4fc/pyqt6_qt6-6.10.2-py3-none-macosx_11_0_arm64.whl", hash = "sha256:6dda853a8db1b8d1a2ddbbe76cc6c3aa86614cad14056bd3c0435d8feea73b2d" },
-    { url = "https://mirrors.cloud.tencent.com/pypi/packages/d5/fe/01fd9b9d2ca139ef61582f2e2da249fa169229144294c1bb27db59ad8420/pyqt6_qt6-6.10.2-py3-none-manylinux_2_34_x86_64.whl", hash = "sha256:19c10b5f0806e9f9bac2c9759bd5d7d19a78967f330fd60a2db409177fa76e49" },
-    { url = "https://mirrors.cloud.tencent.com/pypi/packages/f4/20/a0d027ebb267d3afaf319d94efe1ff4d667004ee83b96701329a4d11fb95/pyqt6_qt6-6.10.2-py3-none-manylinux_2_39_aarch64.whl", hash = "sha256:2e60d616861ca4565cd295418d605975aa2dc407ba4b94c1586a70c92e9cb052" },
-    { url = "https://mirrors.cloud.tencent.com/pypi/packages/06/8e/595f215876d507417cc8565e05519916d3b0b76baedea6a1e4e5105633fc/pyqt6_qt6-6.10.2-py3-none-win_amd64.whl", hash = "sha256:c4b7f7d66cc58bddf1bc1ca28dfcf7a45f58cfcb11d81d13a0510409dd4957ac" },
-    { url = "https://mirrors.cloud.tencent.com/pypi/packages/50/5f/2196e2b536217b87cb3d2ce13ef8f7607d08b02f1990a4bd84a88d293a3c/pyqt6_qt6-6.10.2-py3-none-win_arm64.whl", hash = "sha256:7164a6f0c1335358a3026df9865c8f75395b01f60f0dcd2f66c029ec16fc83d2" },
-]
-
-[[package]]
-name = "pyqt6-sip"
-version = "13.11.0"
-source = { registry = "https://mirrors.cloud.tencent.com/pypi/simple/" }
-sdist = { url = "https://mirrors.cloud.tencent.com/pypi/packages/e3/7d/d2916048e2e3960f68cb4e93907639844f7b8ff95897dcc98553776ccdfc/pyqt6_sip-13.11.0.tar.gz", hash = "sha256:d463af37738bda1856c9ef513e5620a37b7a005e9d589c986c3304db4a8a14d3" }
-wheels = [
-    { url = "https://mirrors.cloud.tencent.com/pypi/packages/53/a6/0e4d8fa7d6deb750bd0fdf89024e39c71fb127efb5eeedfab6830ad6679a/pyqt6_sip-13.11.0-cp312-cp312-macosx_10_9_universal2.whl", hash = "sha256:6b3267cd93b7f4da6fdf9a6a26f3baed8faae06e5cdd76235f2acc2116c40a54" },
-    { url = "https://mirrors.cloud.tencent.com/pypi/packages/66/e6/25dc20a03c46000e8b93aaf79347227926b67959283e5aab797daa7f64d8/pyqt6_sip-13.11.0-cp312-cp312-manylinux1_x86_64.manylinux_2_5_x86_64.whl", hash = "sha256:c30248d9bbe54c46a78e5d549da50295ecd6584b965597f751e272f000fb8527" },
-    { url = "https://mirrors.cloud.tencent.com/pypi/packages/11/9f/e850cd350aade789660cafba38c00777e686040c06b8cd0b45339b80fcba/pyqt6_sip-13.11.0-cp312-cp312-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:9c367b53a91e575ef66c1375f899713bdaf0a8b2c64b95ac226e9644854a4984" },
-    { url = "https://mirrors.cloud.tencent.com/pypi/packages/77/26/5261d62108f7579407230f8c1d4dda43c18b5600ce70bf3becb2f997d5cc/pyqt6_sip-13.11.0-cp312-cp312-win_amd64.whl", hash = "sha256:077958105c2ea2f62be2f1a7611ff8bd44cb52fb5ea8fc8c59ea949144acb7b5" },
-    { url = "https://mirrors.cloud.tencent.com/pypi/packages/46/80/6c88b97eda309d6babb7292200bf51165dc06d0204d891b7bf1fb17a8ed0/pyqt6_sip-13.11.0-cp312-cp312-win_arm64.whl", hash = "sha256:52812471619d3d3750b940d7d124cd0954107656924921ac177e098ba36362fb" },
+    { url = "https://mirrors.cloud.tencent.com/pypi/packages/51/ea/a7c4890cbc441a6fb543579e092eaaaed72843419cfd80ce8664508e940f/pysidesix_frameless_window-0.8.0-py3-none-any.whl", hash = "sha256:7bf011cf3e3c6edaa23b3578daaaa6e0e361a3fbf9a5317e0e037aaf4c8fe107" },
 ]
 
 [[package]]
@@ -2532,4 +2537,16 @@ source = { registry = "https://mirrors.cloud.tencent.com/pypi/simple/" }
 sdist = { url = "https://mirrors.cloud.tencent.com/pypi/packages/82/f3/748f4d6f65d1756b9ae577f329c951cda23fb900e4de9f70900ced962085/setuptools-82.0.0.tar.gz", hash = "sha256:22e0a2d69474c6ae4feb01951cb69d515ed23728cf96d05513d36e42b62b37cb" }
 wheels = [
     { url = "https://mirrors.cloud.tencent.com/pypi/packages/e1/c6/76dc613121b793286a3f91621d7b75a2b493e0390ddca50f11993eadf192/setuptools-82.0.0-py3-none-any.whl", hash = "sha256:70b18734b607bd1da571d097d236cfcfacaf01de45717d59e6e04b96877532e0" },
+]
+
+[[package]]
+name = "shiboken6"
+version = "6.10.2"
+source = { registry = "https://mirrors.cloud.tencent.com/pypi/simple/" }
+wheels = [
+    { url = "https://mirrors.cloud.tencent.com/pypi/packages/fb/38/3912eb08a3b865b5fcdb4bdce8076cacc211986cee587f5cb62e637791af/shiboken6-6.10.2-cp39-abi3-macosx_13_0_universal2.whl", hash = "sha256:3bd4e94e9a3c8c1fa8362fd752d399ef39265d5264e4e37bae61cdaa2a00c8c7" },
+    { url = "https://mirrors.cloud.tencent.com/pypi/packages/52/88/292e0576489c46624ab419ee284ac5a59ae10e2eb34a58b6abca51dfd290/shiboken6-6.10.2-cp39-abi3-manylinux_2_34_x86_64.whl", hash = "sha256:ace0790032d9cb0adda644b94ee28d59410180d9773643bb6cf8438c361987ad" },
+    { url = "https://mirrors.cloud.tencent.com/pypi/packages/06/c2/03d44d34e8264e1f25671677fece95b414c70fd85dcc2be8d5e821ee2628/shiboken6-6.10.2-cp39-abi3-manylinux_2_39_aarch64.whl", hash = "sha256:f74d3ed1f92658077d0630c39e694eb043aeb1d830a5d275176c45d07147427f" },
+    { url = "https://mirrors.cloud.tencent.com/pypi/packages/71/5d/5ca52c0ef86b3d01572131b6709bd531a080995f7e680720e9424328ce1d/shiboken6-6.10.2-cp39-abi3-win_amd64.whl", hash = "sha256:10f3c8c5e1b8bee779346f21c10dbc14cff068f0b0b4e62420c82a6bf36ac2e7" },
+    { url = "https://mirrors.cloud.tencent.com/pypi/packages/46/52/421fd378313c89b67ee7d584bf4e9ec088fa1804891b8d74e02b16703457/shiboken6-6.10.2-cp39-abi3-win_arm64.whl", hash = "sha256:20c671645d70835af212ee05df60361d734c5305edb2746e9875c6a31283f963" },
 ]

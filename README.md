@@ -9,7 +9,7 @@
 >
 > 专为 **NAS 用户** 和 **仓鼠党** 打造的 AV1 硬件转码工具。
 > 利用 Intel QSV 或 NVIDIA NVENC 技术，在保留画质的前提下，将庞大的影视库体积缩小 **30% - 50%**。
-> *Powered by Python, PyQt6, QFluentWidgets, FFmpeg, ab-av1, Gemini.*
+> *Powered by Python, PySide6, QFluentWidgets, FFmpeg, ab-av1, Gemini.*
 
 ---
 
@@ -30,7 +30,7 @@
     *   **音频**: 强制混缩为立体声 (Opus @ 96k + Loudnorm)，适合移动端/平板/电视外放。*(注：暂不支持保留 5.1/7.1 环绕声)*
     *   **字幕**: 智能处理字幕流 (MKV 保留特效字幕，MP4 转 SRT)，确保 Emby/Plex/Jellyfin 兼容性。
     *   **元数据**: 尽可能保留原文件的元数据信息。
-*   **🎨 Win11 风格**: 基于 `PyQt6-Fluent-Widgets` 开发，支持云母 (Mica) 特效与深色模式，界面精美。
+*   **🎨 Win11 风格**: 基于 `PySide6-Fluent-Widgets` 开发，支持云母 (Mica) 特效与深色模式，界面精美。
 *   **🔌 贴心辅助**: 支持任务完成后**自动关机**，以及一键清理 ab-av1 产生的临时缓存文件。
 
 ## 📊 编码器参数对比
@@ -188,8 +188,8 @@ A: 程序会自动判断：如果是 MP4 源文件，字幕会转为 SRT 以兼�
 
 *   [**FFmpeg**](https://ffmpeg.org/): 强大的多媒体处理框架。
 *   [**ab-av1**](https://github.com/alexheretic/ab-av1): 自动寻找最佳 AV1 编码参数的工具。
-*   [**PyQt6**](https://www.riverbankcomputing.com/software/pyqt/): Python 的 Qt 绑定。
-*   [**PyQt-Fluent-Widgets**](https://github.com/zhiyiYo/PyQt-Fluent-Widgets): 精美的 Fluent Design 风格组件库。
+*   [**PySide6**](https://doc.qt.io/qtforpython-6/): Qt for Python 官方绑定。
+*   [**PySide6-Fluent-Widgets**](https://github.com/zhiyiYo/PyQt-Fluent-Widgets): 精美的 Fluent Design 风格组件库。
 *   [**Google Gemini**](https://deepmind.google/technologies/gemini/): 提供了强大的代码生成与辅助能力。
 
 ## 🤖 开发幕后
@@ -202,7 +202,7 @@ A: 程序会自动判断：如果是 MP4 源文件，字幕会转为 SRT 以兼�
 
 本项目遵循 GPL-3.0 开源协议。
 
-*   **GUI**: 基于 PyQt6 和 QFluentWidgets (GPLv3)。
+*   **GUI**: 基于 PySide6 和 QFluentWidgets (GPLv3)。
 *   **Core**: 核心算法基于 FFmpeg (LGPL/GPL) 和 ab-av1 (MIT)。
 *   **License**: MagicWorkshop by 泠萌404 is licensed under GPL-3.0.
 

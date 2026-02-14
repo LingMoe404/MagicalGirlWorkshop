@@ -1,6 +1,6 @@
 import sys
 import os
-os.environ["QT_API"] = "pyqt6"
+os.environ["QT_API"] = "pyside6"
 import shutil
 import time
 import re
@@ -10,24 +10,16 @@ import subprocess
 import json
 import configparser
 
-from PyQt6.QtCore import Qt, QThread, pyqtSignal, QObject, QSize, QUrl, QPropertyAnimation, pyqtProperty, QTimer
-from PyQt6.QtWidgets import (QApplication, QWidget, QVBoxLayout, QHBoxLayout, 
-                             QFileDialog, QFrame, QSpacerItem, QSizePolicy)
-from PyQt6.QtGui import QIcon, QColor, QDesktopServices, QPainter, QPainterPath, QPixmap
+from PySide6.QtCore import Qt, QThread, Signal as pyqtSignal, QObject, QSize, QUrl, QPropertyAnimation, Property as pyqtProperty, QTimer
+from PySide6.QtWidgets import (QApplication, QWidget, QVBoxLayout, QHBoxLayout, 
+                               QFileDialog, QFrame, QSpacerItem, QSizePolicy)
+from PySide6.QtGui import QIcon, QColor, QDesktopServices, QPainter, QPainterPath, QPixmap
 
 # 引入 Fluent Widgets (Win11 风格组件)
 from qfluentwidgets import (FluentWindow, SubtitleLabel, StrongBodyLabel, BodyLabel, 
                             LineEdit, PrimaryPushButton, PushButton, ProgressBar, 
                             TextEdit, SwitchButton, ComboBox, CardWidget, InfoBar, 
                             InfoBarPosition, setTheme, Theme, IconWidget, FluentIcon, setThemeColor, isDarkTheme, ImageLabel, MessageDialog)
-
-# [HotFix] 检查后端兼容性：防止 PySide6 混入导致 TypeError
-if not issubclass(FluentWindow, QWidget):
-    print("\n❌ 严重错误: qfluentwidgets 正在使用 PySide6 后端，但本程序基于 PyQt6。")
-    print("👉 请在终端执行以下命令修复环境:")
-    print("   pip uninstall PySide6 PySide6-Fluent-Widgets -y")
-    print("   pip install PyQt6 PyQt6-Fluent-Widgets")
-    sys.exit(1)
 
 # --- 核心工具函数 ---
 def resource_path(relative_path):
@@ -41,6 +33,10 @@ def resource_path(relative_path):
     # 开发环境或寻找外部文件时
     base_path = os.path.dirname(sys.executable) if getattr(sys, 'frozen', False) else os.path.abspath(".")
     return os.path.join(base_path, relative_path)
+
+def tool_path(filename):
+    """ 获取 tools 目录下工具的绝对路径 """
+    return resource_path(os.path.join("tools", filename))
 
 def safe_decode(bytes_data):
     if not bytes_data: return ""
@@ -133,9 +129,9 @@ class EncoderWorker(QThread):
         loudnorm = self.config['loudnorm']
         shutdown = self.config['shutdown']
 
-        ffmpeg = resource_path("ffmpeg.exe")
-        ffprobe = resource_path("ffprobe.exe")
-        ab_av1 = resource_path("ab-av1.exe")
+        ffmpeg = tool_path("ffmpeg.exe")
+        ffprobe = tool_path("ffprobe.exe")
+        ab_av1 = tool_path("ab-av1.exe")
         
         os.environ["PATH"] += os.pathsep + os.path.dirname(ffmpeg)
         startupinfo = subprocess.STARTUPINFO()
@@ -456,7 +452,7 @@ class AnalysisWorker(QThread):
         self.filepath = filepath
 
     def run(self):
-        ffprobe = resource_path("ffprobe.exe")
+        ffprobe = tool_path("ffprobe.exe")
         try:
             # 调用 ffprobe 获取 JSON 格式的详细信息
             cmd = [
@@ -740,26 +736,47 @@ class MainWindow(FluentWindow):
         self.main_layout.setContentsMargins(20, 20, 20, 20)
         self.main_layout.setSpacing(15)
 
-        # 1. 标题栏区域
-        header_layout = QVBoxLayout()
+        # 1. 标题栏区域 + 主题切换
+        header_row = QHBoxLayout()
+        header_row.setSpacing(16)
+
+        title_block = QVBoxLayout()
         title = SubtitleLabel("炼成祭坛", self)
         subtitle = BodyLabel("AV1 硬件加速魔力驱动 · 绝对领域 Edition", self)
         subtitle.setTextColor(QColor("#999999"), QColor("#999999")) # 灰色副标题
-        header_layout.addWidget(title)
-        header_layout.addWidget(subtitle)
-        self.main_layout.addLayout(header_layout)
+        title_block.addWidget(title)
+        title_block.addWidget(subtitle)
+        title_block.setSpacing(2)
+        header_row.addLayout(title_block, 1)
+
+        theme_block = QVBoxLayout()
+        theme_block.setSpacing(4)
+        theme_block.addWidget(StrongBodyLabel("世界线风格 (Theme)", self))
+        self.combo_theme = ComboBox(self)
+        self.combo_theme.addItems(["世界线收束 (Auto)", "光之加护 (Light)", "深渊凝视 (Dark)"])
+        self.combo_theme.currentIndexChanged.connect(self.on_theme_changed)
+        self.combo_theme.setFixedWidth(240)
+        self.combo_theme.setMinimumHeight(34)
+        theme_block.addWidget(self.combo_theme)
+        header_row.addLayout(theme_block)
+
+        self.main_layout.addLayout(header_row)
 
         # 2. 卡片区域 (使用 CardWidget)
         # --- 输入输出卡片 ---
         self.card_io = CardWidget(self)
         io_layout = QVBoxLayout(self.card_io)
+        io_layout.setContentsMargins(18, 16, 18, 16)
+        io_layout.setSpacing(12)
         
         # 视频源
         io_layout.addWidget(StrongBodyLabel("素材次元 (Source)", self.card_io))
         h1 = QHBoxLayout()
         self.line_src = LineEdit(self.card_io)
         self.line_src.setPlaceholderText("选择包含视频的文件夹...")
+        self.line_src.setMinimumHeight(36)
         self.btn_src = PushButton("浏览", self.card_io)
+        self.btn_src.setMinimumHeight(36)
         self.btn_src.clicked.connect(lambda: self.browse_folder(self.line_src))
         h1.addWidget(self.line_src)
         h1.addWidget(self.btn_src)
@@ -770,12 +787,15 @@ class MainWindow(FluentWindow):
         h2 = QHBoxLayout()
         self.line_cache = LineEdit(self.card_io)
         self.line_cache.setPlaceholderText("ab-av1 临时文件存放处...")
+        self.line_cache.setMinimumHeight(36)
         self.btn_cache = PushButton("浏览", self.card_io)
+        self.btn_cache.setMinimumHeight(36)
         self.btn_cache.clicked.connect(lambda: self.browse_folder(self.line_cache))
         h2.addWidget(self.line_cache)
         h2.addWidget(self.btn_cache)
         
         self.btn_clear_cache = PushButton("🧹 净化残渣", self.card_io)
+        self.btn_clear_cache.setMinimumHeight(36)
         self.btn_clear_cache.clicked.connect(self.clear_cache_files)
         h2.addWidget(self.btn_clear_cache)
         
@@ -786,51 +806,53 @@ class MainWindow(FluentWindow):
         # --- 参数设置卡片 ---
         self.card_settings = CardWidget(self)
         set_layout = QVBoxLayout(self.card_settings)
+        set_layout.setContentsMargins(18, 16, 18, 16)
+        set_layout.setSpacing(12)
         
         # 第一行参数
         row1 = QHBoxLayout()
+        row1.setSpacing(12)
         
         v1 = QVBoxLayout()
         v1.addWidget(StrongBodyLabel("魔力核心 (Encoder)", self.card_settings))
         self.combo_encoder = ComboBox(self.card_settings)
         self.combo_encoder.addItems(["Intel QSV", "NVIDIA NVENC"])
+        self.combo_encoder.setMinimumHeight(36)
         v1.addWidget(self.combo_encoder)
 
         v2 = QVBoxLayout()
         v2.addWidget(StrongBodyLabel("视界还原度 (VMAF)", self.card_settings))
         self.line_vmaf = LineEdit(self.card_settings)
+        self.line_vmaf.setMinimumHeight(36)
         v2.addWidget(self.line_vmaf)
         
         v3 = QVBoxLayout()
         v3.addWidget(StrongBodyLabel("共鸣频率 (Bitrate)", self.card_settings))
         self.line_audio = LineEdit(self.card_settings)
+        self.line_audio.setMinimumHeight(36)
         v3.addWidget(self.line_audio)
 
         v4 = QVBoxLayout()
         v4.addWidget(StrongBodyLabel("咏唱速度 (Preset)", self.card_settings))
         self.combo_preset = ComboBox(self.card_settings)
         self.combo_preset.addItems(["1", "2", "3", "4", "5", "6", "7"])
+        self.combo_preset.setMinimumHeight(36)
         v4.addWidget(self.combo_preset)
 
-        row1.addLayout(v1)
-        row1.addLayout(v2)
-        row1.addLayout(v3)
-        row1.addLayout(v4)
+        row1.addLayout(v1, 1)
+        row1.addLayout(v2, 1)
+        row1.addLayout(v3, 1)
+        row1.addLayout(v4, 1)
         set_layout.addLayout(row1)
 
         # 第二行参数
         row2 = QHBoxLayout()
-        
-        v5 = QVBoxLayout()
-        v5.addWidget(StrongBodyLabel("世界线风格 (Theme)", self.card_settings))
-        self.combo_theme = ComboBox(self.card_settings)
-        self.combo_theme.addItems(["世界线收束 (Auto)", "光之加护 (Light)", "深渊凝视 (Dark)"])
-        self.combo_theme.currentIndexChanged.connect(self.on_theme_changed)
-        v5.addWidget(self.combo_theme)
-        
+        row2.setSpacing(12)
+
         v6 = QVBoxLayout()
         v6.addWidget(StrongBodyLabel("音量均一化术式 (Loudnorm)", self.card_settings))
         self.line_loudnorm = LineEdit(self.card_settings)
+        self.line_loudnorm.setMinimumHeight(36)
         v6.addWidget(self.line_loudnorm)
         
         v7 = QVBoxLayout()
@@ -841,17 +863,19 @@ class MainWindow(FluentWindow):
         self.sw_nv_aq.setChecked(True)
         v7.addWidget(self.sw_nv_aq)
         
-        row2.addLayout(v5)
-        row2.addLayout(v6)
-        row2.addLayout(v7)
+        row2.addLayout(v6, 2)
+        row2.addLayout(v7, 1)
+        row2.addStretch(1)
         set_layout.addLayout(row2)
 
         # 保存/恢复按钮
         h_btns = QHBoxLayout()
         self.btn_save_conf = PushButton("💾 铭刻记忆 (Save)", self.card_settings)
+        self.btn_save_conf.setMinimumHeight(36)
         self.btn_save_conf.clicked.connect(self.save_current_settings)
         
-        self.btn_reset_conf = PushButton("↩️ 时间回溯 (Reset)", self.card_settings)
+        self.btn_reset_conf = PushButton("↩️ 记忆回溯 (Reset)", self.card_settings)
+        self.btn_reset_conf.setMinimumHeight(36)
         self.btn_reset_conf.clicked.connect(self.restore_defaults)
         
         h_btns.addWidget(self.btn_save_conf)
@@ -864,6 +888,8 @@ class MainWindow(FluentWindow):
         # --- 选项与操作卡片 ---
         self.card_action = CardWidget(self)
         act_layout = QVBoxLayout(self.card_action)
+        act_layout.setContentsMargins(18, 16, 18, 16)
+        act_layout.setSpacing(12)
         
         # 开关组
         sw_layout = QHBoxLayout()
@@ -885,7 +911,9 @@ class MainWindow(FluentWindow):
         exp_layout.setContentsMargins(0, 5, 0, 0)
         self.line_export = LineEdit(self.export_container)
         self.line_export.setPlaceholderText("新世界坐标...")
+        self.line_export.setMinimumHeight(36)
         self.btn_export = PushButton("选择", self.export_container)
+        self.btn_export.setMinimumHeight(36)
         self.btn_export.clicked.connect(lambda: self.browse_folder(self.line_export))
         exp_layout.addWidget(self.line_export)
         exp_layout.addWidget(self.btn_export)
@@ -894,19 +922,20 @@ class MainWindow(FluentWindow):
 
         # 按钮组
         btn_layout = QHBoxLayout()
+        btn_layout.setSpacing(10)
         self.btn_start = PrimaryPushButton("✨ 缔结契约 (Start)", self.card_action)
         self.btn_start.clicked.connect(self.start_task)
-        self.btn_start.setMinimumHeight(40)
+        self.btn_start.setMinimumHeight(42)
         
         self.btn_pause = PushButton("⏳ 时空冻结 (Pause)", self.card_action)
         self.btn_pause.clicked.connect(self.pause_task)
         self.btn_pause.setEnabled(False)
-        self.btn_pause.setMinimumHeight(40)
+        self.btn_pause.setMinimumHeight(42)
         
         self.btn_stop = PushButton(" 契约破弃 (Stop)", self.card_action)
         self.btn_stop.clicked.connect(self.stop_task)
         self.btn_stop.setEnabled(False)
-        self.btn_stop.setMinimumHeight(40)
+        self.btn_stop.setMinimumHeight(42)
         # 设置停止按钮为红色样式 (自定义QSS)
         self.btn_stop.setStyleSheet("PushButton { color: #D93652; font-weight: bold; } PushButton:disabled { color: #CCCCCC; }")
 
@@ -918,7 +947,6 @@ class MainWindow(FluentWindow):
         self.main_layout.addWidget(self.card_action)
 
         # 3. 底部状态区
-        self.main_layout.addStretch(1) # 弹簧
 
         # 进度条
         self.lbl_current = BodyLabel("当前咏唱:", self)
@@ -939,7 +967,7 @@ class MainWindow(FluentWindow):
         self.main_layout.addWidget(self.text_log)
 
         # 署名
-        footer = BodyLabel("Designed by <a href='https://space.bilibili.com/136850' style='color: #FB7299; text-decoration: none; font-weight: bold;'>泠萌404</a> | Powered by Python, PyQt6, QFluentWidgets, FFmpeg, ab-av1, Gemini", self)
+        footer = BodyLabel("Designed by <a href='https://space.bilibili.com/136850' style='color: #FB7299; text-decoration: none; font-weight: bold;'>泠萌404</a> | Powered by Python, PySide6, QFluentWidgets, FFmpeg, ab-av1, Gemini", self)
         footer.setAlignment(Qt.AlignmentFlag.AlignCenter)
         footer.setTextColor(QColor("#AAAAAA"), QColor("#AAAAAA"))
         footer.setOpenExternalLinks(True)
@@ -1053,7 +1081,7 @@ class MainWindow(FluentWindow):
         self.combo_theme.setCurrentIndex(0) # Auto
         
         self.save_current_settings()
-        InfoBar.info("时间回溯成功", "参数已重置为初始形态", parent=self, position=InfoBarPosition.TOP)
+        InfoBar.info("记忆回溯成功", "参数已重置为初始形态", parent=self, position=InfoBarPosition.TOP)
 
     def on_theme_changed(self, index):
         if index == 0:
@@ -1223,7 +1251,7 @@ class MainWindow(FluentWindow):
         }
 
         for exe, desc in dependencies.items():
-            if not os.path.exists(resource_path(exe)):
+            if not os.path.exists(tool_path(exe)):
                 missing.append(f"❌ {desc} [{exe}]")
 
         if missing:
@@ -1251,7 +1279,7 @@ class MainWindow(FluentWindow):
         else:
             # 组件存在，进一步检查硬件兼容性
             try:
-                ffmpeg_path = resource_path("ffmpeg.exe")
+                ffmpeg_path = tool_path("ffmpeg.exe")
                 
                 # 1. 检查 FFmpeg 软件层面是否包含 av1_qsv 编码器
                 enc_output = subprocess.check_output(
