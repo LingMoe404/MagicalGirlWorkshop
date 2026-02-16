@@ -182,6 +182,7 @@ class EncoderWorker(BaseWorker):
                     "--pix-format", enc_pix_fmt, 
                     "--min-vmaf", str(target_vmaf),
                     "--preset", enc_preset,
+                    "--max-crf", "51", # [Fix] 硬件编码器 (AMF/NVENC/QSV) QP/CQ 上限通常为 51
                 ]
                 if cache_dir and os.path.isdir(cache_dir):
                     cmd_search.extend(["--temp-dir", cache_dir])
@@ -231,6 +232,11 @@ class EncoderWorker(BaseWorker):
                         self.log_signal.emit("    [ab-av1 错误回溯]:", "error")
                         for log_line in ab_av1_log[-5:]:
                             self.log_signal.emit(f"    {log_line}", "error")
+
+                # [Fix] 双重保险：确保 QP/CQ 不超过 51
+                if best_icq > 51:
+                    self.log_signal.emit(f" -> 修正: 硬件编码器参数限制 ({best_icq} -> 51)", "warning")
+                    best_icq = 51
 
                 # 4. FFmpeg 转码
                 base_name = os.path.splitext(fname)[0]
