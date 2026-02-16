@@ -1,0 +1,133 @@
+import os
+import subprocess
+from PySide6.QtCore import Signal
+
+from utils import tool_path, get_subprocess_flags, safe_decode
+from config import PIX_FMT_10BIT
+from .base import BaseWorker
+
+# --- 依赖检查线程 (启动优化) ---
+class DependencyWorker(BaseWorker):
+    log_signal = Signal(str, str)
+    result_signal = Signal(bool, bool, bool) # has_qsv, has_nvenc, has_amf
+    missing_signal = Signal(list)
+
+    def run(self):
+        missing = []
+        dependencies = {
+            "ffmpeg.exe": "核心术式构筑 (FFmpeg)",
+            "ffprobe.exe": "真理之眼组件 (FFprobe)",
+            "ab-av1.exe": "极限咏唱触媒 (ab-av1)"
+        }
+
+        for exe, desc in dependencies.items():
+            if not os.path.exists(tool_path(exe)):
+                missing.append(f"❌ {desc} [{exe}]")
+
+        if missing:
+            self.missing_signal.emit(missing)
+            return
+
+        if not self.is_running: return
+
+        try:
+            ffmpeg_path = tool_path("ffmpeg.exe")
+            
+            # 1. 检查 FFmpeg 软件层面是否包含 av1_qsv 编码器
+            enc_output = subprocess.check_output(
+                [ffmpeg_path, "-v", "quiet", "-encoders"], 
+                creationflags=get_subprocess_flags(),
+                timeout=10
+            )
+            enc_str = safe_decode(enc_output)
+            
+            if not self.is_running: return
+
+            has_qsv = False
+            has_nvenc = False
+            has_amf = False
+
+            # 检测 Intel QSV (尝试硬件编码一帧)
+            if "av1_qsv" in enc_str:
+                try:
+                    with subprocess.Popen(
+                        [ffmpeg_path, "-v", "error", "-init_hw_device", "qsv=hw", 
+                         "-f", "lavfi", "-i", "color=black:s=1280x720", 
+                         "-pix_fmt", PIX_FMT_10BIT,
+                         "-c:v", "av1_qsv", "-frames:v", "1", "-f", "null", "-"],
+                        stdout=subprocess.PIPE, stderr=subprocess.PIPE, creationflags=get_subprocess_flags()
+                    ) as proc:
+                        _, stderr = proc.communicate(timeout=5)
+                        if proc.returncode == 0: has_qsv = True
+                        else:
+                            err_msg = safe_decode(stderr)
+                            if err_msg:
+                                self.log_signal.emit(f">>> Intel QSV 自检未通过: {err_msg.splitlines()[0]}", "error")
+                except Exception as e:
+                    self.log_signal.emit(f">>> Intel QSV 检测异常: {e}", "error")
+
+            if not self.is_running: return
+
+            # 检测 NVIDIA NVENC (尝试硬件编码一帧)
+            if "av1_nvenc" in enc_str:
+                try:
+                    with subprocess.Popen(
+                        [ffmpeg_path, "-v", "error", 
+                         "-f", "lavfi", "-i", "color=black:s=1280x720", 
+                         "-pix_fmt", PIX_FMT_10BIT,
+                         "-c:v", "av1_nvenc", "-frames:v", "1", "-f", "null", "-"],
+                        stdout=subprocess.PIPE, stderr=subprocess.PIPE, creationflags=get_subprocess_flags()
+                    ) as proc:
+                        _, stderr = proc.communicate(timeout=5)
+                        if proc.returncode == 0: has_nvenc = True
+                        else:
+                            err_msg = safe_decode(stderr)
+                            if "CUDA_ERROR_NO_DEVICE" in err_msg:
+                                pass
+                            else:
+                                with subprocess.Popen(
+                                    [ffmpeg_path, "-v", "error", 
+                                     "-f", "lavfi", "-i", "color=black:s=1280x720", 
+                                     "-pix_fmt", "yuv420p",
+                                     "-c:v", "hevc_nvenc", "-frames:v", "1", "-f", "null", "-"],
+                                    stdout=subprocess.PIPE, stderr=subprocess.PIPE, creationflags=get_subprocess_flags()
+                                ) as proc_hevc:
+                                    proc_hevc.communicate(timeout=5)
+                                    if proc_hevc.returncode == 0:
+                                        self.log_signal.emit(">>> 提示: 检测到 NVIDIA 显卡，但该型号不支持 AV1 硬件编码 (需 RTX 40 系列)。", "warning")
+                                    else:
+                                        short_err = err_msg.split('\n')[0] if err_msg else '未知错误'
+                                        self.log_signal.emit(f">>> NVENC 自检未通过: {short_err}", "error")
+                except Exception as e:
+                    self.log_signal.emit(f">>> NVENC 检测异常: {e}", "error")
+
+            if not self.is_running: return
+
+            # 检测 AMD AMF (尝试硬件编码一帧)
+            if "av1_amf" in enc_str:
+                try:
+                    with subprocess.Popen(
+                        [ffmpeg_path, "-v", "error",
+                         "-f", "lavfi", "-i", "color=black:s=1280x720",
+                         "-pix_fmt", PIX_FMT_10BIT,
+                         "-c:v", "av1_amf", "-usage", "transcoding",
+                         "-quality", "balanced",
+                         "-rc", "cqp",
+                         "-qp_i", "30", "-qp_p", "30", "-qp_b", "30",
+                         "-frames:v", "1", "-f", "null", "-"],
+                        stdout=subprocess.PIPE, stderr=subprocess.PIPE, creationflags=get_subprocess_flags()
+                    ) as proc:
+                        _, stderr = proc.communicate(timeout=5)
+                        if proc.returncode == 0: has_amf = True
+                        else:
+                            err_msg = safe_decode(stderr)
+                            if err_msg:
+                                short_err = err_msg.split('\n')[0]
+                                self.log_signal.emit(f">>> AMD AMF 自检未通过: {short_err}", "warning")
+                except Exception as e:
+                    self.log_signal.emit(f">>> AMD AMF 检测异常: {e}", "error")
+
+            self.result_signal.emit(has_qsv, has_nvenc, has_amf)
+                
+        except Exception as e:
+            self.log_signal.emit(f">>> 环境自检异常: {e}", "error")
