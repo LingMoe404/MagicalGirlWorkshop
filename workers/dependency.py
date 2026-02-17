@@ -3,7 +3,7 @@ import subprocess
 from PySide6.QtCore import Signal
 
 from utils import tool_path, get_subprocess_flags, safe_decode
-from config import PIX_FMT_10BIT
+from config import PIX_FMT_10BIT, PIX_FMT_8BIT
 from .base import BaseWorker
 
 # --- 依赖检查线程 (启动优化) ---
@@ -123,7 +123,7 @@ class DependencyWorker(BaseWorker):
                             err_msg = safe_decode(stderr)
                             if err_msg:
                                 short_err = err_msg.split('\n')[0]
-                                self.log_signal.emit(f">>> AMD AMF 自检未通过: {short_err}", "warning")
+                                self.log_signal.emit(f">>> AMD AMF 自检未通过: {short_err}", "error")
                 except Exception as e:
                     self.log_signal.emit(f">>> AMD AMF 检测异常: {e}", "error")
 

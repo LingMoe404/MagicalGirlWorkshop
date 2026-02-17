@@ -15,7 +15,7 @@ from config import (
     VIDEO_EXTS, SAVE_MODE_OVERWRITE, SAVE_MODE_REMAIN,
     SUBTITLE_CODEC_SRT, AUDIO_CODEC, SAMPLE_RATE,
     LOUDNORM_MODE_ALWAYS, LOUDNORM_MODE_AUTO,
-    ENC_NVENC, ENC_AMF, PIX_FMT_AB_AV1, PIX_FMT_10BIT,
+    ENC_NVENC, ENC_AMF, PIX_FMT_AB_AV1, PIX_FMT_10BIT, PIX_FMT_8BIT,
     GPU_COOLING_TIME
 )
 from .base import BaseWorker
@@ -27,6 +27,7 @@ class EncoderWorker(BaseWorker):
     progress_total_signal = Signal(int)
     progress_current_signal = Signal(int)
     file_progress_signal = Signal(str, int) # filepath, percent
+    file_stats_signal = Signal(str, str, str) # filepath, speed, eta [Add]
     file_status_signal = Signal(str, str)   # filepath, status (processing, success, error)
     finished_signal = Signal()
     ask_error_decision = Signal(str, str)
@@ -138,6 +139,9 @@ class EncoderWorker(BaseWorker):
                 if not self.is_running:
                     break
 
+                task_start_time = time.time() # [Add] 记录任务开始时间
+                file_paused_time = 0.0 # [Add] 累计暂停时间
+
                 # 确保传递给命令行的是标准绝对路径，而非带有 \\?\ 的长路径
                 std_filepath = os.path.abspath(filepath)
                 fname = os.path.basename(filepath)
@@ -147,84 +151,178 @@ class EncoderWorker(BaseWorker):
                 self.progress_total_signal.emit(int((i / total_tasks) * 100))
                 self.progress_current_signal.emit(0)
 
-                # 1. 获取媒体信息 (Codec, Duration, Channels) - 合并探测请求以提升性能
-                codec = ""
-                duration_sec = 0.0
-                source_audio_channels = None
+                # [Opt] 优先使用 UI 预存的元数据，避免重复调用 ffprobe
+                meta = self.config.get('metadata', {}).get(filepath) or {}
+                codec = meta.get('codec', '')
+                duration_sec = meta.get('duration', 0.0)
+                source_audio_channels = meta.get('channels')
+
+                # [Fallback] 如果元数据缺失（例如导入太快），现场补测一次
+                if not codec or duration_sec <= 0:
+                    try:
+                        cmd_probe = [ffprobe, "-v", "quiet", "-print_format", "json", "-show_format", "-show_streams", std_filepath]
+                        raw_out = subprocess.check_output(cmd_probe, creationflags=get_subprocess_flags())
+                        probe_data = json.loads(raw_out)
+                        for s in probe_data.get('streams', []):
+                            if s.get('codec_type') == 'video' and not codec:
+                                if s.get('codec_name', '').lower() not in ['mjpeg', 'png', 'bmp']:
+                                    codec = s.get('codec_name', '').lower()
+                            elif s.get('codec_type') == 'audio' and source_audio_channels is None:
+                                source_audio_channels = int(s.get('channels', 2))
+                        if duration_sec <= 0:
+                            duration_sec = float(probe_data.get('format', {}).get('duration', 0))
+                    except Exception:
+                        pass
+
                 try:
-                    cmd_probe = [
-                        ffprobe, "-v", "quiet", "-print_format", "json", 
-                        "-show_format", "-show_streams", std_filepath
-                    ]
-                    raw_out = subprocess.check_output(cmd_probe, creationflags=get_subprocess_flags())
-                    probe_data = json.loads(raw_out)
-                    
-                    for s in probe_data.get('streams', []):
-                        st_type = s.get('codec_type')
-                        if st_type == 'video' and not codec:
-                            codec = s.get('codec_name', '').lower()
-                        elif st_type == 'audio' and source_audio_channels is None:
-                            source_audio_channels = s.get('channels')
-                    
-                    duration_sec = float(probe_data.get('format', {}).get('duration', 0))
                     
                     if "av1" in codec:
                         self.log_signal.emit(" -> 此物质已是纯净形态 (AV1)，跳过~ (Pass)", "success")
+                        total_duration = time.time() - task_start_time
+                        self.file_stats_signal.emit(filepath, "✨ 跳过", f"耗时: {total_duration:.2f}s")
                         self.file_status_signal.emit(filepath, "success")
                         continue
                 except Exception:
                     pass
 
                 # 3. ab-av1 搜索
-                cmd_search = [
-                    ab_av1, "crf-search", "-i", std_filepath,
-                    "--encoder", enc_name, 
-                    "--pix-format", enc_pix_fmt, 
-                    "--min-vmaf", str(target_vmaf),
-                    "--preset", enc_preset,
-                    "--max-crf", "51", # [Fix] 硬件编码器 (AMF/NVENC/QSV) QP/CQ 上限通常为 51
-                ]
-                if cache_dir and os.path.isdir(cache_dir):
-                    cmd_search.extend(["--temp-dir", cache_dir])
+                # [Refactor] 构建探测策略队列，支持失败回退
+                search_strategies = []
                 
-                self.log_signal.emit(" -> 正在推演最强术式 (ab-av1)...", "info")
+                # 策略 A: 硬件探测 (如果可用且非 AMD)
+                # AMD AMF 硬件探测不可用 (ab-av1 不支持)，直接跳过
+                if enc_name != "av1_amf":
+                    search_strategies.append({
+                        "encoder": enc_name,
+                        "preset": enc_preset,
+                        "desc": "硬件探测" if "av1_" in enc_name else "探测"
+                    })
+
+                # 策略 B: CPU 探测 (SVT-AV1) - 速度优先
+                # 映射 UI 1-7 到 SVT-AV1 预设 (6-12)
+                svt_preset = str(min(12, p_val + 5))
+                search_strategies.append({
+                    "encoder": "libsvtav1",
+                    "preset": svt_preset,
+                    "desc": "CPU 探测 (SVT-AV1)"
+                })
+
+                # 策略 C: CPU 探测 (AOM-AV1) - 兼容性优先 (终极兜底)
+                # 使用 cpu-used 6，速度尚可且兼容性最好，绝不会出现参数错误
+                search_strategies.append({
+                    "encoder": "libaom-av1",
+                    "preset": "6",
+                    "desc": "CPU 探测 (AOM-AV1)"
+                })
                 
                 best_icq = 24
                 search_success = False
                 ab_av1_log = []
-                
-                try:
-                    with subprocess.Popen(cmd_search, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, bufsize=0, creationflags=get_subprocess_flags()) as proc:
-                        self.current_proc = proc
-                        while True:
-                            if not self.is_running:
-                                try: proc.kill()
-                                except: pass
-                                break
-                            while self.is_paused:
-                                if not self.is_running: break
-                                time.sleep(0.1)
-                            line = proc.stdout.readline()
-                            if not line and proc.poll() is not None: break
-                            if line:
-                                decoded = safe_decode(line)
-                                ab_av1_log.append(decoded)
-                                match = re.search(r"(?:crf|cq|qp)\s+(\d+)", decoded, re.IGNORECASE)
-                                vmaf_match = re.search(r"VMAF\s+([\d.]+)", decoded, re.IGNORECASE)
-                                if match and vmaf_match:
-                                    self.log_signal.emit(f"    -> 探测中: {match.group(0).upper()} {match.group(1)} => VMAF: {vmaf_match.group(1)}", "info")
-                                    best_icq = int(match.group(1))
-                                    search_success = True
-                except Exception:
-                    pass
-                finally:
-                    self.current_proc = None
+                final_strategy = None
+                search_start_time = time.time() # [Add] 记录探测开始时间
+                search_paused_time = 0.0 # [Add] 探测阶段暂停时间
+
+                for strategy in search_strategies:
+                    if not self.is_running: break
+                    
+                    s_enc = strategy["encoder"]
+                    s_preset = strategy["preset"]
+                    s_desc = strategy["desc"]
+                    
+                    if strategy != search_strategies[0]:
+                         self.log_signal.emit(f" -> 尝试备用方案: {s_desc}...", "warning")
+                    else:
+                         self.log_signal.emit(f" -> 正在推演最强术式 (ab-av1)...", "info")
+
+                    # [Fix] CPU 编码器 (SVT/AOM) 支持 CRF 63，允许探测更大范围，结果再截断
+                    search_max_crf = "63" if s_enc in ["libsvtav1", "libaom-av1"] else "51"
+
+                    cmd_search = [
+                        ab_av1, "crf-search", "-i", std_filepath,
+                        "--encoder", s_enc, 
+                        "--pix-format", enc_pix_fmt, 
+                        "--min-vmaf", str(target_vmaf),
+                        "--preset", s_preset,
+                        "--max-crf", search_max_crf,
+                    ]
+                    if cache_dir and os.path.isdir(cache_dir):
+                        cmd_search.extend(["--temp-dir", cache_dir])
+                    
+                    current_log = []
+                    last_vmaf_log = None
+                    attempt_success = False
+                    
+                    try:
+                        with subprocess.Popen(cmd_search, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, bufsize=0, creationflags=get_subprocess_flags()) as proc:
+                            self.current_proc = proc
+                            while True:
+                                if not self.is_running:
+                                    try: proc.kill()
+                                    except: pass
+                                    break
+                                if self.is_paused:
+                                    p_start = time.time()
+                                    while self.is_paused:
+                                        if not self.is_running: break
+                                        time.sleep(0.1)
+                                    p_dt = time.time() - p_start
+                                    search_paused_time += p_dt
+                                    file_paused_time += p_dt
+
+                                line = proc.stdout.readline()
+                                if not line and proc.poll() is not None: break
+                                if line:
+                                    decoded = safe_decode(line)
+                                    current_log.append(decoded)
+                                    match = re.search(r"(?:crf|cq|qp)\s+(\d+)", decoded, re.IGNORECASE)
+                                    vmaf_match = re.search(r"VMAF\s+([\d.]+)", decoded, re.IGNORECASE)
+                                    if match and vmaf_match:
+                                        vmaf_val = vmaf_match.group(1)
+                                        if vmaf_val != last_vmaf_log:
+                                            self.log_signal.emit(f"    -> 探测中: {match.group(0).upper()} => VMAF: {vmaf_val}", "info")
+                                            last_vmaf_log = vmaf_val
+                                        best_icq = int(match.group(1))
+                                        attempt_success = True
+                            
+                            if proc.returncode != 0:
+                                attempt_success = False
+                    except Exception:
+                        attempt_success = False
+                    finally:
+                        self.current_proc = None
+                    
+                    if attempt_success:
+                        search_success = True
+                        final_strategy = strategy
+                        break
+                    else:
+                        ab_av1_log.extend(current_log)
+
+                search_duration = time.time() - search_start_time - search_paused_time # [Fix] 扣除暂停时间
 
                 if not self.is_running:
                     break
 
                 if search_success:
-                    self.log_signal.emit(f" -> 术式解析完毕 (ICQ): {best_icq} (๑•̀ㅂ•́)و✧", "success")
+                    # 检查是否使用了 CPU 探测来代理硬件 (AMF 默认代理，NVENC 失败回退)
+                    is_cpu_detect = (final_strategy["encoder"] in ["libsvtav1", "libaom-av1"])
+                    is_hw_target = (enc_name in ["av1_amf", "av1_nvenc", "av1_qsv"])
+                    
+                    if is_cpu_detect and is_hw_target:
+                        # 换算逻辑：CPU CRF 转换为 硬件 QP
+                        offset = int(self.config.get('amf_offset', 0)) # 读取当前编码器的独立偏移值
+                        cpu_crf = best_icq
+                        raw_icq = cpu_crf + offset
+                        # [Fix] 统一限制 QP 范围 [1, 51]
+                        best_icq = max(1, min(51, raw_icq))
+
+                        if best_icq != raw_icq:
+                            reason = "最小" if raw_icq < 1 else "最大"
+                            self.log_signal.emit(f" -> 术式解析完毕 ({final_strategy['desc']}): 原始CRF {cpu_crf} + 偏移 {offset} = {raw_icq} (已修正为{reason}限制 {best_icq}) [耗时: {search_duration:.1f}s]", "warning")
+                        else:
+                            self.log_signal.emit(f" -> 术式解析完毕 ({final_strategy['desc']}): 原始CRF {cpu_crf} + 偏移 {offset} => 最终参数 {best_icq} [耗时: {search_duration:.1f}s]", "success")
+                    else:
+                        self.log_signal.emit(f" -> 术式解析完毕 (ICQ): {best_icq} [耗时: {search_duration:.1f}s] (๑•̀ㅂ•́)و✧", "success")
                 else:
                     self.log_signal.emit(f" -> 解析失败，强制使用基础术式 ICQ: {best_icq} (T_T)", "error")
                     # [Fix] 输出 ab-av1 的最后几行日志以便排查
@@ -323,10 +421,10 @@ class EncoderWorker(BaseWorker):
                         "-c:v", "av1_amf",
                         "-usage", "transcoding",
                         "-quality", enc_preset,
-                        "-rc", "cqp",
-                        "-qp_i", str(best_icq),
-                        "-qp_p", str(best_icq),
-                        "-qp_b", str(best_icq),
+                        "-rc", "qvbr",
+                        "-qvbr_quality_level", str(best_icq),
+                        "-lowlatency", "0",    # 0 表示高吞吐量模式，适合转码
+                        "-filler_data", "0",   # 禁用填充数据，节省不必要的码率
                     ]
                     
                     # [Add] AMD 专用优化参数 (Pre-Analysis & VBAQ)
@@ -335,7 +433,7 @@ class EncoderWorker(BaseWorker):
 
                     cmd.extend([
                         "-vf", "scale=trunc(iw/2)*2:trunc(ih/2)*2",
-                        "-pix_fmt", PIX_FMT_10BIT,
+                        "-pix_fmt", PIX_FMT_8BIT,
 
                         *audio_args,
                         "-c:s", sub_codec,
@@ -375,18 +473,27 @@ class EncoderWorker(BaseWorker):
                         temp_file
                     ])
 
+                encode_start_time = time.time() # [Add] 记录压制开始时间
+                encode_paused_time = 0.0 # [Add] 压制阶段暂停时间
                 try:
                     with subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, startupinfo=startupinfo, bufsize=0, creationflags=get_subprocess_flags()) as proc:
                         self.current_proc = proc
                         err_log = []
+                        max_percent = 0
                         while True:
                             if not self.is_running:
                                 try: proc.kill()
                                 except: pass
                                 break
-                            while self.is_paused:
-                                if not self.is_running: break
-                                time.sleep(0.1)
+                            if self.is_paused:
+                                p_start = time.time()
+                                while self.is_paused:
+                                    if not self.is_running: break
+                                    time.sleep(0.1)
+                                p_dt = time.time() - p_start
+                                encode_paused_time += p_dt
+                                file_paused_time += p_dt
+
                             line = proc.stdout.readline()
                             if not line and proc.poll() is not None: break
                             if line:
@@ -395,9 +502,25 @@ class EncoderWorker(BaseWorker):
                                     t_match = re.search(r"time=(\d{2}:\d{2}:\d{2}\.\d+)", d)
                                     if t_match:
                                         current_sec = time_str_to_seconds(t_match.group(1))
-                                        percent = int((current_sec / duration_sec) * 100)
-                                        self.progress_current_signal.emit(percent)
-                                        self.file_progress_signal.emit(filepath, percent)
+                                        percent = min(100, int((current_sec / duration_sec) * 100)) # [Opt] 限制最大 100%，防止短视频溢出
+                                        if percent > max_percent:
+                                            max_percent = percent
+                                            self.progress_current_signal.emit(percent)
+                                            self.file_progress_signal.emit(filepath, percent)
+                                        
+                                        # [Add] 解析速度并计算 ETA
+                                        s_match = re.search(r"speed=\s*([\d.]+)x", d)
+                                        if s_match:
+                                            try:
+                                                speed_val = float(s_match.group(1))
+                                                if speed_val > 0:
+                                                    remaining = (duration_sec - current_sec) / speed_val
+                                                    m, s = divmod(int(remaining), 60)
+                                                    h, m = divmod(m, 60)
+                                                    eta = f"ETA: {h:02d}:{m:02d}:{s:02d}"
+                                                    self.file_stats_signal.emit(filepath, f"{speed_val:.2f}x", eta)
+                                            except Exception: pass
+
                                 if "frame=" not in d:
                                     err_log.append(d)
                                     if len(err_log) > 20: err_log.pop(0)
@@ -408,6 +531,7 @@ class EncoderWorker(BaseWorker):
                     continue
                 finally:
                     self.current_proc = None
+                    encode_duration = time.time() - encode_start_time - encode_paused_time # [Fix] 扣除暂停时间
 
                 if not self.is_running:
                     lp_temp = to_long_path(temp_file)
@@ -423,6 +547,8 @@ class EncoderWorker(BaseWorker):
                         abs_dest = os.path.normcase(os.path.abspath(final_dest))
                         lp_src = to_long_path(filepath)
                         
+                        total_duration = time.time() - task_start_time - file_paused_time # [Fix] 扣除暂停时间
+
                         if save_mode == SAVE_MODE_OVERWRITE:
                             # [优化] 增加重试逻辑，防止 PermissionError
                             success = False
@@ -444,7 +570,8 @@ class EncoderWorker(BaseWorker):
                                     time.sleep(1)
                             
                             if success:
-                                self.log_signal.emit(" -> 净化完成！旧世界已被重写 (Overwrite) (ﾉ>ω<)ﾉ", "success")
+                                self.log_signal.emit(f" -> 净化完成！旧世界已被重写 (Overwrite) (ﾉ>ω<)ﾉ [压制: {encode_duration:.1f}s | 总耗时: {total_duration:.1f}s]", "success")
+                                self.file_stats_signal.emit(filepath, "✅ 完成", f"耗时: {total_duration:.1f}s")
                                 self.file_status_signal.emit(filepath, "success")
                             else:
                                 raise Exception("无法替换源文件，可能被其他程序占用。")
@@ -457,9 +584,10 @@ class EncoderWorker(BaseWorker):
                                 except Exception: time.sleep(1)
 
                             if save_mode == SAVE_MODE_REMAIN:
-                                self.log_signal.emit(" -> 净化完成！元素已保留，优化体已生成 (Remain) (ﾉ>ω<)ﾉ", "success")
+                                self.log_signal.emit(f" -> 净化完成！元素已保留，优化体已生成 (Remain) (ﾉ>ω<)ﾉ [压制: {encode_duration:.1f}s | 总耗时: {total_duration:.1f}s]", "success")
                             else:
-                                self.log_signal.emit(" -> 净化完成！新世界已确立 (Save As) (ﾉ>ω<)ﾉ", "success")
+                                self.log_signal.emit(f" -> 净化完成！新世界已确立 (Save As) (ﾉ>ω<)ﾉ [压制: {encode_duration:.1f}s | 总耗时: {total_duration:.1f}s]", "success")
+                            self.file_stats_signal.emit(filepath, "✅ 完成", f"耗时: {total_duration:.1f}s")
                             self.file_status_signal.emit(filepath, "success")
                     except Exception as e:
                         self.log_signal.emit(f" -> 封印仪式失败: {e} (T_T)", "error")

@@ -11,7 +11,7 @@ from .base import BaseWorker
 
 # --- 异步获取时长线程 ---
 class DurationWorker(BaseWorker):
-    result = Signal(str, str, float) # path, duration_str, duration_sec
+    result = Signal(str, str, float, dict) # path, duration_str, duration_sec, metadata
 
     def __init__(self, filepath):
         super().__init__()
@@ -30,20 +30,34 @@ class DurationWorker(BaseWorker):
     def run(self):
         try:
             ffprobe = tool_path("ffprobe.exe")
-            cmd = [ffprobe, "-v", "error", "-show_entries", "format=duration", "-of", "default=noprint_wrappers=1:nokey=1", self.filepath]
+            # 一次性获取时长、视频编码和音频声道
+            cmd = [ffprobe, "-v", "quiet", "-print_format", "json", "-show_format", "-show_streams", self.filepath]
             
             with subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, creationflags=get_subprocess_flags()) as proc:
                 self.proc = proc
                 output, _ = proc.communicate()
                 if not self.is_running: return
-                seconds = float(safe_decode(output))
+                data = json.loads(safe_decode(output))
 
-            m, s = divmod(int(seconds), 60)
+            duration_sec = float(data.get('format', {}).get('duration', 0))
+            codec = ""
+            channels = None
+            for s in data.get('streams', []):
+                if s.get('codec_type') == 'video' and not codec:
+                    # 排除封面图等干扰流，确保识别到真正的视频编码
+                    if s.get('codec_name', '').lower() not in ['mjpeg', 'png', 'bmp']:
+                        codec = s.get('codec_name', '').lower()
+                elif s.get('codec_type') == 'audio' and channels is None:
+                    channels = int(s.get('channels', 2))
+            if channels is None: channels = 2
+
+            m, s = divmod(int(duration_sec), 60)
             h, m = divmod(m, 60)
             dur_str = f"{h:02d}:{m:02d}:{s:02d}" if h > 0 else f"{m:02d}:{s:02d}"
-            self.result.emit(self.filepath, dur_str, seconds)
+            # 发送完整元数据包
+            self.result.emit(self.filepath, dur_str, duration_sec, {"codec": codec, "channels": channels})
         except Exception:
-            self.result.emit(self.filepath, "N/A", 0.0)
+            self.result.emit(self.filepath, "N/A", 0.0, {})
 
 # --- 异步获取缩略图线程 ---
 class ThumbnailWorker(BaseWorker):
