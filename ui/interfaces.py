@@ -315,9 +315,45 @@ class ProfileInterface(QWidget):
         content_layout.addSpacing(10)
         content_layout.addWidget(ver)
 
+        # [Add] 重温向导按钮
+        btn_wizard = PushButton("✨ 重温入职向导", content_widget)
+        btn_wizard.setCursor(Qt.CursorShape.PointingHandCursor)
+        btn_wizard.setFixedWidth(140)
+        btn_wizard.setFixedHeight(28)
+        btn_wizard.clicked.connect(self.show_wizard)
+        
+        # 幽灵按钮样式 (平时灰色，悬停变粉)
+        btn_wizard.setStyleSheet("""
+            PushButton {
+                background: transparent;
+                border: 1px solid rgba(128, 128, 128, 0.2);
+                border-radius: 14px;
+                color: #999999;
+                font-size: 12px;
+            }
+            PushButton:hover {
+                background: rgba(251, 114, 153, 0.08);
+                color: #FB7299;
+                border: 1px solid #FB7299;
+            }
+        """)
+        
+        h_wiz = QHBoxLayout()
+        h_wiz.addStretch(1)
+        h_wiz.addWidget(btn_wizard)
+        h_wiz.addStretch(1)
+        
+        content_layout.addSpacing(8)
+        content_layout.addLayout(h_wiz)
+
         card_grid.addWidget(content_widget, 0, 0)
         layout.addWidget(self.card)
         layout.addStretch(1)
+
+    def show_wizard(self):
+        win = self.window()
+        if hasattr(win, 'show_welcome_wizard'):
+            win.show_welcome_wizard()
 
 # --- 鸣谢界面 (特别鸣谢) ---
 class CreditsInterface(QWidget):

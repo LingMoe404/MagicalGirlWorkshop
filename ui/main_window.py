@@ -9,15 +9,15 @@ from collections import OrderedDict
 from PySide6.QtCore import Qt, QTimer, QMutex, QSize
 from PySide6.QtWidgets import (QApplication, QWidget, QVBoxLayout, QHBoxLayout, 
                                QFileDialog, QListWidgetItem, QAbstractItemView, QSplitter, 
-                               QGraphicsDropShadowEffect)
+                               QGraphicsDropShadowEffect, QStackedWidget)
 from PySide6.QtGui import (QIcon, QColor, QGuiApplication, QPixmap, QPainter, QPainterPath)
 
 # 引入 Fluent Widgets (Win11 风格组件)
 from qfluentwidgets import (FluentWindow, SubtitleLabel, StrongBodyLabel, BodyLabel, 
                             LineEdit, PrimaryPushButton, PushButton, ProgressBar, 
                             TextEdit, SwitchButton, ComboBox, CardWidget, InfoBar, 
-                            InfoBarPosition, setTheme, Theme, FluentIcon, setThemeColor, isDarkTheme, MessageDialog,
-                            IconWidget)
+                            InfoBarPosition, setTheme, Theme, FluentIcon, setThemeColor, isDarkTheme, MessageDialog, SpinBox,
+                            IconWidget, MessageBoxBase)
 
 from config import (
     APP_TITLE, ENC_QSV, ENC_NVENC, ENC_AMF,
@@ -34,6 +34,84 @@ from utils import (
 from workers import DurationWorker, ThumbnailWorker, DependencyWorker, EncoderWorker
 from ui.interfaces import MediaInfoInterface, ProfileInterface, CreditsInterface
 from ui.common import ClickableBodyLabel, DroppableBodyLabel, DroppableListWidget
+
+# --- 初次运行欢迎向导 ---
+class WelcomeWizard(MessageBoxBase):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.titleLabel = SubtitleLabel("欢迎来到魔法少女工坊 ✨", self)
+        self.view = QStackedWidget(self)
+        
+        # 定义向导页面数据
+        self.pages = [
+            {
+                "title": "初次见面，适格者！",
+                "content": "这是一个专为 NAS 仓鼠党打造的 AV1 硬件转码工具。\n\n它能利用 Intel/NVIDIA/AMD 显卡的算力，将视频体积缩小 30%-50%，同时保持肉眼无损的画质。\n\n接下来，让我为您简单介绍几个关键设置..."
+            },
+            {
+                "title": "1. 魔力核心 (Encoder)",
+                "content": "这是转码引擎的选择。\n\n• Intel QSV: 适合 Arc 独显 / Ultra 核显。\n• NVIDIA NVENC: 适合 RTX 40 系。\n• AMD AMF: 适合 RX 7000 系 / RDNA 3 架构核显。\n\n程序启动时会自动检测您的硬件，通常无需手动更改。"
+            },
+            {
+                "title": "2. 视界还原度 (VMAF)",
+                "content": "这是决定画质的核心指标 (0-100)。\n\n• 95+: 极高画质，适合收藏。\n• 93 (默认): 黄金平衡点，肉眼无损，体积缩减显著。\n• 90: 高压缩比，适合移动端观看。\n\n建议保持默认 93.0。"
+            },
+            {
+                "title": "3. 咏唱速度 (Preset)",
+                "content": "平衡编码速度与压缩效率 (1-7)。\n\n• 数字越小 (1-3): 速度慢，体积更小，画质更好。\n• 数字越大 (5-7): 速度快，体积稍大。\n• 默认 4: 均衡之选。\n\n挂机洗版建议设为 3 或 4。"
+            },
+            {
+                "title": "4. 灵力偏移 (Offset)",
+                "content": "针对硬件编码器的微调参数。\n\n由于硬件编码器效率不同，我们需要对 CPU 探测出的参数进行修正。\n• AMD 默认 -6\n• NVIDIA 默认 -4\n• Intel 默认 -2\n\n这能确保最终画质接近您的 VMAF 预期。"
+            }
+        ]
+        
+        self.init_pages()
+        
+        # 调整布局和尺寸
+        self.viewLayout.addWidget(self.titleLabel)
+        self.viewLayout.addWidget(self.view)
+        self.widget.setFixedSize(480, 360)
+        
+        # 配置按钮
+        self.yesButton.setText("下一步")
+        self.cancelButton.setText("跳过")
+        
+        # 重新绑定信号 (接管默认的 accept/reject 行为)
+        self.yesButton.clicked.disconnect()
+        self.yesButton.clicked.connect(self.next_page)
+        self.cancelButton.clicked.disconnect()
+        self.cancelButton.clicked.connect(self.reject)
+        
+        self.current_idx = 0
+        self.view.setCurrentIndex(0)
+
+    def init_pages(self):
+        for page_data in self.pages:
+            page = QWidget()
+            vbox = QVBoxLayout(page)
+            vbox.setContentsMargins(0, 10, 0, 0)
+            vbox.setSpacing(10)
+            
+            lbl_title = StrongBodyLabel(page_data["title"], page)
+            lbl_content = BodyLabel(page_data["content"], page)
+            lbl_content.setWordWrap(True)
+            text_color = "#666666" if not isDarkTheme() else "#CCCCCC"
+            lbl_content.setStyleSheet(f"color: {text_color}; font-size: 13px; line-height: 1.5;")
+            
+            vbox.addWidget(lbl_title)
+            vbox.addWidget(lbl_content)
+            vbox.addStretch(1)
+            self.view.addWidget(page)
+
+    def next_page(self):
+        if self.current_idx < len(self.pages) - 1:
+            self.current_idx += 1
+            self.view.setCurrentIndex(self.current_idx)
+            if self.current_idx == len(self.pages) - 1:
+                self.yesButton.setText("开始炼成")
+        else:
+            self.accept()
 
 # --- 主窗口 (Win11 风格) ---
 class MainWindow(FluentWindow):
@@ -73,6 +151,7 @@ class MainWindow(FluentWindow):
         self.cached_thumbnails = OrderedDict() # [Opt] 使用 OrderedDict 实现 LRU 缓存
         self.MAX_THUMBNAIL_CACHE = MAX_THUMBNAIL_CACHE_SIZE
         self.path_to_item = {}     # [Add] 路径到列表项的映射，实现增量更新
+        self.file_metadata = {}    # [Add] 存储媒体元数据
         
         # [Add] 日志缓冲队列，用于优化高频日志性能
         self.log_mutex = QMutex()
@@ -239,14 +318,14 @@ class MainWindow(FluentWindow):
         v2.addWidget(StrongBodyLabel("视界还原度 (VMAF)", self.card_settings))
         self.line_vmaf = LineEdit(self.card_settings)
         self.line_vmaf.setMinimumHeight(36)
-        self.line_vmaf.setMinimumWidth(100)
+        self.line_vmaf.setMinimumWidth(60)
         v2.addWidget(self.line_vmaf)
         
         v3 = QVBoxLayout()
         v3.addWidget(StrongBodyLabel("共鸣频率 (Bitrate)", self.card_settings))
         self.line_audio = LineEdit(self.card_settings)
         self.line_audio.setMinimumHeight(36)
-        self.line_audio.setMinimumWidth(100)
+        self.line_audio.setMinimumWidth(60)
         v3.addWidget(self.line_audio)
 
         v4 = QVBoxLayout()
@@ -257,13 +336,30 @@ class MainWindow(FluentWindow):
         self.combo_preset.setMinimumWidth(100)
         v4.addWidget(self.combo_preset)
 
-        row1.addLayout(v1, 1)
-        row1.addLayout(v2, 1)
-        row1.addLayout(v3, 1)
-        row1.addLayout(v4, 1)
+        v8 = QVBoxLayout()
+        self.lbl_offset = StrongBodyLabel("灵力偏移 (Offset)", self.card_settings)
+        v8.addWidget(self.lbl_offset)
+        self.spin_offset = SpinBox(self.card_settings)
+        self.spin_offset.setRange(-30, 30)
+        self.spin_offset.setRange(-30, 0)
+        self.spin_offset.setValue(-6)
+        self.spin_offset.setMinimumHeight(36)
+        v8.addWidget(self.spin_offset)
+
+        # 第一行参数 (Encoder, Preset) - 核心配置
+        row1.addLayout(v1, 3) 
+        row1.addLayout(v4, 2)
         set_layout.addLayout(row1)
 
-        # 第二行参数
+        # 第二行参数 (VMAF, Offset, Bitrate) - 质量控制
+        row1_b = QHBoxLayout()
+        row1_b.setSpacing(12)
+        row1_b.addLayout(v2, 1)
+        row1_b.addLayout(v8, 1)
+        row1_b.addLayout(v3, 1)
+        set_layout.addLayout(row1_b)
+
+        # 第三行参数 (Loudnorm, AQ)
         row2 = QHBoxLayout()
         row2.setSpacing(12)
 
@@ -290,7 +386,7 @@ class MainWindow(FluentWindow):
         self.sw_nv_aq.setOffText("关闭")
         self.sw_nv_aq.setChecked(True)
         v7.addWidget(self.sw_nv_aq)
-        
+
         row2.addLayout(v6, 3)
         row2.addLayout(v7, 1)
         set_layout.addLayout(row2)
@@ -530,6 +626,11 @@ class MainWindow(FluentWindow):
         if not self._centered_once:
             self._centered_once = True
             QTimer.singleShot(0, self.center_on_screen)
+            # [Add] 如果是初次运行，显示欢迎向导
+            if getattr(self, 'is_first_run', False):
+                QTimer.singleShot(600, self.show_welcome_wizard)
+                self.is_first_run = False
+
         QTimer.singleShot(0, self.equalize_columns)
         QTimer.singleShot(0, self.sync_source_cache_card_height)
         QTimer.singleShot(0, self.sync_settings_selected_card_height)
@@ -606,6 +707,10 @@ class MainWindow(FluentWindow):
         frame_geo.moveCenter(screen_geo.center())
         self.move(frame_geo.topLeft())
 
+    def show_welcome_wizard(self):
+        w = WelcomeWizard(self)
+        w.exec()
+
     def load_settings_to_ui(self):
         cfg_path = get_config_path()
         config = configparser.ConfigParser()
@@ -613,6 +718,7 @@ class MainWindow(FluentWindow):
         data = DEFAULT_SETTINGS.copy()
         
         if os.path.exists(cfg_path):
+            self.is_first_run = False
             try:
                 config.read(cfg_path, encoding='utf-8')
                 if "Settings" in config:
@@ -633,11 +739,13 @@ class MainWindow(FluentWindow):
                             "preset": sect.get("preset", defaults["preset"]),
                             "loudnorm": sect.get("loudnorm", defaults["loudnorm"]),
                             "loudnorm_mode": sect.get("loudnorm_mode", defaults["loudnorm_mode"]),
-                            "nv_aq": sect.get("nv_aq", defaults["nv_aq"])
+                            "nv_aq": sect.get("nv_aq", defaults["nv_aq"]),
+                            "amf_offset": sect.get("amf_offset", defaults.get("amf_offset", "0"))
                         }
             except Exception:
                 pass
         else:
+            self.is_first_run = True
             self.save_settings_file(DEFAULT_SETTINGS, self.encoder_settings)
         
         # 设置 Encoder
@@ -684,6 +792,7 @@ class MainWindow(FluentWindow):
         self.line_loudnorm.setText(settings["loudnorm"])
         self.combo_loudnorm.setCurrentText(settings["loudnorm_mode"])
         self.sw_nv_aq.setChecked(settings["nv_aq"] == "True")
+        self.spin_offset.setValue(int(settings.get("amf_offset", 0)))
         
         idx = self.combo_preset.findText(settings["preset"])
         if idx >= 0: self.combo_preset.setCurrentIndex(idx)
@@ -700,9 +809,14 @@ class MainWindow(FluentWindow):
             self.lbl_aq.setText("Intel 深度分析 (Lookahead)")
         self.sw_nv_aq.setEnabled(True)
 
+        # 仅在硬件编码模式下启用偏移量设置 (AMD/NVIDIA/QSV 均通过 CPU 探测)
+        is_hw = (ENC_AMF in enc_name) or (ENC_NVENC in enc_name) or (ENC_QSV in enc_name)
+        self.lbl_offset.setEnabled(is_hw)
+        self.spin_offset.setEnabled(is_hw)
+
     def block_signals_for_settings(self, block):
         widgets = [self.line_vmaf, self.line_audio, self.line_loudnorm, 
-                   self.combo_loudnorm, self.sw_nv_aq, self.combo_preset]
+                   self.combo_loudnorm, self.sw_nv_aq, self.combo_preset, self.spin_offset]
         for w in widgets:
             w.blockSignals(block)
 
@@ -718,7 +832,8 @@ class MainWindow(FluentWindow):
             "preset": self.combo_preset.text(),
             "loudnorm": self.line_loudnorm.text(),
             "loudnorm_mode": self.combo_loudnorm.currentText(),
-            "nv_aq": str(self.sw_nv_aq.isChecked())
+            "nv_aq": str(self.sw_nv_aq.isChecked()),
+            "amf_offset": str(self.spin_offset.value())
         }
         self.encoder_settings[self.last_encoder_name].update(prev_settings)
         
@@ -739,6 +854,8 @@ class MainWindow(FluentWindow):
         self.line_audio.textChanged.connect(lambda _: self.auto_save_settings())
         self.line_loudnorm.textChanged.connect(lambda _: self.auto_save_settings())
         self.line_export.textChanged.connect(lambda _: self.auto_save_settings())
+        self.spin_offset.valueChanged.connect(lambda _: self.auto_save_settings())
+        self.spin_offset.valueChanged.connect(lambda _: self.auto_save_settings())
 
     def auto_save_settings(self):
         if self._auto_save_blocked:
@@ -768,7 +885,8 @@ class MainWindow(FluentWindow):
                 "preset": self.combo_preset.text(),
                 "loudnorm": self.line_loudnorm.text(),
                 "loudnorm_mode": self.combo_loudnorm.currentText(),
-                "nv_aq": str(self.sw_nv_aq.isChecked())
+                "nv_aq": str(self.sw_nv_aq.isChecked()),
+                "amf_offset": str(self.spin_offset.value())
             })
 
         settings = {
@@ -796,7 +914,7 @@ class MainWindow(FluentWindow):
         widgets_to_block = [
             self.combo_encoder, self.combo_preset, self.combo_theme,
             self.combo_save_mode, self.combo_loudnorm, self.sw_nv_aq,
-            self.line_vmaf, self.line_audio, self.line_loudnorm, self.line_export
+            self.line_vmaf, self.line_audio, self.line_loudnorm, self.line_export, self.spin_offset
         ]
         for w in widgets_to_block:
             w.blockSignals(True)
@@ -1082,16 +1200,18 @@ class MainWindow(FluentWindow):
 
     def get_file_duration(self, path):
         """ 将时长获取请求加入队列 """
-        if path in self.cached_durations: return
-        if path in self.active_dur_workers: return
         if path in self.pending_dur_tasks: return
         
         self.pending_dur_tasks.append(path)
         self.process_duration_queue()
 
-    def update_file_duration_label(self, path, duration_str, duration_sec):
+    def update_file_duration_label(self, path, duration_str, duration_sec, meta=None):
         """ 更新列表中的时长显示，并触发缩略图获取 """
         self.cached_durations[path] = (duration_str, duration_sec)
+        if meta:
+            # 整合元数据供转码引擎使用
+            self.file_metadata[path] = {**meta, "duration": duration_sec}
+
         self.set_duration_text_in_list(path, duration_str)
         
         # 获取到时长后，自动开始获取缩略图
@@ -1186,6 +1306,7 @@ class MainWindow(FluentWindow):
         self.pending_thumb_tasks.clear()
         self.cached_durations.clear()
         self.cached_thumbnails.clear()
+        self.file_metadata.clear()
         self.update_selected_count()
         self.log(">>> 祭坛已清空，所有因果律已重置。 (Voided)", "info")
 
@@ -1215,6 +1336,7 @@ class MainWindow(FluentWindow):
         # [Fix] 移除文件时清理缓存，防止内存泄漏
         self.cached_durations.pop(file_path, None)
         self.cached_thumbnails.pop(file_path, None)
+        self.file_metadata.pop(file_path, None)
         
         # 尝试从等待队列中移除（如果还在排队）
         if file_path in self.pending_dur_tasks:
@@ -1251,7 +1373,7 @@ class MainWindow(FluentWindow):
             if p in self.path_to_item: continue
 
             item = QListWidgetItem(self.list_selected_files)
-            item.setSizeHint(QSize(0, 50))
+            item.setSizeHint(QSize(0, 60)) # [Mod] 增加高度以容纳状态栏
             self.path_to_item[p] = item
 
             item_widget = QWidget(self.list_selected_files)
@@ -1276,8 +1398,8 @@ class MainWindow(FluentWindow):
             row = QWidget(item_widget)
             row.setFixedHeight(44)
             row_layout = QHBoxLayout(row)
-            row_layout.setContentsMargins(10, 4, 12, 4)
-            row_layout.setSpacing(8)
+            row_layout.setContentsMargins(6, 4, 6, 4)
+            row_layout.setSpacing(0)
 
             status_icon = IconWidget(FluentIcon.HISTORY, row)
             status_icon.setFixedSize(16, 16)
@@ -1289,7 +1411,9 @@ class MainWindow(FluentWindow):
             icon_widget.setObjectName("video_icon")
             
             row_layout.addWidget(status_icon)
+            row_layout.addSpacing(4)
             row_layout.addWidget(icon_widget)
+            row_layout.addSpacing(8)
 
             try:
                 f_size = os.path.getsize(p)
@@ -1312,21 +1436,28 @@ class MainWindow(FluentWindow):
             
             btn_duration = ClickableBodyLabel(dur_text, row)
             btn_duration.setObjectName("btn_duration")
-            btn_duration.setFixedWidth(80)
-            btn_duration.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            btn_duration.setFixedWidth(60)
+            btn_duration.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
 
             size_label = BodyLabel(size_str, row)
             size_label.setTextColor(QColor("#999999"), QColor("#999999"))
             size_label.setFixedWidth(80)
             size_label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
 
-            row_layout.addWidget(name_label)
-            row_layout.addStretch(1)
+            row_layout.addWidget(name_label, 1)
+            row_layout.addSpacing(12)
             row_layout.addWidget(btn_duration)
-            row_layout.addSpacing(10)
+            row_layout.addSpacing(0)
             row_layout.addWidget(size_label)
-            row_layout.addSpacing(10)
+            row_layout.addSpacing(12)
             row_layout.addWidget(btn_remove)
+            
+            container.addWidget(row)
+
+            # [Add] 底部状态栏容器 (进度条 + 速度/ETA)
+            stats_layout = QHBoxLayout()
+            stats_layout.setContentsMargins(6, 0, 12, 4)
+            stats_layout.setSpacing(10)
 
             pbar = ProgressBar(item_widget)
             pbar.setFixedHeight(4)
@@ -1334,8 +1465,15 @@ class MainWindow(FluentWindow):
             pbar.hide()
             pbar.setObjectName("pbar")
             
-            container.addWidget(row)
-            container.addWidget(pbar)
+            lbl_stats = BodyLabel("", item_widget)
+            lbl_stats.setObjectName("lbl_stats")
+            lbl_stats.setStyleSheet("font-size: 11px; font-weight: bold; color: #FB7299;")
+            lbl_stats.hide()
+            
+            stats_layout.addWidget(pbar, 1)
+            stats_layout.addWidget(lbl_stats)
+            
+            container.addLayout(stats_layout)
 
             self.list_selected_files.setItemWidget(item, item_widget)
             if p not in self.cached_durations:
@@ -1354,6 +1492,19 @@ class MainWindow(FluentWindow):
                 if pbar.isHidden(): pbar.show()
                 pbar.setValue(percent)
 
+    def update_file_stats(self, filepath, speed, eta):
+        """ [Add] 更新单个文件的速度和 ETA """
+        item = self.path_to_item.get(filepath)
+        if not item: return
+        widget = self.list_selected_files.itemWidget(item)
+        if widget:
+            lbl = widget.findChild(BodyLabel, "lbl_stats")
+            pbar = widget.findChild(ProgressBar, "pbar")
+            if lbl:
+                if lbl.isHidden(): lbl.show()
+                lbl.setText(f"{speed} | {eta}")
+            if pbar and pbar.isHidden(): pbar.show()
+
     def update_file_status(self, filepath, status):
         """ [Fix] 通过路径查找 Widget """
         item = self.path_to_item.get(filepath)
@@ -1362,15 +1513,22 @@ class MainWindow(FluentWindow):
         if widget:
             icon_w = widget.findChild(IconWidget, "status_icon")
             pbar = widget.findChild(ProgressBar, "pbar")
+            lbl_stats = widget.findChild(BodyLabel, "lbl_stats") # [Add]
             if icon_w:
                 if status == "processing":
                     icon_w.setIcon(FluentIcon.SYNC)
+                    if lbl_stats: lbl_stats.setStyleSheet("font-size: 11px; font-weight: bold; color: #FB7299;")
                 elif status == "success":
                     icon_w.setIcon(FluentIcon.ACCEPT)
                     if pbar: pbar.hide() # 完成后隐藏进度条
+                    if lbl_stats: 
+                        # [Mod] 完成后不隐藏，改为绿色显示
+                        lbl_stats.setStyleSheet("font-size: 11px; font-weight: bold; color: #55E555;")
+                        lbl_stats.show()
                 elif status == "error":
                     icon_w.setIcon(FluentIcon.CANCEL)
                     if pbar: pbar.hide()
+                    if lbl_stats: lbl_stats.hide() # [Add]
 
     def toggle_export_ui(self):
         mode_text = self.combo_save_mode.currentText()
@@ -1519,9 +1677,11 @@ class MainWindow(FluentWindow):
             'cache_dir': self.line_cache.text().strip() or get_default_cache_dir(),
             'preset': self.combo_preset.text(),
             'vmaf': vmaf_val,
+            'metadata': self.file_metadata.copy(),
             'audio_bitrate': self.line_audio.text(),
             'loudnorm': self.line_loudnorm.text(),
             'nv_aq': self.sw_nv_aq.isChecked(),
+            'amf_offset': self.spin_offset.value(),
             'loudnorm_mode': self.combo_loudnorm.currentText()
         }
         os.makedirs(config['cache_dir'], exist_ok=True)
@@ -1531,6 +1691,7 @@ class MainWindow(FluentWindow):
         self.worker.progress_total_signal.connect(self.pbar_total.setValue)
         self.worker.progress_current_signal.connect(self.pbar_current.setValue)
         self.worker.file_progress_signal.connect(self.update_file_progress)
+        self.worker.file_stats_signal.connect(self.update_file_stats) # [Add]
         self.worker.file_status_signal.connect(self.update_file_status)
         self.worker.finished_signal.connect(self.on_finished)
         self.worker.ask_error_decision.connect(self.on_worker_error)
