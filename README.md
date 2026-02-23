@@ -15,7 +15,8 @@
 
 ## 📸 界面预览
 
-![软件截图](screenshot.gif)
+![软件截图](screenshot1.gif)
+![软件截图](screenshot2.gif)
 
 ## 🎯 核心功能
 
@@ -30,7 +31,8 @@
     *   **音频**: 默认混缩为立体声 (Opus @ 96k + Loudnorm)，**[New]** 自动识别并保留 5.1/7.1 环绕声通道 (Opus Multichannel)。
     *   **字幕**: 智能处理字幕流 (MKV 保留特效字幕，MP4 转 SRT)，确保 Emby/Plex/Jellyfin 兼容性。
     *   **元数据**: 尽可能保留原文件的元数据信息，**[New]** 增强了对 HDR10/HLG 元数据的保留。
-*   **🎨 Win11 风格**: 基于 `PySide6` + `Fluent-Widgets` 开发，支持云母 (Mica) 特效与深色模式，界面精美。
+*   **📊 预知之眼**: UI 进度条现在不仅能显示百分比，还能实时预估**剩余时间**、**压制速度**与**当前码率**，掌控全局。
+*   **🎨 Win11 风格**: 基于 `PySide6` + `QFluentWidgets` 开发，支持云母 (Mica) 特效与深色模式，界面精美。
 *   **🔌 贴心辅助**: 支持任务完成后**自动关机**，以及一键清理 ab-av1 产生的临时缓存文件。
 
 ## 📊 编码器参数对比
@@ -64,9 +66,9 @@
 
 *   **操作系统**: Windows 10 / 11 (推荐 Win11 以获得最佳 UI 体验)
 *   **显卡**: **必须** 支持 AV1 硬件编码
-    *   🟢 **Intel**: Arc A380 / A750 / B580 等独显，或 Core Ultra 系列核显。
+    *   🔵 **Intel**: Arc A380 / A750 / B580 等独显，或 Core Ultra 系列核显。
     *   🟢 **NVIDIA**: GeForce RTX 40 系列 (如 RTX 4060 / 4080 / 4090)。
-    *   🟢 **AMD**: Radeon RX 7000 系列独显或 RDNA 3 架构核显 (如 Ryzen 8000G)。*(注: 由于需使用 CPU 辅助探测，建议搭配较新 CPU 以获得最佳体验)*
+    *   🔴 **AMD**: Radeon RX 7000 系列独显或 RDNA 3 架构核显 (如 Ryzen 8000G)。*(注: 由于需使用 CPU 辅助探测，建议搭配较新 CPU 以获得最佳体验)*
     *   *注意: 旧款 NVIDIA (30系及以下) 及 AMD (RX 6000系及以下) 不支持。*
 *   **驱动**: 请安装最新的显卡驱动。
 
@@ -82,15 +84,15 @@
 
 **Intel QSV:**
 ```bash
-.\ffmpeg.exe -init_hw_device qsv=hw -f lavfi -i color=black:s=1280x720 -pix_fmt p010le -c:v av1_qsv -frames:v 1 -f null - -v error
+.\tools\ffmpeg.exe -init_hw_device qsv=hw -f lavfi -i color=black:s=1280x720 -pix_fmt p010le -c:v av1_qsv -frames:v 1 -f null - -v error
 ```
 **NVIDIA NVENC:**
 ```bash
-.\ffmpeg.exe -f lavfi -i color=black:s=1280x720 -pix_fmt p010le -c:v av1_nvenc -frames:v 1 -f null - -v error
+.\tools\ffmpeg.exe -f lavfi -i color=black:s=1280x720 -pix_fmt p010le -c:v av1_nvenc -frames:v 1 -f null - -v error
 ```
 **AMD AMF:**
 ```bash
-.\ffmpeg.exe -f lavfi -i color=black:s=1280x720 -pix_fmt p010le -c:v av1_amf -usage transcoding -quality balanced -rc vbr_latency -qvbr_quality_level 30 -frames:v 1 -f null - -v error
+.\tools\ffmpeg.exe -f lavfi -i color=black:s=1280x720 -pix_fmt yuv420p -c:v av1_amf -usage transcoding -quality balanced -rc vbr_latency -qvbr_quality_level 30 -frames:v 1 -f null - -v error
 ```
 
 *   **无输出**: 恭喜！您的硬件完美支持 QSV, NVENC 或 AMF AV1 硬件编码。
@@ -98,39 +100,9 @@
 
 ## 📥 下载与使用
 
----
-
-## 🚀 更新日志
-
-*   **v1.2.1 (2026-02-17)**
-    *   🛡️ **探测逻辑重构**: 为所有硬件编码器 (QSV/NVENC/AMF) 引入“三级探测策略” (硬件 -> SVT-AV1 -> AOM-AV1)。特别说明：由于 `ab-av1` 原生不支持 AMF，AMD 模式将强制使用 CPU (SVT-AV1 -> AOM-AV1) 进行探测并换算参数。
-    *   🎚️ **全域灵力偏移**: 开放“灵力偏移” (VMAF Offset) 调节功能，支持针对 CPU 探测结果进行微调 (默认: QSV -2 / NVENC -4 / AMF -6)。
-    *   ⚡ **性能监控**: 任务列表新增实时压制速度 (Speed) 和剩余时间预估 (ETA) 显示；任务完成后常驻显示耗时统计。
-    *   🐛 **Bug 修复**: 修复了输入文件包含封面图 (MJPEG) 时导致 `ab-av1` 识别错误并崩溃的问题；修复了极短视频或多音轨视频导致的进度条计算异常；优化了 UI 列表布局。
-
-*   **v1.2.0 (2026-02-16)**
-    *   🔴 **新增 AMD AMF AV1 硬件编码支持**: 适配 Radeon RX 7000 系列及 RDNA 3 核显，默认 VMAF 设为 97.0。
-    *   🔊 **音频增强**: 智能识别并保留 5.1/7.1 多声道 (Opus Multichannel)，新增响度标准化 (Loudnorm) 智能模式，避免破坏环绕声动态。
-    *   ⚡ **核心重构**: 底层框架迁移至 **PySide6**，引入异步任务队列与日志缓冲池，大幅提升大量文件列表下的 UI 响应速度。
-    *   🌈 **画质优化**: 全程强制 10-bit 像素处理 (AMD 为 8-bit)，优化 HDR 色彩保留；NVENC/QSV/AMF 均已启用感知增强 (AQ/Lookahead/PreAnalysis)。
-    *   🛠️ **体验升级**: 优化了任务进度条显示，增加剩余时间预估；修复了停止任务时后台进程残留的 Bug。
-
-*   **v1.1.0 (2026-02-13)**
-    *   💡 **新增 NVIDIA NVENC AV1 硬件编码支持** (需 RTX 40 系列)。
-    *   ⚙️ 优化硬件检测逻辑，区分显卡型号和驱动问题。
-    *   🚀 修复 `ab-av1` 参数兼容性问题，大幅提升 NVENC 压制画质 (开启 AQ 感知增强)。
-    *   📝 增加日志 VMAF 实时显示，NVENC 感知增强开关，以及 VMAF 默认值智能切换。
-
-*   **v1.0.0 (2026-01-28)**
-    *   🎉 首次发布！支持 Intel QSV AV1 硬件编码。
-    *   ✨ 集成 `ab-av1` 智能 VMAF 码率控制。
-    *   🎨 Win11 Fluent Design 风格界面。
-
----
-
 ### 方式一：下载正式版 (推荐)
 
-1.  前往 Releases 页面下载最新版本的压缩包。
+1.  前往 [**Releases 页面**](https://github.com/LingMoe404/MagicWorkshop/releases) 下载最新版本的压缩包。
 2.  解压至任意目录。
 3.  双击 `MagicWorkshop.exe` 即可直接使用 (已内置 FFmpeg, ab-av1 等核心组件，无需额外配置)。
 
@@ -152,7 +124,7 @@
     # 同步环境
     uv sync
     ```
-    *或者使用 pip 安装核心库: `pip install PySide6 QFluentWidgets`*
+    *或者使用 pip 安装核心库: `pip install PySide6 PySide6-Fluent-Widgets`*
 
 3.  **准备工具链**
     请确保项目根目录下的 `tools/` 文件夹内包含以下可执行文件：
@@ -167,6 +139,34 @@
     # 或标准 python
     python main.py
     ```
+
+---
+
+## 🚀 更新日志
+
+*   **v1.2.1 (2026-02-17)**
+    *   🛡️ **探测逻辑重构**: 为所有硬件编码器 (QSV/NVENC/AMF) 引入“三级探测策略” (硬件 -> SVT-AV1 -> AOM-AV1)。特别说明：由于 `ab-av1` 原生不支持 AMF，AMD 模式将强制使用 CPU (SVT-AV1 -> AOM-AV1) 进行探测并换算参数。
+    *   🎚️ **全域灵力偏移**: 开放“灵力偏移” (CRF Offset) 调节功能，支持针对 CPU 探测结果进行微调 (默认: QSV -2 / NVENC -4 / AMF -6)。
+    *   ⚡ **性能监控**: 任务列表新增实时压制速度 (Speed) 和剩余时间预估 (ETA) 显示；任务完成后常驻显示耗时统计。
+    *   🐛 **Bug 修复**: 修复了输入文件包含封面图 (MJPEG) 时导致 `ab-av1` 识别错误并崩溃的问题；修复了极短视频或多音轨视频导致的进度条计算异常；优化了 UI 列表布局。
+
+*   **v1.2.0 (2026-02-16)**
+    *   🔴 **新增 AMD AMF AV1 硬件编码支持**: 适配 Radeon RX 7000 系列及 RDNA 3 核显。
+    *   🔊 **音频增强**: 智能识别并保留 5.1/7.1 多声道 (Opus Multichannel)，新增响度标准化 (Loudnorm) 智能模式，避免破坏环绕声动态。
+    *   ⚡ **核心重构**: 底层框架迁移至 **PySide6**，引入异步任务队列与日志缓冲池，大幅提升大量文件列表下的 UI 响应速度。
+    *   🌈 **画质优化**: 全程强制 10-bit 像素处理 (AMD 为 8-bit)，优化 HDR 色彩保留；NVENC/QSV/AMF 均已启用感知增强 (AQ/Lookahead/PreAnalysis)。
+    *   🛠️ **体验升级**: 优化了任务进度条显示，增加剩余时间预估；修复了停止任务时后台进程残留的 Bug。
+
+*   **v1.1.0 (2026-02-13)**
+    *   💡 **新增 NVIDIA NVENC AV1 硬件编码支持** (需 RTX 40 系列)。
+    *   ⚙️ 优化硬件检测逻辑，区分显卡型号和驱动问题。
+    *   🚀 修复 `ab-av1` 参数兼容性问题，大幅提升 NVENC 压制画质 (开启 AQ 感知增强)。
+    *   📝 增加日志 VMAF 实时显示，NVENC 感知增强开关，以及 VMAF 默认值智能切换。
+
+*   **v1.0.0 (2026-01-28)**
+    *   🎉 首次发布！支持 Intel QSV AV1 硬件编码。
+    *   ✨ 集成 `ab-av1` 智能 VMAF 码率控制。
+    *   🎨 Win11 Fluent Design 风格界面。
 
 ## 🛠️ 常见问题
 
@@ -210,8 +210,8 @@ A: 程序会自动判断：如果是 MP4 源文件，字幕会转为 SRT 以兼�
 
 *   [**FFmpeg**](https://ffmpeg.org/): 强大的多媒体处理框架。
 *   [**ab-av1**](https://github.com/alexheretic/ab-av1): 自动寻找最佳 AV1 编码参数的工具。
-*   [**PyQt6**](https://www.riverbankcomputing.com/software/pyqt/): Python 的 Qt 绑定。
-*   [**PyQt-Fluent-Widgets**](https://github.com/zhiyiYo/PyQt-Fluent-Widgets): 精美的 Fluent Design 风格组件库。
+*   [**PySide6**](https://doc.qt.io/qtforpython/): Python 的 Qt 绑定。
+*   [**QFluentWidgets**](https://github.com/zhiyiYo/PyQt-Fluent-Widgets): 精美的 Fluent Design 风格组件库。
 *   [**Google Gemini**](https://deepmind.google/technologies/gemini/): 提供了强大的代码生成与辅助能力。
 
 ## 🤖 开发幕后
@@ -219,6 +219,19 @@ A: 程序会自动判断：如果是 MP4 源文件，字幕会转为 SRT 以兼�
 本项目是一个纯粹的 **AI 辅助开发** 实验。
 **100% 的代码** 均由 **Google Gemini** 在我的 Prompt 引导下生成。
 我负责提供逻辑架构和需求，AI 负责编写 Python 代码和 UI 实现。
+
+## 🤝 贡献指南 (Contributing)
+
+欢迎各位适格者参与到魔法少女工坊的建设中！无论是修复 Bug、优化文档还是提交新功能，我们都非常感谢。
+
+1.  **Fork 项目**: 将仓库 Fork 到您的 GitHub 账户。
+2.  **获取源码**: 克隆您的 Fork 仓库到本地。
+3.  **环境准备**: 请参考上文的 [源码运行 (Dev)](#方式二源码运行-dev) 章节配置 Python 环境 (推荐 `uv`) 及 FFmpeg 工具链。
+4.  **开发与提交**:
+    *   新建分支 (`git checkout -b feat/new-feature`)。
+    *   提交代码 (`git commit -m "feat: add new feature"`)。
+    *   推送到远程 (`git push origin feat/new-feature`)。
+5.  **发起 PR**: 在 GitHub 上提交 Pull Request 至 `main` 分支。
 
 ## 📜 开源协议
 
@@ -229,4 +242,3 @@ A: 程序会自动判断：如果是 MP4 源文件，字幕会转为 SRT 以兼�
 *   **License**: MagicWorkshop by 泠萌404 is licensed under GPL-3.0.
 
 Copyright © 2026 泠萌404
-
