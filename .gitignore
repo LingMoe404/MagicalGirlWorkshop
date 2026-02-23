@@ -1,5 +1,28 @@
+# --- 本地配置与运行缓存 ---
 config.ini
 cache/
+*.log
+*.tmp
+
+# --- Python 环境与字节码 ---
 .venv/
+venv/
 __pycache__/
-*.pyc
+*.py[cod]
+*$py.class
+*.pyd
+*.pyo
+
+# --- 开发工具缓存 (Ruff/Mypy) ---
+.ruff_cache/
+.mypy_cache/
+
+# --- Nuitka 打包产物 (非常重要，防止提交数 GB 的编译文件) ---
+*.build/
+*.dist/
+*.onefile-build/
+
+# --- IDE 与编辑器设置 ---
+.vscode/
+.idea/
+.history/
