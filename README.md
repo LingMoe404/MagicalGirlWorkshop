@@ -15,8 +15,7 @@
 
 ## 📸 界面预览
 
-![软件截图](screenshot1.gif)
-![软件截图](screenshot2.gif)
+![软件截图](screenshot.gif)
 
 ## 🎯 核心功能
 
