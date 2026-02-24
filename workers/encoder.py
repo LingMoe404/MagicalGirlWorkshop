@@ -376,7 +376,11 @@ class EncoderWorker(BaseWorker):
                 encode_start_time = time.time()
                 encode_paused_time = 0.0
                 try:
-                    with subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, startupinfo=startupinfo, bufsize=0, creationflags=get_subprocess_flags()) as proc:
+                    # [Fix] 使用 text=True (universal_newlines) 让 Python 处理 \r 换行符，解决进度条不更新问题
+                    # 同时指定 encoding='utf-8' errors='replace' 防止编码报错
+                    with subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, 
+                                          startupinfo=startupinfo, creationflags=get_subprocess_flags(),
+                                          text=True, encoding='utf-8', errors='replace') as proc:
                         self.current_proc = proc
                         err_log = []
                         max_percent = 0
@@ -397,9 +401,15 @@ class EncoderWorker(BaseWorker):
                             line = proc.stdout.readline()
                             if not line and proc.poll() is not None: break
                             if line:
-                                d = safe_decode(line)
+                                d = line.strip() # 已经是字符串，无需 safe_decode
+                                
+                                # [Fix] 尝试从输出中补获时长 (防止元数据获取失败导致进度条不走)
+                                if duration_sec <= 0 and "Duration:" in d:
+                                    dur_match = re.search(r"Duration:\s*(\d+:\d+:\d+(?:\.\d+)?)", d)
+                                    if dur_match:
+                                        duration_sec = time_str_to_seconds(dur_match.group(1))
+
                                 if "time=" in d and duration_sec > 0:
-                                    # [Fix] 优化时间戳正则匹配，兼容不同格式 (如 time= 00:00:00.00)
                                     t_match = re.search(r"time=\s*(\d+:\d+:\d+(?:\.\d+)?)", d)
                                     if t_match:
                                         current_sec = time_str_to_seconds(t_match.group(1))
