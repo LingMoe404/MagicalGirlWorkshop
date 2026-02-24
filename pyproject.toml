@@ -1,6 +1,6 @@
 [project]
-name = "magicworkshop"
-version = "1.2.1"
+name = "magicalgirlworkshop"
+version = "1.2.2"
 requires-python = ">=3.12,<3.13"
 dependencies = [
     "pyside6>=6.10.1",

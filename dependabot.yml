@@ -1,0 +1,36 @@
+version: 2
+updates:
+  # 追踪 Python 依赖 (支持 uv 管理的 pyproject.toml 和 uv.lock)
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "sunday"
+      time: "03:00"
+      timezone: "Asia/Shanghai"
+    open-pull-requests-limit: 5
+    # 依赖分组：减少 PR 噪音
+    groups:
+      ui-toolkit:
+        patterns:
+          - "pyside6*"
+      dev-tools:
+        patterns:
+          - "ruff"
+          - "nuitka"
+          - "zstandard"
+    labels:
+      - "dependencies"
+      - "python"
+
+  # 追踪 GitHub Actions 工作流更新
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    groups:
+      actions:
+        patterns: ["*"]
+    labels:
+      - "dependencies"
+      - "github-actions"

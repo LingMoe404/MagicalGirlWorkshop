@@ -1,9 +1,9 @@
 # config.py
 from PySide6.QtCore import QSize
 
-VERSION = "1.2.1"
+VERSION = "1.2.2"
 APP_TITLE = f"魔法少女工坊 v{VERSION}"
-APP_ID = f"LingMoe404.MagicWorkshop.Encoder.{VERSION}"
+APP_ID = f"LingMoe404.MagicalGirlWorkshop.Encoder.{VERSION}"
 
 # 编码器名称
 ENC_QSV = "Intel QSV"
@@ -41,18 +41,18 @@ NAV_EXPAND_WIDTH = 180
 THEMES = ["Auto", "Light", "Dark"]
 
 VIDEO_EXTS = ('.mkv', '.mp4', '.avi', '.mov', '.wmv', '.flv', '.webm', '.m4v', '.ts')
-SAVE_MODE_SAVE_AS = "开辟新世界 (Save As)"
-SAVE_MODE_OVERWRITE = "元素覆写 (Overwrite)"
-SAVE_MODE_REMAIN = "元素保留 (Remain)"
+SAVE_MODE_SAVE_AS = "Save As"
+SAVE_MODE_OVERWRITE = "Overwrite"
+SAVE_MODE_REMAIN = "Remain"
 
-LOUDNORM_MODE_ALWAYS = "全部启用 (Always)"
-LOUDNORM_MODE_DISABLE = "全部禁用 (Disable)"
-LOUDNORM_MODE_AUTO = "仅立体声/单声道 (Stereo/Mono Only)"
+LOUDNORM_MODE_ALWAYS = "Always"
+LOUDNORM_MODE_DISABLE = "Disable"
+LOUDNORM_MODE_AUTO = "Stereo/Mono Only"
 
 DEFAULT_SETTINGS = {
     "encoder": ENC_QSV,
     "theme": "Auto",
-    "save_mode": "元素覆写 (Overwrite)",
+    "save_mode": SAVE_MODE_OVERWRITE,
     "export_dir": ""
 }
 
