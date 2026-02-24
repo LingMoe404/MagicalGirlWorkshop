@@ -7,10 +7,10 @@
 
 [中文](README.md) | [日本語](README_JP.md)
 
-> **"NAS Media Library Purification Tool · Intel & NVIDIA & AMD Trinity"**
+> **"The Ultimate Purification Tool for NAS & PC Digital Hoarders · VMAF-Driven Smart Encoder"**
 >
-> An AV1 hardware transcoding tool built for **NAS users** and **digital hoarders**.
-> Utilizing Intel QSV, NVIDIA NVENC, or AMD AMF technology to reduce the size of massive video libraries by **30% - 50%** while preserving image quality.
+> A smart AV1 hardware transcoding tool running on Windows, built specifically for **NAS users** and **digital hoarders** .
+> Driven by **VMAF intelligent calculation** to auto-find optimal bitrates, it utilizes Intel QSV, NVIDIA NVENC, or AMD AMF technology to reduce the size of massive video libraries by **30% - 50%** while preserving visually lossless image quality, saving your local hard drive and NAS space.
 > *Powered by Python, PySide6, QFluentWidgets, FFmpeg, ab-av1, Gemini.*
 
 ---
@@ -166,3 +166,4 @@ This project is licensed under the GPL-3.0 Open Source License.
 
 
 Copyright © 2026 LingMoe404
+
