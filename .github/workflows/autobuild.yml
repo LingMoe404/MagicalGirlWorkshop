@@ -29,7 +29,6 @@ jobs:
         run: >
           uv run --locked --with nuitka --with zstandard python -m nuitka main.py
           --onefile
-          --python-flag=utf8
           --windows-console-mode=disable
           --enable-plugin=pyside6
           --assume-yes-for-downloads
