@@ -36,6 +36,8 @@ jobs:
           --include-data-file=logo.ico=logo.ico
           --include-data-file=LingMoe404.ico=LingMoe404.ico
           --include-data-dir=i18n/locales=i18n/locales
+          --include-package=i18n
+          --nofollow-import-to=i18n.locales
           --output-dir=build/nuitka
           --output-filename=MagicalGirlWorkshop.exe
 
