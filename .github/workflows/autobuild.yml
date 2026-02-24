@@ -29,15 +29,14 @@ jobs:
         run: >
           uv run --locked --with nuitka --with zstandard python -m nuitka main.py
           --onefile
+          --python-flag=utf8
           --windows-console-mode=disable
           --enable-plugin=pyside6
           --assume-yes-for-downloads
           --windows-icon-from-ico=logo.ico
           --include-data-file=logo.ico=logo.ico
           --include-data-file=LingMoe404.ico=LingMoe404.ico
-          --include-data-dir=i18n/locales=i18n/locales
           --include-package=i18n
-          --nofollow-import-to=i18n.locales
           --output-dir=build/nuitka
           --output-filename=MagicalGirlWorkshop.exe
 
@@ -75,7 +74,7 @@ jobs:
 
           if (Test-Path $archive) { Remove-Item $archive -Force }
           Push-Location $stage
-          7z a -t7z "..\\MagicalGirlWorkshop.7z" ".\\*" -m0=lzma2 -mx=9 -mfb=273 -md=128m -ms=on -mmt=on
+          7z a -t7z "..\MagicalGirlWorkshop.7z" ".\*" -m0=lzma2 -mx=9 -mfb=273 -md=128m -ms=on -mmt=on
           $exitCode = $LASTEXITCODE
           Pop-Location
           if ($exitCode -ne 0) { throw "7z failed with exit code $exitCode" }
