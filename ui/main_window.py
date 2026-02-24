@@ -2013,7 +2013,7 @@ class MainWindow(FluentWindow):
         dialog.cancelButton.setText(tr("dialog.dependency_missing.cancel_button"))
         
         if dialog.exec():
-            QDesktopServices.openUrl(QUrl("https://github.com/"))
+            QDesktopServices.openUrl(QUrl("https://github.com/LingMoe404/MagicalGirlWorkshop/blob/main/docs/FAQ.md"))
         
         self.btn_start.setEnabled(False)
         self.btn_start.setText(tr("button.start.missing_components"))
