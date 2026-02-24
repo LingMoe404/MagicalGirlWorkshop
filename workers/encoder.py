@@ -251,8 +251,16 @@ class EncoderWorker(BaseWorker):
                                         best_icq = int(match.group(1))
                                         attempt_success = True
                             
-                            if proc.returncode != 0: attempt_success = False
-                    except Exception:
+                            if proc.returncode != 0:
+                                if attempt_success:
+                                    # [Fix] 如果已经成功探测到 VMAF 数据，即使进程异常退出（如驱动不稳定），也优先使用已获取的参数，避免回退到慢速 CPU 探测
+                                    self.log_signal.emit(f"⚠️ 探测术式异常中止 (Code {proc.returncode})，但已截获有效魔力参数 ({best_icq})，将强行采用。", "warning")
+                                else:
+                                    if current_log:
+                                        self.log_signal.emit(f"    -> 探测失败: {current_log[-1].strip()}", "error")
+                                    attempt_success = False
+                    except Exception as e:
+                        self.log_signal.emit(f"⚠️ 探测执行异常: {e}", "warning")
                         attempt_success = False
                     finally:
                         self.current_proc = None
@@ -325,7 +333,45 @@ class EncoderWorker(BaseWorker):
                     self.log_signal.emit(tr("log.encoder.info_loudnorm_skipped", mode=loudnorm_mode), "info")
 
                 cmd = []
-                # ... [命令行构建逻辑] ...
+                # 构建 FFmpeg 命令行
+                cmd = [ffmpeg, "-y", "-hide_banner"]
+                
+                # 硬件解码加速 (如果适用)
+                if enc_name == "av1_qsv":
+                    cmd.extend(["-init_hw_device", "qsv=hw", "-filter_hw_device", "hw", "-v", "verbose"])
+                elif enc_name == "av1_nvenc":
+                    cmd.extend(["-v", "verbose"])
+                elif enc_name == "av1_amf":
+                    cmd.extend(["-v", "verbose"])
+
+                cmd.extend(["-i", std_filepath])
+                
+                # 视频编码参数
+                cmd.extend(["-c:v", enc_name, "-pix_fmt", PIX_FMT_10BIT])
+                
+                if enc_name == "av1_qsv":
+                    cmd.extend(["-global_quality:v", str(best_icq), "-preset", enc_preset, "-look_ahead", "1"])
+                elif enc_name == "av1_nvenc":
+                    cmd.extend(["-cq", str(best_icq), "-preset", enc_preset, "-b:v", "0"])
+                    if self.config.get('nv_aq', True):
+                        cmd.extend(["-spatial-aq", "1", "-temporal-aq", "1"])
+                elif enc_name == "av1_amf":
+                    cmd.extend(["-usage", "transcoding", "-quality", enc_preset, "-rc", "vbr_latency", "-qvbr_quality_level", str(best_icq)])
+                    if self.config.get('nv_aq', True): # 复用 nv_aq 开关作为 AMD PreAnalysis
+                        cmd.extend(["-preanalysis", "true"])
+
+                # 音频和字幕
+                cmd.extend(audio_args)
+                cmd.extend(["-c:s", sub_codec])
+                
+                # 映射所有流
+                cmd.extend(["-map", "0:v:0", "-map", "0:a", "-map", "0:s?"])
+                
+                # 输出文件
+                cmd.append(temp_file)
+
+                # [Fix] WinError 87 修复：过滤掉 cmd 中的空字符串和非字符串对象
+                cmd = [str(arg) for arg in cmd if str(arg).strip()]
 
                 encode_start_time = time.time()
                 encode_paused_time = 0.0
@@ -353,7 +399,8 @@ class EncoderWorker(BaseWorker):
                             if line:
                                 d = safe_decode(line)
                                 if "time=" in d and duration_sec > 0:
-                                    t_match = re.search(r"time=(\d{2}:\d{2}:\d{2}\.\d+)", d)
+                                    # [Fix] 优化时间戳正则匹配，兼容不同格式 (如 time= 00:00:00.00)
+                                    t_match = re.search(r"time=\s*(\d+:\d+:\d+(?:\.\d+)?)", d)
                                     if t_match:
                                         current_sec = time_str_to_seconds(t_match.group(1))
                                         percent = min(100, int((current_sec / duration_sec) * 100))
