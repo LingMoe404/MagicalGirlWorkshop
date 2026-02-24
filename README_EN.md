@@ -17,7 +17,7 @@
 
 ## 📸 Interface Preview
 
-![Screenshot](screenshot.gif)
+![Screenshot](screenshot_en.gif)
 
 ## 🎯 Core Features
 
@@ -163,5 +163,6 @@ This project is licensed under the GPL-3.0 Open Source License.
 *   **GUI**: Based on PySide6 and QFluentWidgets (GPLv3).
 *   **Core**: Core algorithms based on FFmpeg (LGPL/GPL) and ab-av1 (MIT).
 *   **License**: MagicalGirlWorkshop by LingMoe404 is licensed under GPL-3.0.
+
 
 Copyright © 2026 LingMoe404
