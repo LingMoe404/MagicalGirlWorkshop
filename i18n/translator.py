@@ -1,22 +1,23 @@
 # i18n/translator.py
 import os
 import importlib
+import pkgutil
+import configparser
 from config import (
     DEFAULT_SETTINGS
 )
-import configparser
 from utils import (
     get_config_path
 )
 
+# 导入语言包的根目录，作为动态扫描的锚点
+import i18n.locales
 
 class Translator:
     def __init__(self):
-        self.locales_dir_path = 'i18n/locales'
-        self.locales_module_path = 'i18n.locales'
         self.languages = {}
         self.language_map = {}
-        # Default to 'en_US' if the system's locale is not supported
+        # Default to 'zh_CN'
         self.current_lang = 'zh_CN'
         self._load_languages()
         self.load_language_setting()
@@ -25,19 +26,20 @@ class Translator:
     def _load_languages(self):
         self.languages = {}
         self.language_map = {}
-        if not os.path.exists(self.locales_dir_path):
-            return
         
-        for filename in os.listdir(self.locales_dir_path):
-            if filename.endswith('.py') and not filename.startswith('__'):
-                locale_name = filename[:-3]
-                try:
-                    module = importlib.import_module(f'.{locale_name}', self.locales_module_path)
-                    if hasattr(module, 'translation') and hasattr(module, 'language_name'):
-                        self.languages[locale_name] = module.translation
-                        self.language_map[locale_name] = module.language_name
-                except ImportError as e:
-                    print(f"Could not import {locale_name} translations: {e}")
+        # 【核心魔法】使用 pkgutil 动态遍历模块，而非物理文件
+        # 无论是在本地源码环境，还是被 Nuitka 编译成二进制，它都能精准捕捉所有语言模块
+        for _, locale_name, _ in pkgutil.iter_modules(i18n.locales.__path__):
+            try:
+                # 动态导入每个扫描到的模块 (例如 'i18n.locales.zh_CN')
+                module = importlib.import_module(f'i18n.locales.{locale_name}')
+                
+                # 验证模块是否包含所需的变量
+                if hasattr(module, 'translation') and hasattr(module, 'language_name'):
+                    self.languages[locale_name] = module.translation
+                    self.language_map[locale_name] = module.language_name
+            except Exception as e:
+                print(f"Could not import {locale_name} translations: {e}")
 
 
     def set_language(self, lang):
