@@ -41,79 +41,115 @@ class WelcomeWizard(MessageBoxBase):
     """ 初次运行时显示的欢迎和设置向导。 """
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.titleLabel = SubtitleLabel(tr("welcome.wizard.title"), self)
-        self.view = QStackedWidget(self)
-        
-        # 定义向导页面数据
-        self.pages = [
-            {
-                "title": tr("welcome.wizard.page1.title"),
-                "content": tr("welcome.wizard.page1.content")
-            },
-            {
-                "title": tr("welcome.wizard.page2.title"),
-                "content": tr("welcome.wizard.page2.content")
-            },
-            {
-                "title": tr("welcome.wizard.page3.title"),
-                "content": tr("welcome.wizard.page3.content")
-            },
-            {
-                "title": tr("welcome.wizard.page4.title"),
-                "content": tr("welcome.wizard.page4.content")
-            },
-            {
-                "title": tr("welcome.wizard.page5.title"),
-                "content": tr("welcome.wizard.page5.content")
-            }
+        # 使用 Key 而非直接翻译，以便后续动态切换语言
+        self.pages_config = [
+            ("welcome.wizard.page1.title", "welcome.wizard.page1.content"),
+            ("welcome.wizard.page2.title", "welcome.wizard.page2.content"),
+            ("welcome.wizard.page3.title", "welcome.wizard.page3.content"),
+            ("welcome.wizard.page4.title", "welcome.wizard.page4.content"),
+            ("welcome.wizard.page5.title", "welcome.wizard.page5.content")
         ]
+        
+        self.titleLabel = SubtitleLabel("", self)
+
+        # 创建语言切换下拉框，放在 viewLayout 中使其在所有页面可见
+        self.lang_combo = ComboBox(self)
+        self.lang_combo.setMinimumWidth(200)
+        lang_map = translator.get_language_map()
+        for lang_code, lang_name in lang_map.items():
+            self.lang_combo.addItem(lang_name, userData=lang_code)
+        
+        # 设置当前语言
+        curr = translator.current_lang
+        idx = self.lang_combo.findData(curr)
+        if idx >= 0: self.lang_combo.setCurrentIndex(idx)
+        self.lang_combo.currentIndexChanged.connect(self.on_wizard_language_changed)
+
+        self.view = QStackedWidget(self)
+        self.page_labels = [] # 存储 Label 引用用于重翻译
         
         self.init_pages()
         
         # 调整布局和尺寸
         self.viewLayout.addWidget(self.titleLabel)
+        self.viewLayout.addWidget(self.lang_combo)
         self.viewLayout.addWidget(self.view)
-        self.widget.setFixedSize(480, 360)
+        self.widget.setFixedSize(480, 400) # 稍微调高一点给下拉框留空间
         
-        # 配置按钮
-        self.yesButton.setText(tr("welcome.wizard.next_button"))
-        self.cancelButton.setText(tr("welcome.wizard.skip_button"))
+        self.current_idx = 0
+        self.view.setCurrentIndex(0)
+        self.retranslate_wizard()
         
         # 重新绑定信号 (接管默认的 accept/reject 行为)
         self.yesButton.clicked.disconnect()
         self.yesButton.clicked.connect(self.next_page)
         self.cancelButton.clicked.disconnect()
         self.cancelButton.clicked.connect(self.reject)
-        
-        self.current_idx = 0
-        self.view.setCurrentIndex(0)
 
     def init_pages(self):
         """ 初始化所有向导页面。 """
-        for page_data in self.pages:
+        for i, (t_key, c_key) in enumerate(self.pages_config):
             page = QWidget()
             vbox = QVBoxLayout(page)
             vbox.setContentsMargins(0, 10, 0, 0)
             vbox.setSpacing(10)
             
-            lbl_title = StrongBodyLabel(page_data["title"], page)
-            lbl_content = BodyLabel(page_data["content"], page)
+            lbl_title = StrongBodyLabel("", page)
+            lbl_content = BodyLabel("", page)
             lbl_content.setWordWrap(True)
             text_color = "#666666" if not isDarkTheme() else "#CCCCCC"
             lbl_content.setStyleSheet(f"color: {text_color}; font-size: 13px; line-height: 1.5;")
             
             vbox.addWidget(lbl_title)
             vbox.addWidget(lbl_content)
+            
             vbox.addStretch(1)
             self.view.addWidget(page)
+            self.page_labels.append((lbl_title, lbl_content))
+
+    def on_wizard_language_changed(self, index):
+        """ 当向导中的语言下拉框改变时。 """
+        lang_code = self.lang_combo.itemData(index)
+        if lang_code == translator.current_lang:
+            return
+            
+        translator.set_language(lang_code)
+        self.retranslate_wizard()
+        
+        # 同步更新主界面 (如果父窗口是 MainWindow)
+        main_win = self.parent()
+        if main_win and hasattr(main_win, 'retranslate_ui'):
+            main_win.retranslate_ui()
+            # 同步主界面的下拉框索引
+            if hasattr(main_win, 'combo_lang'):
+                main_win.combo_lang.blockSignals(True)
+                main_win.combo_lang.setCurrentIndex(index)
+                main_win.combo_lang.blockSignals(False)
+
+    def retranslate_wizard(self):
+        """ 刷新向导界面的所有文本。 """
+        self.titleLabel.setText(tr("welcome.wizard.title"))
+        
+        # 更新按钮
+        if self.current_idx < len(self.pages_config) - 1:
+            self.yesButton.setText(tr("welcome.wizard.next_button"))
+        else:
+            self.yesButton.setText(tr("welcome.wizard.start_button"))
+        self.cancelButton.setText(tr("welcome.wizard.skip_button"))
+        
+        # 更新每一页的文本
+        for i, (t_key, c_key) in enumerate(self.pages_config):
+            lbl_title, lbl_content = self.page_labels[i]
+            lbl_title.setText(tr(t_key))
+            lbl_content.setText(tr(c_key))
 
     def next_page(self):
         """ 切换到下一个向导页面。 """
-        if self.current_idx < len(self.pages) - 1:
+        if self.current_idx < len(self.pages_config) - 1:
             self.current_idx += 1
             self.view.setCurrentIndex(self.current_idx)
-            if self.current_idx == len(self.pages) - 1:
-                self.yesButton.setText(tr("welcome.wizard.start_button"))
+            # 刷新按钮文本（可能从“下一页”变成“开始”）
+            self.retranslate_wizard()
         else:
             self.accept()
 
