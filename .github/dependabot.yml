@@ -1,6 +1,8 @@
 version: 2
 updates:
-  # 追踪 Python 依赖 (支持 uv 管理的 pyproject.toml 和 uv.lock)
+  # ==========================================
+  # 🔮 核心魔力回路：Python 依赖追踪 (uv 生态)
+  # ==========================================
   - package-ecosystem: "pip"
     directory: "/"
     schedule:
@@ -9,6 +11,16 @@ updates:
       time: "03:00"
       timezone: "Asia/Shanghai"
     open-pull-requests-limit: 5
+    
+    # 【优化】自动将审查特权指派给最高统帅（请替换为您真实的 GitHub ID，如 "LingMoe404"）
+    assignees:
+      - "LingMoe404"
+      
+    # 【优化】为世界线打上纯净的烙印，保持 Git 历史完美无瑕
+    commit-message:
+      prefix: "chore(deps)"
+      include: "scope"
+      
     # 依赖分组：减少 PR 噪音
     groups:
       ui-toolkit:
@@ -23,11 +35,25 @@ updates:
       - "dependencies"
       - "python"
 
-  # 追踪 GitHub Actions 工作流更新
+  # ==========================================
+  # ⚙️ 云端结界维护：GitHub Actions 工作流更新
+  # ==========================================
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
       interval: "monthly"
+      # 【优化】补全精确的星象周期，与 Python 依赖错开 1 小时，平滑云端算力
+      day: "sunday"
+      time: "04:00"
+      timezone: "Asia/Shanghai"
+      
+    assignees:
+      - "LingMoe404"
+      
+    commit-message:
+      prefix: "chore(actions)"
+      include: "scope"
+      
     groups:
       actions:
         patterns: ["*"]
