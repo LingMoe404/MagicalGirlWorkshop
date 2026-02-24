@@ -89,10 +89,15 @@ class DependencyWorker(BaseWorker):
                         if proc.returncode == 0: has_nvenc = True
                         else:
                             err_msg = safe_decode(stderr)
-                            if "CUDA_ERROR_NO_DEVICE" in err_msg:
-                                pass
-                            else:
-                                # 如果 av1_nvenc 失败，尝试 hevc_nvenc 以判断是否为不支持 AV1 的旧款N卡
+                            # 提取最关键的错误描述 (通常在 -> 之后，或者取第一行)
+                            target_msg = err_msg.split("->")[-1] if "->" in err_msg else err_msg
+                            short_err = target_msg.strip().splitlines()[0] if target_msg and target_msg.strip() else tr("common.unknown_error")
+                            
+                            # 无论什么原因导致失败，都输出一条错误日志
+                            self.log_signal.emit(tr("log.dependency.nvenc_failed", error=short_err), "error")
+
+                            # 如果不是因为完全没卡，则进一步判断是否是旧款卡不支持 AV1
+                            if "CUDA_ERROR_NO_DEVICE" not in err_msg:
                                 with subprocess.Popen(
                                     [ffmpeg_path, "-v", "error", 
                                      "-f", "lavfi", "-i", "color=black:s=1280x720", 
@@ -103,9 +108,6 @@ class DependencyWorker(BaseWorker):
                                     proc_hevc.communicate(timeout=5)
                                     if proc_hevc.returncode == 0:
                                         self.log_signal.emit(tr("log.dependency.nvenc_unsupported_gpu"), "warning")
-                                    else:
-                                        short_err = err_msg.split('\n')[0] if err_msg else tr("common.unknown_error")
-                                        self.log_signal.emit(tr("log.dependency.nvenc_failed", error=short_err), "error")
                 except Exception as e:
                     self.log_signal.emit(tr("log.dependency.nvenc_exception", error=e), "error")
 
