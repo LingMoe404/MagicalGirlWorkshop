@@ -44,7 +44,7 @@
 ## 🏗️ 项目架构简述
 
 *   `main.py`: 程序入口与主窗体逻辑。
-*   `core/`: 包含 FFmpeg 调用、ab-av1 逻辑封装及硬件检测核心。
+*   `workers/`: 包含 FFmpeg 调用、ab-av1 逻辑封装及硬件检测核心。
 *   `ui/`: 存放自定义组件与界面布局。
 *   `i18n/`: 国际化支持模块，包含翻译加载器。
 *   `i18n/locales/`: 存放各语言的翻译文件 (.py)。
@@ -110,7 +110,7 @@ This project uses [uv](https://github.com/astral-sh/uv) for dependency managemen
 ## 🏗️ Project Architecture Overview
 
 *   `main.py`: Program entry point and main window logic.
-*   `core/`: Contains FFmpeg calls, ab-av1 logic encapsulation, and hardware detection core.
+*   `workers/`: Contains FFmpeg calls, ab-av1 logic encapsulation, and hardware detection core.
 *   `ui/`: Stores custom components and interface layouts.
 *   `i18n/`: Internationalization support module, contains translation loader.
 *   `i18n/locales/`: Stores translation files (.py) for each language.
@@ -127,4 +127,5 @@ If you encounter difficulties during development, you can contact us via:
 *   Bilibili: 泠萌404 (UID:136850)
 
 ---
+
 **"May magic be with your code!"**
