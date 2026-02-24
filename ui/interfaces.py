@@ -544,7 +544,7 @@ class CreditsInterface(QWidget):
         self.combo_theme.setItemText(1, tr("home.header.theme_combo.light"))
         self.combo_theme.setItemText(2, tr("home.header.theme_combo.dark"))
         self.role.setText(tr("credits.card.contributor_role"))
-        self.intro.setText(tr("credits.card.intro").format(version=VERSION))
+        self.intro.setText(tr("credits.card.intro"))
         
         for i, (_, title_key, desc_key) in enumerate(self.contributions_data):
             lbl_title, lbl_desc = self.contribution_widgets[i]
