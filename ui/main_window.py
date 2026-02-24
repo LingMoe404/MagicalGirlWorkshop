@@ -130,11 +130,8 @@ class WelcomeWizard(MessageBoxBase):
         """ 刷新向导界面的所有文本。 """
         self.titleLabel.setText(tr("welcome.wizard.title"))
         
-        # 更新按钮
-        if self.current_idx < len(self.pages_config) - 1:
-            self.yesButton.setText(tr("welcome.wizard.next_button"))
-        else:
-            self.yesButton.setText(tr("welcome.wizard.start_button"))
+        # 既然是无限循环，确认按钮始终显示“翻阅魔导书”
+        self.yesButton.setText(tr("welcome.wizard.next_button"))
         self.cancelButton.setText(tr("welcome.wizard.skip_button"))
         
         # 更新每一页的文本
@@ -144,14 +141,9 @@ class WelcomeWizard(MessageBoxBase):
             lbl_content.setText(tr(c_key))
 
     def next_page(self):
-        """ 切换到下一个向导页面。 """
-        if self.current_idx < len(self.pages_config) - 1:
-            self.current_idx += 1
-            self.view.setCurrentIndex(self.current_idx)
-            # 刷新按钮文本（可能从“下一页”变成“开始”）
-            self.retranslate_wizard()
-        else:
-            self.accept()
+        """ 切换到下一个向导页面（无限循环）。 """
+        self.current_idx = (self.current_idx + 1) % len(self.pages_config)
+        self.view.setCurrentIndex(self.current_idx)
 
 # --- 主窗口 (Win11 风格) ---
 class MainWindow(FluentWindow):
@@ -237,7 +229,7 @@ class MainWindow(FluentWindow):
         
         # 欢迎语
         kaomojis = ["(｡•̀ᴗ-)✧", "(*/ω＼*)", "ヽ(✿ﾟ▽ﾟ)ノ", "(๑•̀ㅂ•́)و✧"]
-        self.log(tr("log.system_ready", random.choice(kaomojis)), "info")
+        self.log(tr("log.system_ready", kaomoji=random.choice(kaomojis)), "info")
         
         # 启动后延迟检查依赖
         QTimer.singleShot(DEPENDENCY_CHECK_DELAY, self.check_dependencies)
@@ -1291,7 +1283,7 @@ class MainWindow(FluentWindow):
         if added == 0:
             InfoBar.warning(tr("infobar.warning.no_new_files_dropped.title"), tr("infobar.warning.no_new_files_dropped.content"), parent=self, position=InfoBarPosition.TOP)
         else:
-            InfoBar.success(tr("infobar.success.files_added.title"), tr("infobar.success.drag_drop_added.content", added), parent=self, position=InfoBarPosition.TOP)
+            InfoBar.success(tr("infobar.success.files_added.title"), tr("infobar.success.drag_drop_added.content", count=added), parent=self, position=InfoBarPosition.TOP)
 
     def clear_selected_list_visual_state(self):
         """ 清除文件列表的视觉选择状态。 """
@@ -1365,7 +1357,7 @@ class MainWindow(FluentWindow):
         if added == 0:
             InfoBar.warning(tr("infobar.warning.no_files_found.title"), tr("infobar.warning.no_files_found.content"), parent=self, position=InfoBarPosition.TOP)
         else:
-            InfoBar.success(tr("infobar.success.files_added.title"), tr("infobar.success.files_added.content", added), parent=self, position=InfoBarPosition.TOP)
+            InfoBar.success(tr("infobar.success.files_added.title"), tr("infobar.success.files_added.content", count=added), parent=self, position=InfoBarPosition.TOP)
 
     def browse_files(self):
         """ 弹出文件选择对话框以选择源文件。 """
@@ -1844,7 +1836,7 @@ class MainWindow(FluentWindow):
                 if f.endswith(".temp.mkv"):
                     os.remove(os.path.join(cache_path, f))
                     count += 1
-            InfoBar.success(tr("infobar.success.cache_cleared.title"), tr("infobar.success.cache_cleared.content", count), parent=self, position=InfoBarPosition.TOP)
+            InfoBar.success(tr("infobar.success.cache_cleared.title"), tr("infobar.success.cache_cleared.content", count=count), parent=self, position=InfoBarPosition.TOP)
         except Exception as e:
             InfoBar.error(tr("infobar.error.cache_clear_failed.title"), str(e), parent=self, position=InfoBarPosition.TOP)
 
