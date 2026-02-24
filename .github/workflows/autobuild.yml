@@ -36,7 +36,7 @@ jobs:
           --include-data-file=logo.ico=logo.ico
           --include-data-file=LingMoe404.ico=LingMoe404.ico
           --output-dir=build/nuitka
-          --output-filename=魔法少女工坊.exe
+          --output-filename=MagicalGirlWorkshop.exe
 
       - name: Ensure 7-Zip is available
         shell: pwsh
@@ -51,10 +51,10 @@ jobs:
         run: |
           $ErrorActionPreference = "Stop"
 
-          $exe = "build/nuitka/魔法少女工坊.exe"
+          $exe = "build/nuitka/MagicalGirlWorkshop.exe"
           $tools = "tools"
-          $stage = "build/package/MagicWorkshop"
-          $archive = "build/package/MagicWorkshop.7z"
+          $stage = "build/package/MagicalGirlWorkshop"
+          $archive = "build/package/MagicalGirlWorkshop.7z"
 
           if (!(Test-Path $exe)) { throw "Build output not found: $exe" }
           if (!(Test-Path $tools)) { throw "Tools folder not found: $tools" }
@@ -62,17 +62,17 @@ jobs:
           New-Item -ItemType Directory -Force -Path $stage | Out-Null
           Get-ChildItem -Path $stage -Force -ErrorAction SilentlyContinue | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
 
-          Copy-Item -LiteralPath $exe -Destination (Join-Path $stage "魔法少女工坊.exe") -Force
+          Copy-Item -LiteralPath $exe -Destination (Join-Path $stage "MagicalGirlWorkshop.exe") -Force
           Copy-Item -LiteralPath $tools -Destination (Join-Path $stage "tools") -Recurse -Force
 
-          $stagedExe = Join-Path $stage "魔法少女工坊.exe"
+          $stagedExe = Join-Path $stage "MagicalGirlWorkshop.exe"
           $stagedTools = Join-Path $stage "tools"
           if (!(Test-Path $stagedExe)) { throw "Staged exe not found: $stagedExe" }
           if (!(Test-Path $stagedTools)) { throw "Staged tools folder not found: $stagedTools" }
 
           if (Test-Path $archive) { Remove-Item $archive -Force }
           Push-Location $stage
-          7z a -t7z "..\\MagicWorkshop.7z" ".\\*" -m0=lzma2 -mx=9 -mfb=273 -md=128m -ms=on -mmt=on
+          7z a -t7z "..\\MagicalGirlWorkshop.7z" ".\\*" -m0=lzma2 -mx=9 -mfb=273 -md=128m -ms=on -mmt=on
           $exitCode = $LASTEXITCODE
           Pop-Location
           if ($exitCode -ne 0) { throw "7z failed with exit code $exitCode" }
@@ -80,7 +80,7 @@ jobs:
       - name: Show artifact info
         shell: pwsh
         run: |
-          $archive = "build/package/MagicWorkshop.7z"
+          $archive = "build/package/MagicalGirlWorkshop.7z"
           if (!(Test-Path $archive)) { throw "Archive not found: $archive" }
           $sizeMB = [math]::Round((Get-Item $archive).Length / 1MB, 2)
           Write-Host "Built: $archive"
@@ -89,6 +89,6 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v6
         with:
-          name: MagicWorkshop-7z
-          path: build/package/MagicWorkshop.7z
+          name: MagicalGirlWorkshop-7z
+          path: build/package/MagicalGirlWorkshop.7z
           if-no-files-found: error
