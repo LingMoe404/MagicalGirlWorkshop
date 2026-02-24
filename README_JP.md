@@ -17,7 +17,7 @@
 
 ## 📸 インターフェースプレビュー
 
-![Screenshot](screenshot.gif)
+![Screenshot](screenshot_jp.gif)
 
 ## 🎯 コア機能
 
@@ -163,5 +163,6 @@ Python開発に慣れている場合は、ソースコードから実行でき�
 *   **GUI**: PySide6 および QFluentWidgets (GPLv3) に基づく。
 *   **Core**: コアアルゴリズムは FFmpeg (LGPL/GPL) および ab-av1 (MIT) に基づく。
 *   **License**: MagicalGirlWorkshop by LingMoe404 is licensed under GPL-3.0.
+
 
 Copyright © 2026 LingMoe404
