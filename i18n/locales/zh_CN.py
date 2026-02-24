@@ -126,7 +126,7 @@ translation = {
     # -------------------------------------------------------------------------
     "credits.title": "羁绊之证", # “羁绊之证”页面标题
     "credits.card.contributor_role": "术式构筑协力", # “羁绊之证”页面贡献者角色
-    "credits.card.intro": "v{version} 工坊升级改造贡献者，其伟绩如下：", # “羁绊之证”页面介绍
+    "credits.card.intro": "工坊升级改造贡献者，其伟绩如下：", # “羁绊之证”页面介绍
     "credits.contributions.item1.title": "新魔力循环系统", # “羁绊之证”页面贡献项1标题
     "credits.contributions.item1.desc": "优化魔力流动稳定性", # “羁绊之证”页面贡献项1描述
     "credits.contributions.item2.title": "固化核心咏唱基盘", # “羁绊之证”页面贡献项2标题

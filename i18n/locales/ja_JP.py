@@ -126,7 +126,7 @@ translation = {
     # -------------------------------------------------------------------------
     "credits.title": "絆の証", # 「絆の証」ページタイトル
     "credits.card.contributor_role": "術式構築協力", # 「絆の証」ページ貢献者役割
-    "credits.card.intro": "v{version} 工房アップグレード貢献者、その偉業は以下の通り：", # 「絆の証」ページ紹介
+    "credits.card.intro": "工房アップグレード貢献者、その偉業は以下の通り：", # 「絆の証」ページ紹介
     "credits.contributions.item1.title": "新魔力循環システム", # 「絆の証」ページ貢献項目1タイトル
     "credits.contributions.item1.desc": "魔力流動の安定化", # 「絆の証」ページ貢献項目1説明
     "credits.contributions.item2.title": "コア詠唱基盤の固定", # 「絆の証」ページ貢献項目2タイトル

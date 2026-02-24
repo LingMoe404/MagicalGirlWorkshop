@@ -126,7 +126,7 @@ translation = {
     # -------------------------------------------------------------------------
     "credits.title": "Proof of Bond", # "Proof of Bond" Page Title
     "credits.card.contributor_role": "Spell Construction Co-op", # "Proof of Bond" Page Contributor Role
-    "credits.card.intro": "v{version} Workshop Upgrade Contributors, their feats are as follows:", # "Proof of Bond" Page Intro
+    "credits.card.intro": "Workshop Upgrade Contributors, their feats are as follows:", # "Proof of Bond" Page Intro
     "credits.contributions.item1.title": "New Mana Cycle System", # "Proof of Bond" Page Contribution Item 1 Title
     "credits.contributions.item1.desc": "Optimized Mana Flow Stability", # "Proof of Bond" Page Contribution Item 1 Description
     "credits.contributions.item2.title": "Solidified Core Chant Base", # "Proof of Bond" Page Contribution Item 2 Title

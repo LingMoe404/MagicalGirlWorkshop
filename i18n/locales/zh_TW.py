@@ -126,7 +126,7 @@ translation = {
     # -------------------------------------------------------------------------
     "credits.title": "羈絆之證", # 「羈絆之證」頁面標題
     "credits.card.contributor_role": "術式構築協力", # 「羈絆之證」頁面貢獻者角色
-    "credits.card.intro": "v{version} 工坊升級改造貢獻者，其偉績如下：", # 「羈絆之證」頁面介紹
+    "credits.card.intro": "工坊升級改造貢獻者，其偉績如下：", # 「羈絆之證」頁面介紹
     "credits.contributions.item1.title": "新魔力循環系統", # 「羈絆之證」頁面貢獻項1標題
     "credits.contributions.item1.desc": "最佳化魔力流動穩定性", # 「羈絆之證」頁面貢獻項1描述
     "credits.contributions.item2.title": "固化核心詠唱基盤", # 「羈絆之證」頁面貢獻項2標題
