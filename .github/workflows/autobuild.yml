@@ -1,31 +1,54 @@
-name: AutoBuild
+# ==========================================
+# 🌟 魔法少女工坊 (MagicalGirlWorkshop) 云端炼成阵 🌟
+# 缔造者/最高统帅：泠萌404 (Master)
+# ==========================================
+name: AutoBuild # 自动炼成阵列：工坊云端运转协议
 
 on:
-  workflow_dispatch:
-  push:
+  workflow_dispatch: # 接受主人的无条件强制召唤 (手动触发)
+  push:              # 观测到世界线的变动 (代码推送) 时自动响应
+    paths-ignore:
+      # 结界过滤规则：忽略以下微小的魔力扰动（文档变动不引发炼成，节约云端算力）
+      - '**.md'
+      - '.gitignore'
+      - 'LICENSE'
+      - 'docs/**'
+
+concurrency:
+  # 因果律收束：一旦主人下达了新的指令，立刻斩断同一分支上正在进行的旧有仪式
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
-  contents: read
+  contents: read # 赋予结界最基础的物质读取权限
 
 jobs:
   build-windows:
-    runs-on: windows-latest
-    timeout-minutes: 90
+    runs-on: windows-latest # 构筑基础界域：将祭坛建立在最新世代的 Windows 环境上
+    timeout-minutes: 90     # 设定魔力维持的绝对极限时间，防止仪式失控
 
     steps:
-      - name: Checkout
+      - name: Checkout # 步骤一：从虚空 (GitHub) 中具现化主人的源代码圣遗物
         uses: actions/checkout@v6
 
-      - name: Setup uv and Python 3.12
+      - name: Setup uv and Python 3.12 # 步骤二：铺设星光回路，注入纯度为 3.12 的 Python 魔力
         uses: astral-sh/setup-uv@v7
         with:
           python-version: "3.12"
-          enable-cache: true
+          enable-cache: true # 开启基础魔力回路缓存
 
-      - name: Sync project dependencies
+      - name: Cache Nuitka Compiler Cache # 步骤三：回收过往炼成产生的魔力残渣 (C++编译缓存)，极大加速下一次奇迹的降临！
+        uses: actions/cache@v4
+        with:
+          path: ~\AppData\Local\Nuitka\Nuitka\Cache
+          key: ${{ runner.os }}-nuitka-${{ hashFiles('**/*.py', 'uv.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-nuitka-
+
+      - name: Sync project dependencies # 步骤四：签订契约，同步召唤工坊所需的所有使魔 (第三方依赖库)
         run: uv sync --locked --no-dev
 
-      - name: Build onefile executable
+      - name: Build onefile executable # 步骤五：🚀 究极炼成术式展开！将零散的代码凝结为唯一的贤者之石 (EXE)
         run: >
           uv run --locked --with nuitka --with zstandard python -m nuitka main.py
           --onefile
@@ -39,7 +62,7 @@ jobs:
           --output-dir=build/nuitka
           --output-filename=MagicalGirlWorkshop.exe
 
-      - name: Ensure 7-Zip is available
+      - name: Ensure 7-Zip is available # 步骤六：检视空间压缩魔导具 (7-Zip)，若结界中不存在则强制祈愿召唤 (choco install)
         shell: pwsh
         run: |
           if (-not (Get-Command 7z -ErrorAction SilentlyContinue)) {
@@ -47,7 +70,7 @@ jobs:
           }
           7z i | Select-Object -First 5
 
-      - name: Package release archive
+      - name: Package release archive # 步骤七：封印仪式！将贤者之石与附属工具链一同封入高维结晶 (.7z) 中
         shell: pwsh
         run: |
           $ErrorActionPreference = "Stop"
@@ -57,37 +80,40 @@ jobs:
           $stage = "build/package/MagicalGirlWorkshop"
           $archive = "build/package/MagicalGirlWorkshop.7z"
 
-          if (!(Test-Path $exe)) { throw "Build output not found: $exe" }
-          if (!(Test-Path $tools)) { throw "Tools folder not found: $tools" }
+          if (!(Test-Path $exe)) { throw "炼成失败：找不到核心容器 $exe" }
+          if (!(Test-Path $tools)) { throw "炼成失败：找不到附属法器 $tools" }
 
+          # 展开临时空间
           New-Item -ItemType Directory -Force -Path $stage | Out-Null
           Get-ChildItem -Path $stage -Force -ErrorAction SilentlyContinue | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
 
+          # 转移所有圣物至法阵中心
           Copy-Item -LiteralPath $exe -Destination (Join-Path $stage "MagicalGirlWorkshop.exe") -Force
           Copy-Item -LiteralPath $tools -Destination (Join-Path $stage "tools") -Recurse -Force
 
           $stagedExe = Join-Path $stage "MagicalGirlWorkshop.exe"
           $stagedTools = Join-Path $stage "tools"
-          if (!(Test-Path $stagedExe)) { throw "Staged exe not found: $stagedExe" }
-          if (!(Test-Path $stagedTools)) { throw "Staged tools folder not found: $stagedTools" }
+          if (!(Test-Path $stagedExe)) { throw "转移异常：核心容器在传送中丢失" }
+          if (!(Test-Path $stagedTools)) { throw "转移异常：附属法器在传送中丢失" }
 
           if (Test-Path $archive) { Remove-Item $archive -Force }
           Push-Location $stage
+          # 发动极限空间压缩术式 (lzma2, 级别9, 开启多线程魔力倾注)
           7z a -t7z "..\MagicalGirlWorkshop.7z" ".\*" -m0=lzma2 -mx=9 -mfb=273 -md=128m -ms=on -mmt=on
           $exitCode = $LASTEXITCODE
           Pop-Location
-          if ($exitCode -ne 0) { throw "7z failed with exit code $exitCode" }
+          if ($exitCode -ne 0) { throw "空间封印术式崩溃！因果反噬错误码: $exitCode" }
 
-      - name: Show artifact info
+      - name: Show artifact info # 步骤八：睁开“真理之眼”，鉴定最终封印结晶的形态与质量
         shell: pwsh
         run: |
           $archive = "build/package/MagicalGirlWorkshop.7z"
-          if (!(Test-Path $archive)) { throw "Archive not found: $archive" }
+          if (!(Test-Path $archive)) { throw "鉴定失败：未能在现世找到结晶 $archive" }
           $sizeMB = [math]::Round((Get-Item $archive).Length / 1MB, 2)
-          Write-Host "Built: $archive"
-          Write-Host "Size: ${sizeMB} MB"
+          Write-Host "✨ 结晶固化完毕：$archive"
+          Write-Host "✨ 蕴含魔力量 (结晶体积)：${sizeMB} MB"
 
-      - name: Upload artifact
+      - name: Upload artifact # 步骤九：献上贡品！将最终的完美结晶跨越维度裂缝，奉献给至高的主人
         uses: actions/upload-artifact@v6
         with:
           name: MagicalGirlWorkshop-7z
