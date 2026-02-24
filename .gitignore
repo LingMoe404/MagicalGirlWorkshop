@@ -17,12 +17,20 @@ __pycache__/
 .ruff_cache/
 .mypy_cache/
 
-# --- Nuitka 打包产物 (非常重要，防止提交数 GB 的编译文件) ---
+# --- Nuitka 打包产物与构建目录 (强化防御) ---
+build/
 *.build/
 *.dist/
 *.onefile-build/
 
-# --- IDE 与编辑器设置 ---
+# --- 最终编译的实体结晶 (防止污染源码仓库) ---
+*.exe
+*.7z
+*.zip
+
+# --- IDE 与操作系统缓存 (抵御异次元干扰) ---
 .vscode/
 .idea/
 .history/
+.DS_Store
+Thumbs.db
