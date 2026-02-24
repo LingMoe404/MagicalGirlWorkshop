@@ -6,11 +6,11 @@ import configparser
 import copy
 from collections import OrderedDict
 
-from PySide6.QtCore import Qt, QTimer, QMutex, QSize
+from PySide6.QtCore import Qt, QTimer, QMutex, QSize, QUrl
 from PySide6.QtWidgets import (QApplication, QWidget, QVBoxLayout, QHBoxLayout,
                                QFileDialog, QListWidgetItem, QAbstractItemView, QSplitter,
                                QGraphicsDropShadowEffect, QStackedWidget)
-from PySide6.QtGui import (QIcon, QColor, QGuiApplication, QPixmap, QPainter, QPainterPath)
+from PySide6.QtGui import (QIcon, QColor, QGuiApplication, QPixmap, QPainter, QPainterPath, QDesktopServices)
 
 # 引入 Fluent Widgets (Win11 风格组件)
 from qfluentwidgets import (FluentWindow, SubtitleLabel, StrongBodyLabel, BodyLabel,
@@ -2005,6 +2005,9 @@ class MainWindow(FluentWindow):
 
     def on_dependency_missing(self, missing):
         """ 当检测到有依赖缺失时调用，弹出一个对话框提示用户。 """
+        # [Fix] 先记录日志，确保在弹窗阻塞主线程前，错误信息已经进入队列并显示
+        self.log(tr("log.fatal_error_component_missing"), "error")
+
         title = tr("dialog.dependency_missing.title")
         content = tr("dialog.dependency_missing.content", missing_files=chr(10).join(missing))
         
@@ -2013,12 +2016,11 @@ class MainWindow(FluentWindow):
         dialog.cancelButton.setText(tr("dialog.dependency_missing.cancel_button"))
         
         if dialog.exec():
-            QDesktopServices.openUrl(QUrl("https://github.com/LingMoe404/MagicalGirlWorkshop/blob/main/docs/FAQ.md"))
+            QDesktopServices.openUrl(QUrl.fromUserInput("https://github.com/LingMoe404/MagicalGirlWorkshop/blob/main/docs/FAQ.md"))
         
         self.btn_start.setEnabled(False)
         self.btn_start.setText(tr("button.start.missing_components"))
         self.apply_encoder_availability(False, False, False)
-        self.log(tr("log.fatal_error_component_missing"), "error")
 
     def on_dependency_check_finished(self, has_qsv, has_nvenc, has_amf):
         """ 当依赖检查完成时调用，更新编码器可用性并记录日志。 """
