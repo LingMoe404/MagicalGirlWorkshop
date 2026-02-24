@@ -7,10 +7,10 @@
 
 [English](README_EN.md) | [日本語](README_JP.md)
 
-> **"NAS 媒体库洗版神器 · Intel & NVIDIA & AMD 三位一体"**
+> **"NAS 与 PC 仓鼠党的终极洗版神器 · 基于 VMAF 智能驱动"**
 >
-> 专为 **NAS 用户** 和 **仓鼠党** 打造的 AV1 硬件转码工具。
-> 利用 Intel QSV、NVIDIA NVENC 或 AMD AMF 技术，在保留画质的前提下，将庞大的影视库体积缩小 **30% - 50%**。
+> 一款运行在 Windows 终端上，专为 **NAS 用户** 和 **仓鼠党** 打造的智能 AV1 硬件转码工具。<br>
+> 核心基于 **VMAF 视界还原度** 智能测算最优码率，利用 Intel QSV、NVIDIA NVENC 或 AMD AMF 技术，在肉眼无损保留画质的前提下，将庞大的影视库体积缩小 **30% - 50%** ，拯救您的本地硬盘与 NAS 空间。<br>
 > *Powered by Python, PySide6, QFluentWidgets, FFmpeg, ab-av1, Gemini.*
 
 ---
@@ -31,7 +31,7 @@
 *   **🛠️ 媒体库友好**:
     *   **音频**: 默认混缩为立体声 (Opus @ 96k + Loudnorm)，**[New]** 自动识别并保留 5.1/7.1 环绕声通道 (Opus Multichannel)。
     *   **字幕**: 智能处理字幕流 (MKV 保留特效字幕，MP4 转 SRT)，确保 Emby/Plex/Jellyfin 兼容性。
-    *   **元数据**: 尽可能保留原文件的元数据信息，**[New]** 增强了对 HDR10/HLG 元数据的保留。
+    *   **元数据**: 尽可能保留原文件的元数据信息。
 *   **📊 预知之眼**: UI 进度条现在不仅能显示百分比，还能实时预估**剩余时间**、**压制速度**与**当前码率**，掌控全局。
 *   **🎨 Win11 风格**: 基于 `PySide6` + `QFluentWidgets` 开发，支持云母 (Mica) 特效与深色模式，界面精美。
 *   **🔌 贴心辅助**: 支持任务完成后**自动关机**，以及一键清理 ab-av1 产生的临时缓存文件。
@@ -164,4 +164,6 @@
 *   **Core**: 核心算法基于 FFmpeg (LGPL/GPL) 和 ab-av1 (MIT)。
 *   **License**: MagicalGirlWorkshop by 泠萌404 is licensed under GPL-3.0.
 
+
 Copyright © 2026 泠萌404
+
