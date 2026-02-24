@@ -9,8 +9,8 @@
 
 > **"NAS 与 PC 仓鼠党的终极洗版神器 · 基于 VMAF 智能驱动"**
 >
-> 一款运行在 Windows 终端上，专为 **NAS 用户** 和 **仓鼠党** 打造的智能 AV1 硬件转码工具。
-> 核心基于 **VMAF 视界还原度** 智能测算最优码率，利用 Intel QSV、NVIDIA NVENC 或 AMD AMF 技术，在肉眼无损保留画质的前提下，将庞大的影视库体积缩小 **30% - 50%** ，拯救您的本地硬盘与 NAS 空间。
+> 一款运行在 Windows 终端上，专为 **NAS 用户** 和 **仓鼠党** 打造的智能 AV1 硬件转码工具。<br>
+> 核心基于 **VMAF 视界还原度** 智能测算最优码率，利用 Intel QSV、NVIDIA NVENC 或 AMD AMF 技术，在肉眼无损保留画质的前提下，将庞大的影视库体积缩小 **30% - 50%** ，拯救您的本地硬盘与 NAS 空间。<br>
 > *Powered by Python, PySide6, QFluentWidgets, FFmpeg, ab-av1, Gemini.*
 
 ---
@@ -166,3 +166,4 @@
 
 
 Copyright © 2026 泠萌404
+
