@@ -464,8 +464,11 @@ class EncoderWorker(BaseWorker):
                                 try:
                                     if abs_src == abs_dest:
                                         bak_path = lp_src + ".bak"
-                                        if os.path.exists(bak_path): os.remove(bak_path)
-                                        os.replace(lp_src, bak_path)
+                                        # [Fix] 增强重试逻辑：仅当源文件存在时才执行重命名（防止重试时因源文件已更名而报错）
+                                        if os.path.exists(lp_src):
+                                            if os.path.exists(bak_path): os.remove(bak_path)
+                                            os.replace(lp_src, bak_path)
+                                        
                                         shutil.move(lp_temp, lp_dest)
                                         if os.path.exists(bak_path): os.remove(bak_path)
                                     else:
