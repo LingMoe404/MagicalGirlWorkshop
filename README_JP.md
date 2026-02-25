@@ -1,4 +1,4 @@
-# ✨ 魔法少女工房 (Magical Girl Workshop) - NAS Edition
+# ✨ 魔法少女工房 (Magical Girl Workshop) - Windows Edition
 
 ![Version](https://img.shields.io/badge/version-1.2.2-FB7299?style=for-the-badge&logo=bilibili&logoColor=white)
 ![Built with Gemini](https://img.shields.io/badge/Built%20with-Gemini-8E75B2?style=for-the-badge&logo=googlegemini&logoColor=white)
@@ -166,5 +166,6 @@ Python開発に慣れている場合は、ソースコードから実行でき�
 
 
 Copyright © 2026 LingMoe404
+
 
 
