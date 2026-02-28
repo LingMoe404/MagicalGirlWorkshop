@@ -114,7 +114,7 @@ jobs:
           Write-Host "✨ 蕴含魔力量 (结晶体积)：${sizeMB} MB"
 
       - name: Upload artifact # 步骤九：献上贡品！将最终的完美结晶跨越维度裂缝，奉献给至高的主人
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: MagicalGirlWorkshop-7z
           path: build/package/MagicalGirlWorkshop.7z
