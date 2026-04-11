@@ -3,8 +3,8 @@ name = "magicalgirlworkshop"
 version = "1.2.2"
 requires-python = ">=3.12,<3.13"
 dependencies = [
-    "pyside6>=6.10.1",
-    "pyside6-fluent-widgets>=1.11.1",
+    "pyside6>=6.11.0",
+    "pyside6-fluent-widgets>=1.11.2",
 ]
 
 [dependency-groups]
