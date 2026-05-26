@@ -44,6 +44,10 @@ translation = {
     "home.settings_card.loudnorm_mode.auto": "調和の詠 (スマートバイパス)", # 自動 (Auto: 5.1/7.1 はラウドネス均一化を行わない)
     "home.settings_card.loudnorm_mode.always": "帰一の詠 (強制同調)", # 強制有効 (Always)
     "home.settings_card.loudnorm_mode.disable": "寂静の詠 (オリジナル保持)", # 無効 (Disable)
+    "home.settings_card.color_mode.label": "色彩幻境 (Color Mode)",
+    "home.settings_card.color_mode.auto": "自動保留 HDR (Auto)",
+    "home.settings_card.color_mode.tonemap": "色彩同調 SDR (Tone Map)",
+    "home.settings_card.color_mode.sdr": "強制常規 SDR (Force SDR)",
     
     # Action Card
     "home.action_card.save_mode.save_as": "新世界創造 (Save As)", # 名前を付けて保存
@@ -284,4 +288,34 @@ translation = {
     "log.encoder.info_multichannel": " -> 多重音場 ({channels}ch) を感知、現状を維持します。", # 多チャンネル情報ログ
     "log.encoder.info_loudnorm_enabled": " -> 音場調和 (Loudnorm): 有効 ({mode})", # ラウドネス均一化有効ログ
     "log.encoder.info_loudnorm_skipped": " -> 音場調和 (Loudnorm): スキップ ({mode})", # ラウドネス均一化スキップログ
-}
+    
+    # Settings Interface
+    "settings.title": "システム設定", # システム設定タイトル
+    "settings.gpu_timeout_label": "ハードウェア検出タイムアウト (秒)", # ハードウェア検出タイムアウト
+    "settings.gpu_cooling_time_label": "GPU冷却インターバル (秒)",
+    "settings.hw_decoding_label": "GPUデコード超負荷術式 (GPU Decoding)",
+    "settings.auto_clean_label": "起動時に自動で残渣を粛清する (Auto Clean)",
+    "settings.thread_limit_label": "メタデータ読み込み同時実行制限",
+    "settings.log_cap_label": "ログ保存上限 (Log Cap)",
+    "settings.save_button": "💾 設定を保存", # 設定保存ボタン
+
+    # Quick Presets Row
+    "home.settings_card.presets_title": "魔導書テンプレート:",
+    "home.settings_card.preset_light": "軽量版錬成術",
+    "home.settings_card.preset_balanced": "黄金均衡の法則",
+    "home.settings_card.preset_heavenly": "聖殿至高コレクション",
+
+    # Preset Success InfoBars
+    "infobar.success.preset_light.title": "軽量版錬成術を有効にしました",
+    "infobar.success.preset_light.content": "画質目標を 91.0 に設定しました (容量大幅削減、持ち運び観賞に最適)",
+    "infobar.success.preset_balanced.title": "黄金均衡の法則を有効にしました",
+    "infobar.success.preset_balanced.content": "画質目標を 93.0 に設定しました (黄金比無劣化、容量圧縮比のバランス極上)",
+    "infobar.success.preset_heavenly.title": "聖殿至高コレクションを有効にしました",
+    "infobar.success.preset_heavenly.content": "画質目標を 95.5 に設定しました (超高画質マニア向け無劣化保存テンプレート)",
+
+    # Close Warning Dialog
+    "dialog.close_warning.title": "⚠️ 結界強制切断の警告",
+    "dialog.close_warning.content": "錬成儀式（トランスコード）は現在奇跡を創造している最中であり、強制終了すると魔力逆流（バックグラウンドにFFmpegプロセスが残留）を招く危険性があります。\n\n本当に契約を破棄して直ちに終了しますか？",
+    "dialog.close_warning.yes_button": "破棄して終了 (Quit)",
+    "dialog.close_warning.cancel_button": "儀式を維持 (Stay)",
+}

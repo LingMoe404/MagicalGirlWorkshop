@@ -159,6 +159,11 @@ class EncoderWorker(BaseWorker):
                 codec = meta.get('codec', '')
                 duration_sec = meta.get('duration', 0.0)
                 source_audio_channels = meta.get('channels')
+                pix_fmt = meta.get('pix_fmt', '')
+                color_space = meta.get('color_space', '')
+                color_transfer = meta.get('color_transfer', '')
+                color_primaries = meta.get('color_primaries', '')
+                has_dovi = meta.get('has_dovi', False)
 
                 if not codec or duration_sec <= 0:
                     try:
@@ -166,9 +171,20 @@ class EncoderWorker(BaseWorker):
                         raw_out = subprocess.check_output(cmd_probe, creationflags=get_subprocess_flags())
                         probe_data = json.loads(raw_out)
                         for s in probe_data.get('streams', []):
-                            if s.get('codec_type') == 'video' and not codec:
+                            if s.get('codec_type') == 'video':
                                 if s.get('codec_name', '').lower() not in ['mjpeg', 'png', 'bmp']:
-                                    codec = s.get('codec_name', '').lower()
+                                    if not codec:
+                                        codec = s.get('codec_name', '').lower()
+                                    pix_fmt = s.get('pix_fmt', '')
+                                    color_space = s.get('color_space', '')
+                                    color_transfer = s.get('color_transfer', '')
+                                    color_primaries = s.get('color_primaries', '')
+                                    
+                                    side_data_list = s.get('side_data_list', [])
+                                    for sd in side_data_list:
+                                        sd_type = sd.get('side_data_type', '')
+                                        if "Dolby Vision" in sd_type or "dolby vision" in sd_type.lower():
+                                            has_dovi = True
                             elif s.get('codec_type') == 'audio' and source_audio_channels is None:
                                 source_audio_channels = int(s.get('channels', 2))
                         if duration_sec <= 0:
@@ -207,8 +223,10 @@ class EncoderWorker(BaseWorker):
                     s_enc, s_preset, s_desc = strategy["encoder"], strategy["preset"], strategy["desc"]
                     if strategy != search_strategies[0]:
                          self.log_signal.emit(tr("log.encoder.ab_av1_fallback", desc=s_desc), "warning")
+                         self.file_stats_signal.emit(filepath, "ab-av1", f"备用方案 ({s_desc}) 中...")
                     else:
                          self.log_signal.emit(tr("log.encoder.ab_av1_start"), "info")
+                         self.file_stats_signal.emit(filepath, "ab-av1", "探知最强术式中...")
 
                     search_max_crf = "63" if s_enc in ["libsvtav1", "libaom-av1"] else "51"
                     cmd_search = [ab_av1, "crf-search", "-i", std_filepath, "--encoder", s_enc, "--pix-format", enc_pix_fmt, "--min-vmaf", str(target_vmaf), "--preset", s_preset, "--max-crf", search_max_crf]
@@ -247,6 +265,7 @@ class EncoderWorker(BaseWorker):
                                         vmaf_val = vmaf_match.group(1)
                                         if vmaf_val != last_vmaf_log:
                                             self.log_signal.emit(tr("log.encoder.ab_av1_probing", probe_crf=match.group(0).upper(), vmaf_val=vmaf_val), "info")
+                                            self.file_stats_signal.emit(filepath, "ab-av1 探测中", f"{match.group(0).upper()} => VMAF {vmaf_val}")
                                             last_vmaf_log = vmaf_val
                                         best_icq = int(match.group(1))
                                         attempt_success = True
@@ -320,34 +339,67 @@ class EncoderWorker(BaseWorker):
                     sub_codec = SUBTITLE_CODEC_SRT
 
                 audio_args = ["-c:a", AUDIO_CODEC, "-b:a", audio_bitrate, "-ar", SAMPLE_RATE]
-                if source_audio_channels:
-                    audio_args.extend(["-ac", str(source_audio_channels)])
-                    if source_audio_channels > 2:
-                        self.log_signal.emit(tr("log.encoder.info_multichannel", channels=source_audio_channels), "success")
+                if source_audio_channels and source_audio_channels > 2:
+                    self.log_signal.emit(tr("log.encoder.info_multichannel", channels=source_audio_channels), "success")
                 
                 should_apply_loudnorm = (loudnorm_mode == LOUDNORM_MODE_ALWAYS) or (loudnorm_mode == LOUDNORM_MODE_AUTO and (source_audio_channels is None or source_audio_channels <= 2))
+                
+                # 收集音频滤镜，解决 libopus 5.1/7.1 非标声道布局导致的转码失败错误
+                audio_filters = []
                 if should_apply_loudnorm and loudnorm:
-                    audio_args.extend(["-af", loudnorm])
+                    audio_filters.append(loudnorm)
                     self.log_signal.emit(tr("log.encoder.info_loudnorm_enabled", mode=loudnorm_mode), "info")
                 else:
                     self.log_signal.emit(tr("log.encoder.info_loudnorm_skipped", mode=loudnorm_mode), "info")
+
+                if source_audio_channels == 6:
+                    audio_filters.append("aformat=channel_layouts=5.1")
+                elif source_audio_channels == 8:
+                    audio_filters.append("aformat=channel_layouts=7.1")
+
+                if audio_filters:
+                    audio_args.extend(["-af", ",".join(audio_filters)])
 
                 cmd = []
                 # 构建 FFmpeg 命令行
                 cmd = [ffmpeg, "-y", "-hide_banner"]
                 
                 # 硬件解码加速 (如果适用)
-                if enc_name == "av1_qsv":
-                    cmd.extend(["-init_hw_device", "qsv=hw", "-filter_hw_device", "hw", "-v", "verbose"])
-                elif enc_name == "av1_nvenc":
-                    cmd.extend(["-v", "verbose"])
-                elif enc_name == "av1_amf":
+                if self.config.get('hw_decoding', True):
+                    if enc_name == "av1_qsv":
+                        cmd.extend(["-init_hw_device", "qsv=hw", "-filter_hw_device", "hw", "-hwaccel", "qsv", "-v", "verbose"])
+                    elif enc_name == "av1_nvenc":
+                        cmd.extend(["-hwaccel", "auto", "-v", "verbose"])
+                    elif enc_name == "av1_amf":
+                        cmd.extend(["-hwaccel", "auto", "-v", "verbose"])
+                else:
                     cmd.extend(["-v", "verbose"])
 
                 cmd.extend(["-i", std_filepath])
                 
+                # 视频色彩控制参数
+                color_mode = self.config.get('color_mode', 'Auto')
+                is_input_hdr = (color_transfer in ['smpte2084', 'arib-std-b67'] or 'bt2020' in color_space or 'bt2020' in color_primaries or has_dovi)
+                
+                color_args = []
+                if color_mode == "Auto" and is_input_hdr:
+                    self.log_signal.emit("🌈 [色彩同调] 检测到 HDR/杜比视界 源视频，已自动激活色彩无损保留术式。", "success")
+                    primaries = color_primaries if color_primaries else "bt2020"
+                    transfer = color_transfer if color_transfer else "smpte2084"
+                    space = color_space if color_space else "bt2020nc"
+                    color_args.extend(["-color_primaries", primaries, "-color_trc", transfer, "-colorspace", space])
+                elif color_mode == "ToneMap" and is_input_hdr:
+                    self.log_signal.emit("🔮 [色彩同调] 检测到 HDR/杜比视界 源视频，已施展高精度 32-bit 色调映射术式 (HDR to SDR)...", "success")
+                    color_args.extend(["-vf", "zscale=t=linear:npl=100,format=gbrpf32,zscale=p=bt709:t=bt709:m=bt709:r=limited,format=yuv420p10le"])
+                elif color_mode == "ToneMap" and not is_input_hdr:
+                    self.log_signal.emit("⚠️ [色彩同调] 虽启用了色调映射，但源视频并非 HDR/杜比视界，已跳过映射滤镜。", "warning")
+
                 # 视频编码参数
-                cmd.extend(["-c:v", enc_name, "-pix_fmt", PIX_FMT_10BIT])
+                cmd.extend(["-c:v", enc_name])
+                if not (color_mode == "ToneMap" and is_input_hdr):
+                    cmd.extend(["-pix_fmt", PIX_FMT_10BIT])
+                
+                cmd.extend(color_args)
                 
                 if enc_name == "av1_qsv":
                     cmd.extend(["-global_quality:v", str(best_icq), "-preset", enc_preset, "-look_ahead", "1"])
@@ -361,87 +413,171 @@ class EncoderWorker(BaseWorker):
                         cmd.extend(["-preanalysis", "true"])
 
                 # 音频和字幕
-                cmd.extend(audio_args)
-                cmd.extend(["-c:s", sub_codec])
-                
-                # 映射所有流
-                cmd.extend(["-map", "0:v:0", "-map", "0:a", "-map", "0:s?"])
-                
-                # 输出文件
-                cmd.append(temp_file)
+                ffmpeg_success = False
+                retry_without_subtitles = False
+                return_code = -1
+                err_log = []
 
-                # [Fix] WinError 87 修复：过滤掉 cmd 中的空字符串和非字符串对象
-                cmd = [str(arg) for arg in cmd if str(arg).strip()]
+                for attempt in range(2):
+                    if not self.is_running:
+                        break
 
-                encode_start_time = time.time()
-                encode_paused_time = 0.0
-                try:
-                    # [Fix] 使用 text=True (universal_newlines) 让 Python 处理 \r 换行符，解决进度条不更新问题
-                    # 同时指定 encoding='utf-8' errors='replace' 防止编码报错
-                    with subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, 
-                                          startupinfo=startupinfo, creationflags=get_subprocess_flags(),
-                                          text=True, encoding='utf-8', errors='replace') as proc:
-                        self.current_proc = proc
-                        err_log = []
-                        max_percent = 0
-                        while True:
-                            if not self.is_running:
-                                try: proc.kill()
+                    cmd = [ffmpeg, "-y", "-hide_banner"]
+                    
+                    # 硬件解码加速 (如果适用)
+                    if self.config.get('hw_decoding', True):
+                        if enc_name == "av1_qsv":
+                            cmd.extend(["-init_hw_device", "qsv=hw", "-filter_hw_device", "hw", "-hwaccel", "qsv", "-v", "verbose"])
+                        elif enc_name == "av1_nvenc":
+                            cmd.extend(["-hwaccel", "auto", "-v", "verbose"])
+                        elif enc_name == "av1_amf":
+                            cmd.extend(["-hwaccel", "auto", "-v", "verbose"])
+                    else:
+                        cmd.extend(["-v", "verbose"])
+
+                    cmd.extend(["-i", std_filepath])
+                    
+                    # 视频色彩控制参数
+                    color_mode = self.config.get('color_mode', 'Auto')
+                    is_input_hdr = (color_transfer in ['smpte2084', 'arib-std-b67'] or 'bt2020' in color_space or 'bt2020' in color_primaries or has_dovi)
+                    
+                    color_args = []
+                    if color_mode == "Auto" and is_input_hdr:
+                        if attempt == 0:
+                            self.log_signal.emit("🌈 [色彩同调] 检测到 HDR/杜比视界 源视频，已自动激活色彩无损保留术式。", "success")
+                        primaries = color_primaries if color_primaries else "bt2020"
+                        transfer = color_transfer if color_transfer else "smpte2084"
+                        space = color_space if color_space else "bt2020nc"
+                        color_args.extend(["-color_primaries", primaries, "-color_trc", transfer, "-colorspace", space])
+                    elif color_mode == "ToneMap" and is_input_hdr:
+                        if attempt == 0:
+                            self.log_signal.emit("🔮 [色彩同调] 检测到 HDR/杜比视界 源视频，已施展高精度 32-bit 色调映射术式 (HDR to SDR)...", "success")
+                        color_args.extend(["-vf", "zscale=t=linear:npl=100,format=gbrpf32,zscale=p=bt709:t=bt709:m=bt709:r=limited,format=yuv420p10le"])
+                    elif color_mode == "ToneMap" and not is_input_hdr:
+                        if attempt == 0:
+                            self.log_signal.emit("⚠️ [色彩同调] 虽启用了色调映射，但源视频并非 HDR/杜比视界，已跳过映射滤镜。", "warning")
+
+                    # 视频编码参数
+                    cmd.extend(["-c:v", enc_name])
+                    if not (color_mode == "ToneMap" and is_input_hdr):
+                        cmd.extend(["-pix_fmt", PIX_FMT_10BIT])
+                    
+                    cmd.extend(color_args)
+                    
+                    if enc_name == "av1_qsv":
+                        cmd.extend(["-global_quality:v", str(best_icq), "-preset", enc_preset, "-look_ahead", "1"])
+                    elif enc_name == "av1_nvenc":
+                        cmd.extend(["-cq", str(best_icq), "-preset", enc_preset, "-b:v", "0"])
+                        if self.config.get('nv_aq', True):
+                            cmd.extend(["-spatial-aq", "1", "-temporal-aq", "1"])
+                    elif enc_name == "av1_amf":
+                        cmd.extend(["-usage", "transcoding", "-quality", enc_preset, "-rc", "vbr_latency", "-qvbr_quality_level", str(best_icq)])
+                        if self.config.get('nv_aq', True): # 复用 nv_aq 开关作为 AMD PreAnalysis
+                            cmd.extend(["-preanalysis", "true"])
+
+                    # 音频
+                    cmd.extend(audio_args)
+                    
+                    # 字幕处理：若重试则丢弃字幕
+                    if retry_without_subtitles:
+                        cmd.extend(["-sn"])
+                        cmd.extend(["-map", "0:v:0", "-map", "0:a"])
+                    else:
+                        cmd.extend(["-c:s", sub_codec])
+                        cmd.extend(["-map", "0:v:0", "-map", "0:a", "-map", "0:s?"])
+                    
+                    # 输出文件
+                    cmd.append(temp_file)
+
+                    # [Fix] WinError 87 修复：过滤掉 cmd 中的空字符串和非字符串对象
+                    cmd = [str(arg) for arg in cmd if str(arg).strip()]
+
+                    encode_start_time = time.time()
+                    encode_paused_time = 0.0
+                    try:
+                        # [Fix] 使用 text=True (universal_newlines) 让 Python 处理 \r 换行符，解决进度条不更新问题
+                        # 同时指定 encoding='utf-8' errors='replace' 防止编码报错
+                        with subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, 
+                                              startupinfo=startupinfo, creationflags=get_subprocess_flags(),
+                                              text=True, encoding='utf-8', errors='replace') as proc:
+                            self.current_proc = proc
+                            err_log = []
+                            max_percent = 0
+                            while True:
+                                if not self.is_running:
+                                    try: proc.kill()
+                                    except: pass
+                                    break
+                                if self.is_paused:
+                                    p_start = time.time()
+                                    while self.is_paused:
+                                        if not self.is_running: break
+                                        time.sleep(0.1)
+                                    p_dt = time.time() - p_start
+                                    encode_paused_time += p_dt
+                                    file_paused_time += p_dt
+
+                                line = proc.stdout.readline()
+                                if not line and proc.poll() is not None: break
+                                if line:
+                                    d = line.strip() # 已经是字符串，无需 safe_decode
+                                    
+                                    # [Fix] 尝试从输出中补获时长 (防止元数据获取失败导致进度条不走)
+                                    if duration_sec <= 0 and "Duration:" in d:
+                                        dur_match = re.search(r"Duration:\s*(\d+:\d+:\d+(?:\.\d+)?)", d)
+                                        if dur_match:
+                                            duration_sec = time_str_to_seconds(dur_match.group(1))
+
+                                    if "time=" in d and duration_sec > 0:
+                                        t_match = re.search(r"time=\s*(\d+:\d+:\d+(?:\.\d+)?)", d)
+                                        if t_match:
+                                            current_sec = time_str_to_seconds(t_match.group(1))
+                                            percent = min(100, int((current_sec / duration_sec) * 100))
+                                            if percent > max_percent:
+                                                max_percent = percent
+                                                self.progress_current_signal.emit(percent)
+                                                self.file_progress_signal.emit(filepath, percent)
+                                            
+                                            s_match = re.search(r"speed=\s*([\d.]+)x", d)
+                                            if s_match:
+                                                try:
+                                                    speed_val = float(s_match.group(1))
+                                                    if speed_val > 0:
+                                                        remaining = (duration_sec - current_sec) / speed_val
+                                                        m, s = divmod(int(remaining), 60)
+                                                        h, m = divmod(m, 60)
+                                                        eta = f"ETA: {h:02d}:{m:02d}:{s:02d}"
+                                                        self.file_stats_signal.emit(filepath, f"{speed_val:.2f}x", eta)
+                                                except Exception: pass
+
+                                    if "frame=" not in d:
+                                        err_log.append(d)
+                                        if len(err_log) > 20: err_log.pop(0)
+                            return_code = proc.returncode
+                    except Exception as e:
+                        self.log_signal.emit(tr("log.encoder.ffmpeg_exception", error=e), "error")
+                        return_code = -999
+                        break
+                    finally:
+                        self.current_proc = None
+                        encode_duration = time.time() - encode_start_time - encode_paused_time
+
+                    if not self.is_running:
+                        break
+
+                    if return_code != 0:
+                        if not retry_without_subtitles:
+                            self.log_signal.emit("⚠️ 转码术式异常中止，检测到可能由于字幕流损坏或不兼容（如空包等）导致。正在启动备用净化方案：丢弃所有字幕流进行二次炼成...", "warning")
+                            retry_without_subtitles = True
+                            # 清理本次失败的临时文件
+                            lp_temp = to_long_path(temp_file)
+                            if os.path.exists(lp_temp):
+                                try: os.remove(lp_temp)
                                 except: pass
-                                break
-                            if self.is_paused:
-                                p_start = time.time()
-                                while self.is_paused:
-                                    if not self.is_running: break
-                                    time.sleep(0.1)
-                                p_dt = time.time() - p_start
-                                encode_paused_time += p_dt
-                                file_paused_time += p_dt
-
-                            line = proc.stdout.readline()
-                            if not line and proc.poll() is not None: break
-                            if line:
-                                d = line.strip() # 已经是字符串，无需 safe_decode
-                                
-                                # [Fix] 尝试从输出中补获时长 (防止元数据获取失败导致进度条不走)
-                                if duration_sec <= 0 and "Duration:" in d:
-                                    dur_match = re.search(r"Duration:\s*(\d+:\d+:\d+(?:\.\d+)?)", d)
-                                    if dur_match:
-                                        duration_sec = time_str_to_seconds(dur_match.group(1))
-
-                                if "time=" in d and duration_sec > 0:
-                                    t_match = re.search(r"time=\s*(\d+:\d+:\d+(?:\.\d+)?)", d)
-                                    if t_match:
-                                        current_sec = time_str_to_seconds(t_match.group(1))
-                                        percent = min(100, int((current_sec / duration_sec) * 100))
-                                        if percent > max_percent:
-                                            max_percent = percent
-                                            self.progress_current_signal.emit(percent)
-                                            self.file_progress_signal.emit(filepath, percent)
-                                        
-                                        s_match = re.search(r"speed=\s*([\d.]+)x", d)
-                                        if s_match:
-                                            try:
-                                                speed_val = float(s_match.group(1))
-                                                if speed_val > 0:
-                                                    remaining = (duration_sec - current_sec) / speed_val
-                                                    m, s = divmod(int(remaining), 60)
-                                                    h, m = divmod(m, 60)
-                                                    eta = f"ETA: {h:02d}:{m:02d}:{s:02d}"
-                                                    self.file_stats_signal.emit(filepath, f"{speed_val:.2f}x", eta)
-                                            except Exception: pass
-
-                                if "frame=" not in d:
-                                    err_log.append(d)
-                                    if len(err_log) > 20: err_log.pop(0)
-                        return_code = proc.returncode
-                except Exception as e:
-                    self.log_signal.emit(tr("log.encoder.ffmpeg_exception", error=e), "error")
-                    self.file_status_signal.emit(filepath, "error")
-                    continue
-                finally:
-                    self.current_proc = None
-                    encode_duration = time.time() - encode_start_time - encode_paused_time
+                            continue
+                    else:
+                        ffmpeg_success = True
+                        break
 
                 if not self.is_running:
                     lp_temp = to_long_path(temp_file)
@@ -449,7 +585,7 @@ class EncoderWorker(BaseWorker):
                     break
 
                 lp_temp = to_long_path(temp_file)
-                if return_code == 0 and os.path.exists(lp_temp) and os.path.getsize(lp_temp) > 1024:
+                if ffmpeg_success and os.path.exists(lp_temp) and os.path.getsize(lp_temp) > 1024:
                     try:
                         lp_dest = to_long_path(final_dest)
                         abs_src = os.path.normcase(os.path.abspath(filepath))
@@ -522,7 +658,8 @@ class EncoderWorker(BaseWorker):
                 
                 if self.is_running:
                     self.log_signal.emit(tr("log.encoder.cooling_down"), "info")
-                    time.sleep(GPU_COOLING_TIME)
+                    cooling_time = int(self.config.get('gpu_cooling_time', 3))
+                    time.sleep(cooling_time)
 
             if self.is_running:
                 self.log_signal.emit(tr("log.encoder.all_done"), "success")
@@ -534,5 +671,18 @@ class EncoderWorker(BaseWorker):
         except Exception as e:
             self.log_signal.emit(tr("log.encoder.fatal_error", error=e), "error")
         finally:
+            # 自动静默清理当前编码任务产生的 ab-av1 临时文件夹和同名 .temp.mkv 文件
+            try:
+                if cache_dir and os.path.exists(cache_dir):
+                    for entry in os.listdir(cache_dir):
+                        full_path = os.path.join(cache_dir, entry)
+                        # 1. 清除 ab-av1 产生的临时目录 (通常以 .ab-av1- 开头)
+                        if os.path.isdir(full_path) and entry.startswith(".ab-av1-"):
+                            shutil.rmtree(full_path, ignore_errors=True)
+                        # 2. 清除最终未正常清理的临时视频块 (.temp.mkv)
+                        elif os.path.isfile(full_path) and entry.endswith(".temp.mkv"):
+                            os.remove(full_path)
+            except Exception:
+                pass
             self.set_system_awake(False)
             self.finished_signal.emit()

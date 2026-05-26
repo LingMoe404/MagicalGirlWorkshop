@@ -44,6 +44,10 @@ translation = {
     "home.settings_card.loudnorm_mode.auto": "Harmonic Chant (Smart Bypass)", # Auto (Auto: 5.1/7.1 do not normalize)
     "home.settings_card.loudnorm_mode.always": "Unified Chant (Forced Sync)", # Force Enable (Always)
     "home.settings_card.loudnorm_mode.disable": "Silent Chant (Original Form)", # Disable
+    "home.settings_card.color_mode.label": "Color Vision (Color Mode)",
+    "home.settings_card.color_mode.auto": "Preserve HDR (Auto)",
+    "home.settings_card.color_mode.tonemap": "Color Harmony (Tone Map)",
+    "home.settings_card.color_mode.sdr": "Force regular SDR (Force SDR)",
     
     # Action Card
     "home.action_card.save_mode.save_as": "Create New World (Save As)", # Save As
@@ -284,4 +288,34 @@ translation = {
     "log.encoder.info_multichannel": " -> Multi-channel ({channels}ch) detected, maintaining status quo.", # Multichannel Info Log
     "log.encoder.info_loudnorm_enabled": " -> Sound Field Harmonization (Loudnorm): Enabled ({mode})", # Loudnorm Enabled Log
     "log.encoder.info_loudnorm_skipped": " -> Sound Field Harmonization (Loudnorm): Skipped ({mode})", # Loudnorm Skipped Log
-}
+    
+    # Settings Interface
+    "settings.title": "Settings", # System settings title
+    "settings.gpu_timeout_label": "Hardware Probing Timeout (s)", # GPU detection timeout
+    "settings.gpu_cooling_time_label": "GPU Cooling Interval (s)",
+    "settings.hw_decoding_label": "GPU Decoding Acceleration",
+    "settings.auto_clean_label": "Auto Clean Cache on Startup",
+    "settings.thread_limit_label": "Metadata Concurrency Limit",
+    "settings.log_cap_label": "Log Buffer Retention Cap",
+    "settings.save_button": "💾 Save Settings", # Save settings button
+
+    # Quick Presets Row
+    "home.settings_card.presets_title": "Grimoire Templates:",
+    "home.settings_card.preset_light": "Light Compression",
+    "home.settings_card.preset_balanced": "Golden Balance",
+    "home.settings_card.preset_heavenly": "Temple Archive",
+
+    # Preset Success InfoBars
+    "infobar.success.preset_light.title": "Light Template Activated",
+    "infobar.success.preset_light.content": "Quality aligned to 91.0 (Highly compressed, perfect for mobile Crystal playback)",
+    "infobar.success.preset_balanced.title": "Golden Balance Activated",
+    "infobar.success.preset_balanced.content": "Quality aligned to 93.0 (黄金 ratio visually lossless, excellent size reduction)",
+    "infobar.success.preset_heavenly.title": "Temple Archive Activated",
+    "infobar.success.preset_heavenly.content": "Quality aligned to 95.5 (Temple-grade ultra HD lossless archive template)",
+
+    # Close Warning Dialog
+    "dialog.close_warning.title": "⚠️ Barrier Force Severed Warning",
+    "dialog.close_warning.content": "The alchemy ritual (transcoding) is currently in a state of miracle creation. Forcibly closing the terminal might cause a mana backflow (FFmpeg ghost process remains in background).\n\nAre you sure you want to break the pact and exit immediately?",
+    "dialog.close_warning.yes_button": "Confirm Break (Quit)",
+    "dialog.close_warning.cancel_button": "Maintain Ritual (Stay)",
+}

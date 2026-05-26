@@ -42,8 +42,12 @@ translation = {
     "home.settings_card.save_button": "💾 銘刻記憶 (Save)", # 保存設定
     "home.settings_card.reset_button": "↩️ 記憶回溯 (Reset)", # 重置設定
     "home.settings_card.loudnorm_mode.auto": "調和之詠 (智慧繞行多聲道)", # 自動 (Auto: 5.1/7.1 不進行響度均衡)
-    "home.settings_card.loudnorm_mode.always": "歸一之詠 (強制同調萬物聲)", # 強制開啟 (Always)
+    "home.settings_card.loudnorm_mode.always": "歸一之詠 (強制同调萬物聲)", # 強制開啟 (Always)
     "home.settings_card.loudnorm_mode.disable": "寂靜之詠 (保留原始聲之貌)", # 禁用 (Disable)
+    "home.settings_card.color_mode.label": "色彩幻境 (Color Mode)",
+    "home.settings_card.color_mode.auto": "自動保留 HDR (Auto)",
+    "home.settings_card.color_mode.tonemap": "色彩同調 SDR (Tone Map)",
+    "home.settings_card.color_mode.sdr": "強制常規 SDR (Force SDR)",
     
     # Action Card
     "home.action_card.save_mode.save_as": "開闢新世界 (Save As)", # 另存為
@@ -284,4 +288,34 @@ translation = {
     "log.encoder.info_multichannel": " -> 感知到多重聲場 ({channels}ch)，已保持原樣。", # 多聲道資訊日誌
     "log.encoder.info_loudnorm_enabled": " -> 聲場調和 (Loudnorm): 啟用 ({mode})", # 響度均衡啟用日誌
     "log.encoder.info_loudnorm_skipped": " -> 聲場調和 (Loudnorm): 跳過 ({mode})", # 響度均衡跳過日誌
-}
+    
+    # Settings Interface
+    "settings.title": "禁忌設定 (Settings)", # 系統設置標題
+    "settings.gpu_timeout_label": "核心探測超時 (秒)", # 硬體探測超時
+    "settings.gpu_cooling_time_label": "核心冷卻間隔 (秒)", # 核心冷卻間隔
+    "settings.hw_decoding_label": "硬體解碼超載術式 (GPU Decoding)", # 硬體解碼
+    "settings.auto_clean_label": "法陣開啟時自動肅清殘渣 (Auto Clean)", # 自動清理
+    "settings.thread_limit_label": "視界元數據讀取併發限制 (Thread Limit)", # 綫程限制
+    "settings.log_cap_label": "虛空日誌保存上限 (Log Cap)", # 日誌上限
+    "settings.save_button": "💾 刻印設定 (Save)", # 保存設置按鈕
+
+    # Quick Presets Row
+    "home.settings_card.presets_title": "魔導書快捷模版 (Templates):",
+    "home.settings_card.preset_light": "輕量洗版術",
+    "home.settings_card.preset_balanced": "黃金均衡法則",
+    "home.settings_card.preset_heavenly": "聖殿至高典藏",
+
+    # Preset Success InfoBars
+    "infobar.success.preset_light.title": "已啟用輕量洗版術",
+    "infobar.success.preset_light.content": "畫質已同調為 91.0 (深度壓縮影片體積，適合行動水晶遊閱)",
+    "infobar.success.preset_balanced.title": "已啟用黃金均衡法則",
+    "infobar.success.preset_balanced.content": "畫質已同調為 93.0 (完美無損視界觀感，體積壓縮表現極佳)",
+    "infobar.success.preset_heavenly.title": "已啟用聖殿至高典藏",
+    "infobar.success.preset_heavenly.content": "畫質已同調為 95.5 (聖殿發燒級極高清無損收藏模版)",
+
+    # Close Warning Dialog
+    "dialog.close_warning.title": "⚠️ 結界強行切斷警告",
+    "dialog.close_warning.content": "鍊成儀式（轉碼）正處於奇蹟發生階段。強行關閉終端可能導致魔力逆流（後台殘留 FFmpeg 幽靈進程）。\n\n確定要立即破棄契約並退出嗎？",
+    "dialog.close_warning.yes_button": "確定破棄 (Quit)",
+    "dialog.close_warning.cancel_button": "維持儀式 (Stay)",
+}

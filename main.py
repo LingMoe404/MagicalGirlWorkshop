@@ -20,7 +20,15 @@ if __name__ == '__main__':
     # 启用高分屏支持
     QApplication.setHighDpiScaleFactorRoundingPolicy(Qt.HighDpiScaleFactorRoundingPolicy.PassThrough)
 
+    from PySide6.QtGui import QFont
+
     app = QApplication(sys.argv)
+    
+    # 注入全局优雅字体 (解决部分高分屏系统默认字体发虚或显示通用锯齿字体问题)
+    global_font = QFont("Microsoft YaHei UI", 9)
+    global_font.setStyleStrategy(QFont.StyleStrategy.PreferAntialias)
+    app.setFont(global_font)
+
     w = MainWindow()
     w.show()
     sys.exit(app.exec())

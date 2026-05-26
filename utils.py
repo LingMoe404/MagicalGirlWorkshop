@@ -61,10 +61,10 @@ def to_long_path(path):
 
 def get_default_cache_dir():
     """ 获取默认缓存目录 (软件根目录/cache) """
-    base_path = os.path.dirname(sys.executable) if getattr(sys, 'frozen', False) else os.path.abspath(".")
+    base_path = os.path.dirname(sys.executable) if getattr(sys, 'frozen', False) else os.path.dirname(os.path.abspath(__file__))
     return os.path.join(base_path, "cache")
 
 def get_config_path():
     """ 获取配置文件路径 (exe同级) """
-    base_path = os.path.dirname(sys.executable) if getattr(sys, 'frozen', False) else os.path.abspath(".")
+    base_path = os.path.dirname(sys.executable) if getattr(sys, 'frozen', False) else os.path.dirname(os.path.abspath(__file__))
     return os.path.join(base_path, "config.ini")

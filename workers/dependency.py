@@ -1,9 +1,10 @@
 import os
 import subprocess
+import configparser
 from PySide6.QtCore import Signal
 
 from i18n.translator import tr
-from utils import tool_path, get_subprocess_flags, safe_decode
+from utils import tool_path, get_subprocess_flags, safe_decode, get_config_path
 from config import PIX_FMT_10BIT, PIX_FMT_8BIT
 from .base import BaseWorker
 
@@ -19,6 +20,18 @@ class DependencyWorker(BaseWorker):
 
     def run(self):
         """ 线程的执行体，依次检查文件依赖和硬件编码器。 """
+        # 加载配置中的超时时间
+        gpu_timeout = 5
+        cfg_path = get_config_path()
+        if os.path.exists(cfg_path):
+            try:
+                cfg = configparser.ConfigParser()
+                cfg.read(cfg_path, encoding='utf-8')
+                if "Settings" in cfg:
+                    gpu_timeout = int(cfg["Settings"].get("gpu_check_timeout", 5))
+            except Exception:
+                pass
+
         missing = []
         dependencies = {
             "ffmpeg.exe": tr("dependency.ffmpeg_desc"),
@@ -64,7 +77,7 @@ class DependencyWorker(BaseWorker):
                          "-c:v", "av1_qsv", "-frames:v", "1", "-f", "null", "-"],
                         stdout=subprocess.PIPE, stderr=subprocess.PIPE, creationflags=get_subprocess_flags()
                     ) as proc:
-                        _, stderr = proc.communicate(timeout=5)
+                        _, stderr = proc.communicate(timeout=gpu_timeout)
                         if proc.returncode == 0: has_qsv = True
                         else:
                             err_msg = safe_decode(stderr)
@@ -85,7 +98,7 @@ class DependencyWorker(BaseWorker):
                          "-c:v", "av1_nvenc", "-frames:v", "1", "-f", "null", "-"],
                         stdout=subprocess.PIPE, stderr=subprocess.PIPE, creationflags=get_subprocess_flags()
                     ) as proc:
-                        _, stderr = proc.communicate(timeout=5)
+                        _, stderr = proc.communicate(timeout=gpu_timeout)
                         if proc.returncode == 0: has_nvenc = True
                         else:
                             err_msg = safe_decode(stderr)
@@ -105,7 +118,7 @@ class DependencyWorker(BaseWorker):
                                      "-c:v", "hevc_nvenc", "-frames:v", "1", "-f", "null", "-"],
                                     stdout=subprocess.PIPE, stderr=subprocess.PIPE, creationflags=get_subprocess_flags()
                                 ) as proc_hevc:
-                                    proc_hevc.communicate(timeout=5)
+                                    proc_hevc.communicate(timeout=gpu_timeout)
                                     if proc_hevc.returncode == 0:
                                         self.log_signal.emit(tr("log.dependency.nvenc_unsupported_gpu"), "warning")
                 except Exception as e:
@@ -127,7 +140,7 @@ class DependencyWorker(BaseWorker):
                          "-frames:v", "1", "-f", "null", "-"],
                         stdout=subprocess.PIPE, stderr=subprocess.PIPE, creationflags=get_subprocess_flags()
                     ) as proc:
-                        _, stderr = proc.communicate(timeout=5)
+                        _, stderr = proc.communicate(timeout=gpu_timeout)
                         if proc.returncode == 0: has_amf = True
                         else:
                             err_msg = safe_decode(stderr)
