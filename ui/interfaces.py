@@ -8,9 +8,9 @@ from PySide6.QtGui import QIcon, QColor, QDesktopServices
 from qfluentwidgets import (SubtitleLabel, StrongBodyLabel, BodyLabel,
                             PushButton, PrimaryPushButton, TextEdit, ComboBox, CardWidget, InfoBar,
                             InfoBarPosition, setTheme, Theme, FluentIcon, setThemeColor, isDarkTheme, ImageLabel,
-                            IconWidget)
+                            IconWidget, SpinBox, SwitchButton)
 
-from config import VERSION
+from config import VERSION, VIDEO_EXTS
 from i18n.translator import tr, translator
 from utils import resource_path
 from workers.analyzer import AnalysisWorker
@@ -160,14 +160,18 @@ class MediaInfoInterface(QWidget):
             self.addFileRequested.emit(self.current_path)
 
     def dragEnterEvent(self, event):
-        """ 处理文件拖入事件，高亮拖放区域。 """
+        """ 处理文件拖入事件，过滤并高亮视频拖放区域。 """
         if event.mimeData().hasUrls():
-            event.accept()
-            bg_color = "#2D2023" if isDarkTheme() else "#FFF0F3"
-            self.drop_card.setStyleSheet(f"CardWidget {{ border: 2px dashed #FB7299; background-color: {bg_color}; }}")
-            self.eye_icon.setIcon(FluentIcon.ZOOM_IN)
-        else:
-            event.ignore()
+            urls = event.mimeData().urls()
+            # 至少包含一个可识别的视频文件
+            has_video = any(u.toLocalFile().lower().endswith(VIDEO_EXTS) for u in urls)
+            if has_video:
+                event.accept()
+                bg_color = "#2D2023" if isDarkTheme() else "#FFF0F3"
+                self.drop_card.setStyleSheet(f"CardWidget {{ border: 2px dashed #FB7299; background-color: {bg_color}; }}")
+                self.eye_icon.setIcon(FluentIcon.ZOOM_IN)
+                return
+        event.ignore()
 
     def dragLeaveEvent(self, event):
         """ 处理文件拖出事件，恢复拖放区域样式。 """
@@ -175,9 +179,9 @@ class MediaInfoInterface(QWidget):
         self.eye_icon.setIcon(FluentIcon.SEARCH)
 
     def dropEvent(self, event):
-        """ 处理文件放下事件，开始分析文件。 """
+        """ 处理文件放下事件，只开始分析视频文件。 """
         self.drop_card.setStyleSheet("")
-        files = [u.toLocalFile() for u in event.mimeData().urls()]
+        files = [u.toLocalFile() for u in event.mimeData().urls() if u.toLocalFile().lower().endswith(VIDEO_EXTS)]
         if files:
             self.analyze_file(files[0])
 
@@ -398,6 +402,192 @@ class ProfileInterface(QWidget):
         win = self.window()
         if hasattr(win, 'show_welcome_wizard'):
             win.show_welcome_wizard()
+
+
+class SettingsInterface(QWidget):
+    """ “系统设置”界面，用于配置全局行为参数。 """
+    saveRequested = Signal(dict)
+
+    def __init__(self, parent=None):
+        super().__init__(parent=parent)
+        self.setObjectName("settingsInterface")
+        self.init_ui()
+        self.retranslate_ui()
+
+    def init_ui(self):
+        """ 初始化界面布局和组件。 """
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(30, 30, 30, 30)
+        layout.setSpacing(20)
+
+        header_layout = QHBoxLayout()
+        self.title = SubtitleLabel(self)
+        header_layout.addWidget(self.title)
+        header_layout.addStretch(1)
+
+        self.combo_lang = ComboBox(self)
+        self.combo_lang.setMinimumWidth(120)
+        lang_map = translator.get_language_map()
+        for lang_code, lang_name in lang_map.items():
+            self.combo_lang.addItem(lang_name, userData=lang_code)
+        header_layout.addWidget(self.combo_lang)
+
+        self.combo_theme = ComboBox(self)
+        self.combo_theme.setMinimumWidth(140)
+        self.combo_theme.addItem(tr("home.header.theme_combo.auto"), icon=FluentIcon.SYNC, userData="Auto")
+        self.combo_theme.addItem(tr("home.header.theme_combo.light"), icon=FluentIcon.BRIGHTNESS, userData="Light")
+        self.combo_theme.addItem(tr("home.header.theme_combo.dark"), icon=FluentIcon.QUIET_HOURS, userData="Dark")
+        header_layout.addWidget(self.combo_theme)
+
+        layout.addLayout(header_layout)
+
+        self.card = CardWidget(self)
+        card_layout = QVBoxLayout(self.card)
+        card_layout.setContentsMargins(20, 20, 20, 20)
+        card_layout.setSpacing(15)
+
+        # GPU 检测超时设置
+        gpu_row = QHBoxLayout()
+        self.lbl_gpu_timeout = BodyLabel("硬件探测超时 (秒)", self)
+        self.spin_gpu_timeout = SpinBox(self.card)
+        self.spin_gpu_timeout.setRange(1, 60)
+        self.spin_gpu_timeout.setMinimumHeight(36)
+        gpu_row.addWidget(self.lbl_gpu_timeout)
+        gpu_row.addStretch(1)
+        gpu_row.addWidget(self.spin_gpu_timeout)
+        card_layout.addLayout(gpu_row)
+
+        # GPU 冷却时间设置
+        cooling_row = QHBoxLayout()
+        self.lbl_cooling_time = BodyLabel("核心冷却间隔 (秒)", self)
+        self.spin_cooling_time = SpinBox(self.card)
+        self.spin_cooling_time.setRange(0, 30)
+        self.spin_cooling_time.setMinimumHeight(36)
+        cooling_row.addWidget(self.lbl_cooling_time)
+        cooling_row.addStretch(1)
+        cooling_row.addWidget(self.spin_cooling_time)
+        card_layout.addLayout(cooling_row)
+
+        # 硬件解码加速开关
+        decoding_row = QHBoxLayout()
+        self.lbl_hw_decoding = BodyLabel("硬件解码超载术式 (GPU Decoding Acceleration)", self)
+        self.sw_hw_decoding = SwitchButton("开启", self.card)
+        self.sw_hw_decoding.setOnText("开启")
+        self.sw_hw_decoding.setOffText("关闭")
+        decoding_row.addWidget(self.lbl_hw_decoding)
+        decoding_row.addStretch(1)
+        decoding_row.addWidget(self.sw_hw_decoding)
+        card_layout.addLayout(decoding_row)
+
+        # 启动时自动肃清缓存
+        clean_row = QHBoxLayout()
+        self.lbl_auto_clean = BodyLabel("法阵开启时自动肃清残渣 (Auto Clean on Startup)", self)
+        self.sw_auto_clean = SwitchButton("开启", self.card)
+        self.sw_auto_clean.setOnText("开启")
+        self.sw_auto_clean.setOffText("关闭")
+        clean_row.addWidget(self.lbl_auto_clean)
+        clean_row.addStretch(1)
+        clean_row.addWidget(self.sw_auto_clean)
+        card_layout.addLayout(clean_row)
+
+        # 元数据并发读取限制
+        thread_row = QHBoxLayout()
+        self.lbl_thread_limit = BodyLabel("视界元数据读取并发限制 (Thread Limit)", self)
+        self.spin_thread_limit = SpinBox(self.card)
+        self.spin_thread_limit.setRange(1, 10)
+        self.spin_thread_limit.setMinimumHeight(36)
+        thread_row.addWidget(self.lbl_thread_limit)
+        thread_row.addStretch(1)
+        thread_row.addWidget(self.spin_thread_limit)
+        card_layout.addLayout(thread_row)
+
+        # 日志行数限制
+        logcap_row = QHBoxLayout()
+        self.lbl_log_cap = BodyLabel("虚空日志保存上限 (Log Cap)", self)
+        self.combo_log_cap = ComboBox(self.card)
+        self.combo_log_cap.addItem("1000 行", userData="1000")
+        self.combo_log_cap.addItem("2000 行 (默认)", userData="2000")
+        self.combo_log_cap.addItem("5000 行", userData="5000")
+        self.combo_log_cap.addItem("10000 行", userData="10000")
+        self.combo_log_cap.setMinimumHeight(36)
+        self.combo_log_cap.setMinimumWidth(160)
+        logcap_row.addWidget(self.lbl_log_cap)
+        logcap_row.addStretch(1)
+        logcap_row.addWidget(self.combo_log_cap)
+        card_layout.addLayout(logcap_row)
+
+        layout.addWidget(self.card)
+        layout.addStretch(1)
+
+        self.btn_save = PrimaryPushButton(FluentIcon.SAVE, "保存设置", self)
+        self.btn_save.setMinimumHeight(40)
+        self.btn_save.clicked.connect(self.on_save_clicked)
+        layout.addWidget(self.btn_save)
+
+    def retranslate_ui(self):
+        """ 根据当前语言重新翻译界面文本。 """
+        self.title.setText(tr("settings.title"))
+        self.lbl_gpu_timeout.setText(tr("settings.gpu_timeout_label"))
+        self.lbl_cooling_time.setText(tr("settings.gpu_cooling_time_label") or "核心冷却间隔 (秒)")
+        self.lbl_hw_decoding.setText(tr("settings.hw_decoding_label") or "硬件解码超载术式 (GPU Decoding)")
+        self.lbl_auto_clean.setText(tr("settings.auto_clean_label") or "法阵开启时自动肃清残渣 (Auto Clean)")
+        self.lbl_thread_limit.setText(tr("settings.thread_limit_label") or "视界元数据读取并发限制 (Thread Limit)")
+        self.lbl_log_cap.setText(tr("settings.log_cap_label") or "虚空日志保存上限 (Log Cap)")
+        self.btn_save.setText(tr("settings.save_button"))
+        self.combo_theme.setItemText(0, tr("home.header.theme_combo.auto"))
+        self.combo_theme.setItemText(1, tr("home.header.theme_combo.light"))
+        self.combo_theme.setItemText(2, tr("home.header.theme_combo.dark"))
+
+    def on_save_clicked(self):
+        """ 发送请求保存设置。 """
+        settings = {
+            "gpu_check_timeout": str(self.spin_gpu_timeout.value()),
+            "gpu_cooling_time": str(self.spin_cooling_time.value()),
+            "hw_decoding": str(self.sw_hw_decoding.isChecked()),
+            "auto_clean_on_launch": str(self.sw_auto_clean.isChecked()),
+            "thread_limit": str(self.spin_thread_limit.value()),
+            "log_cap": self.combo_log_cap.currentData(),
+            "theme": self.combo_theme.currentData(),
+            "language": self.combo_lang.currentData()
+        }
+        self.saveRequested.emit(settings)
+
+    def load_settings(self, settings_dict):
+        """ 加载设置到界面控件。 """
+        self.spin_gpu_timeout.setValue(int(settings_dict.get("gpu_check_timeout", 20)))
+        
+        # 语言
+        lang = settings_dict.get("language", "zh_CN")
+        idx = self.combo_lang.findData(lang)
+        if idx >= 0: self.combo_lang.setCurrentIndex(idx)
+        
+        # 主题
+        theme = settings_dict.get("theme", "Auto")
+        theme_map = {"Auto": 0, "Light": 1, "Dark": 2}
+        t_idx = theme_map.get(theme, 0)
+        self.combo_theme.setCurrentIndex(t_idx)
+
+        # 核心冷却间隔
+        cooling_time = settings_dict.get("gpu_cooling_time", "3")
+        self.spin_cooling_time.setValue(int(cooling_time))
+
+        # 硬件解码超载术式
+        hw_decoding = settings_dict.get("hw_decoding", "True")
+        self.sw_hw_decoding.setChecked(hw_decoding == "True")
+
+        # 自动肃清残渣
+        auto_clean = settings_dict.get("auto_clean_on_launch", "True")
+        self.sw_auto_clean.setChecked(auto_clean == "True")
+
+        # 元数据读取并发数
+        thread_limit = settings_dict.get("thread_limit", "4")
+        self.spin_thread_limit.setValue(int(thread_limit))
+
+        # 虚空日志保存上限
+        log_cap = settings_dict.get("log_cap", "2000")
+        idx_log = self.combo_log_cap.findData(log_cap)
+        if idx_log >= 0:
+            self.combo_log_cap.setCurrentIndex(idx_log)
 
 
 class CreditsInterface(QWidget):

@@ -49,11 +49,28 @@ class DurationWorker(BaseWorker):
             duration_sec = float(data.get('format', {}).get('duration', 0))
             codec = ""
             channels = None
+            pix_fmt = ""
+            color_space = ""
+            color_transfer = ""
+            color_primaries = ""
+            has_dovi = False
+
             for s in data.get('streams', []):
-                if s.get('codec_type') == 'video' and not codec:
-                    # 排除封面图等干扰流，确保识别到真正的视频编码
+                if s.get('codec_type') == 'video':
                     if s.get('codec_name', '').lower() not in ['mjpeg', 'png', 'bmp']:
-                        codec = s.get('codec_name', '').lower()
+                        if not codec:
+                            codec = s.get('codec_name', '').lower()
+                        pix_fmt = s.get('pix_fmt', '')
+                        color_space = s.get('color_space', '')
+                        color_transfer = s.get('color_transfer', '')
+                        color_primaries = s.get('color_primaries', '')
+                        
+                        # 检测杜比视界元数据
+                        side_data_list = s.get('side_data_list', [])
+                        for sd in side_data_list:
+                            sd_type = sd.get('side_data_type', '')
+                            if "Dolby Vision" in sd_type or "dolby vision" in sd_type.lower():
+                                has_dovi = True
                 elif s.get('codec_type') == 'audio' and channels is None:
                     channels = int(s.get('channels', 2))
             if channels is None: channels = 2
@@ -62,7 +79,15 @@ class DurationWorker(BaseWorker):
             h, m = divmod(m, 60)
             dur_str = f"{h:02d}:{m:02d}:{s:02d}" if h > 0 else f"{m:02d}:{s:02d}"
             # 发送完整元数据包
-            self.result.emit(self.filepath, dur_str, duration_sec, {"codec": codec, "channels": channels})
+            self.result.emit(self.filepath, dur_str, duration_sec, {
+                "codec": codec,
+                "channels": channels,
+                "pix_fmt": pix_fmt,
+                "color_space": color_space,
+                "color_transfer": color_transfer,
+                "color_primaries": color_primaries,
+                "has_dovi": has_dovi
+            })
         except Exception:
             self.result.emit(self.filepath, "N/A", 0.0, {})
 

@@ -44,6 +44,10 @@ translation = {
     "home.settings_card.loudnorm_mode.auto": "调和之咏 (智能绕行多声道)", # 自动 (Auto: 5.1/7.1 不进行响度均衡)
     "home.settings_card.loudnorm_mode.always": "归一之咏 (强制同调万物声)", # 强制开启 (Always)
     "home.settings_card.loudnorm_mode.disable": "寂静之咏 (保留原始声之貌)", # 禁用 (Disable)
+    "home.settings_card.color_mode.label": "色彩幻境 (Color Mode)",
+    "home.settings_card.color_mode.auto": "自动保留 HDR (Auto)",
+    "home.settings_card.color_mode.tonemap": "色彩同调 SDR (Tone Map)",
+    "home.settings_card.color_mode.sdr": "强制常规 SDR (Force SDR)",
     
     # Action Card
     "home.action_card.save_mode.save_as": "开辟新世界 (Save As)", # 另存为
@@ -284,4 +288,35 @@ translation = {
     "log.encoder.info_multichannel": " -> 感知到多重声场 ({channels}ch)，已保持原样。", # 多声道信息日志
     "log.encoder.info_loudnorm_enabled": " -> 声场调和 (Loudnorm): 启用 ({mode})", # 响度均衡启用日志
     "log.encoder.info_loudnorm_skipped": " -> 声场调和 (Loudnorm): 跳过 ({mode})", # 响度均衡跳过日志
+    
+    # Settings Interface
+    "settings.title": "禁忌设定 (Settings)", # 系统设置标题
+    "settings.gpu_timeout_label": "核心探测超时 (秒)", # 硬件探测超时
+    "settings.gpu_cooling_time_label": "核心冷却间隔 (秒)", # 核心冷却间隔
+    "settings.hw_decoding_label": "硬件解码超载术式 (GPU Decoding)", # 硬件解码
+    "settings.auto_clean_label": "法阵开启时自动肃清残渣 (Auto Clean)", # 自动清理
+    "settings.thread_limit_label": "视界元数据读取并发限制 (Thread Limit)", # 线程限制
+    "settings.log_cap_label": "虚空日志保存上限 (Log Cap)", # 日志上限
+    "settings.save_button": "💾 刻印设定 (Save)", # 保存设置按钮
+
+    # Quick Presets Row
+    "home.settings_card.presets_title": "魔导书快捷模版 (Templates):",
+    "home.settings_card.preset_light": "轻量洗版术",
+    "home.settings_card.preset_balanced": "黄金均衡法则",
+    "home.settings_card.preset_heavenly": "圣殿至高典藏",
+
+    # Preset Success InfoBars
+    "infobar.success.preset_light.title": "已启用轻量洗版术",
+    "infobar.success.preset_light.content": "画质已同调为 91.0 (深度压缩视频体积，适合移动水晶游阅)",
+    "infobar.success.preset_balanced.title": "已启用黄金均衡法则",
+    "infobar.success.preset_balanced.content": "画质已同调为 93.0 (完美无损视界观感，体积压缩表现极佳)",
+    "infobar.success.preset_heavenly.title": "已启用圣殿至高典藏",
+    "infobar.success.preset_heavenly.content": "画质已同调为 95.5 (圣殿发烧级极高清无损收藏模版)",
+
+    # Close Warning Dialog
+    "dialog.close_warning.title": "⚠️ 结界强行切断警告",
+    "dialog.close_warning.content": "炼成仪式（转码）正处于奇迹发生阶段。强行关闭终端可能导致魔力逆流（后台残留 FFmpeg 幽灵进程）。\n\n确定要立即破弃契约并退出吗？",
+    "dialog.close_warning.yes_button": "确定破弃 (Quit)",
+    "dialog.close_warning.cancel_button": "维持仪式 (Stay)",
 }
+

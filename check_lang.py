@@ -3,6 +3,13 @@ import sys
 import importlib.util
 from string import Formatter
 
+# 强制设置控制台输出编码为 UTF-8，防止 Windows 平台下的 UnicodeEncodeError
+if hasattr(sys.stdout, 'reconfigure'):
+    sys.stdout.reconfigure(encoding='utf-8')
+if hasattr(sys.stderr, 'reconfigure'):
+    sys.stderr.reconfigure(encoding='utf-8')
+
+
 def load_module(path):
     """动态加载 Python 文件以检查语法错误"""
     try:

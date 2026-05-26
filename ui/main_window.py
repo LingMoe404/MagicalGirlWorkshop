@@ -32,7 +32,7 @@ from utils import (
     resource_path, get_default_cache_dir, get_config_path
 )
 from workers import DurationWorker, ThumbnailWorker, DependencyWorker, EncoderWorker
-from ui.interfaces import MediaInfoInterface, ProfileInterface, CreditsInterface
+from ui.interfaces import MediaInfoInterface, ProfileInterface, CreditsInterface, SettingsInterface
 from i18n.translator import tr, translator
 from ui.common import ClickableBodyLabel, DroppableBodyLabel, DroppableListWidget
 
@@ -213,15 +213,16 @@ class MainWindow(FluentWindow):
         self.retranslate_ui()
         self.apply_min_window_size()
         self.load_settings_to_ui()
+        self.auto_clean_cache_startup()
         self.combo_encoder.currentIndexChanged.connect(self.on_encoder_changed)
         self.bind_auto_save_signals()
 
         # 连接所有页面的主题切换信号
-        for interface in [self.info_interface, self.profile_interface, self.credits_interface]:
+        for interface in [self.info_interface, self.profile_interface, self.credits_interface, self.settings_interface]:
             interface.combo_theme.currentIndexChanged.connect(self.on_theme_changed)
             
         # 连接所有页面的语言切换信号，并同步初始状态
-        for interface in [self.info_interface, self.profile_interface, self.credits_interface]:
+        for interface in [self.info_interface, self.profile_interface, self.credits_interface, self.settings_interface]:
             interface.combo_lang.currentIndexChanged.connect(self.on_language_changed)
             interface.combo_lang.blockSignals(True)
             interface.combo_lang.setCurrentIndex(self.combo_lang.currentIndex())
@@ -286,6 +287,19 @@ class MainWindow(FluentWindow):
         self.settings_card_loudnorm_label.setText(tr("home.settings_card.loudnorm.label"))
         self.sw_nv_aq.setOnText(tr("home.settings_card.nv_aq.on"))
         self.sw_nv_aq.setOffText(tr("home.settings_card.nv_aq.off"))
+        self.lbl_color_mode.setText(tr("home.settings_card.color_mode.label") or "色彩幻境 (Color Mode)")
+        
+        # 刷新色彩幻境下拉菜单的翻译
+        self.combo_color.blockSignals(True)
+        curr_color = self.combo_color.currentData() or "Auto"
+        self.combo_color.clear()
+        self.combo_color.addItem(tr("home.settings_card.color_mode.auto") or "自动保留 HDR (Auto)", userData="Auto")
+        self.combo_color.addItem(tr("home.settings_card.color_mode.tonemap") or "色彩同调 SDR (Tone Map)", userData="ToneMap")
+        self.combo_color.addItem(tr("home.settings_card.color_mode.sdr") or "强制常规 SDR (Force SDR)", userData="SDR")
+        idx_c = self.combo_color.findData(curr_color)
+        if idx_c >= 0:
+            self.combo_color.setCurrentIndex(idx_c)
+        self.combo_color.blockSignals(False)
 
         current_enc = self.combo_encoder.currentText()
         if ENC_NVENC in current_enc:
@@ -298,6 +312,12 @@ class MainWindow(FluentWindow):
         self.btn_save_conf.setText(tr("home.settings_card.save_button"))
         self.btn_reset_conf.setText(tr("home.settings_card.reset_button"))
         self._populate_combo(self.combo_loudnorm, self.loudnorm_modes)
+        
+        # 模版快捷键翻译
+        self.lbl_presets_title.setText(tr("home.settings_card.presets_title"))
+        self.btn_preset_light.setText(tr("home.settings_card.preset_light"))
+        self.btn_preset_balanced.setText(tr("home.settings_card.preset_balanced"))
+        self.btn_preset_heavenly.setText(tr("home.settings_card.preset_heavenly"))
 
         # 操作卡片
         self._populate_combo(self.combo_save_mode, self.save_modes)
@@ -326,10 +346,12 @@ class MainWindow(FluentWindow):
         self.navigationInterface.widget("mediaInfoInterface").setText(tr("info.title"))
         self.navigationInterface.widget("profileInterface").setText(tr("profile.title"))
         self.navigationInterface.widget("creditsInterface").setText(tr("credits.title"))
+        self.navigationInterface.widget("settingsInterface").setText(tr("settings.title"))
         
         self.info_interface.retranslate_ui()
         self.profile_interface.retranslate_ui()
         self.credits_interface.retranslate_ui()
+        self.settings_interface.retranslate_ui()
 
         self.footer.setText(tr("app.designed_by"))
         self.update()
@@ -342,6 +364,7 @@ class MainWindow(FluentWindow):
         if hasattr(self, 'info_interface'): combos.append(self.info_interface.combo_lang)
         if hasattr(self, 'profile_interface'): combos.append(self.profile_interface.combo_lang)
         if hasattr(self, 'credits_interface'): combos.append(self.credits_interface.combo_lang)
+        if hasattr(self, 'settings_interface'): combos.append(self.settings_interface.combo_lang)
         
         for c in combos:
             if c.currentIndex() != index:
@@ -501,7 +524,7 @@ class MainWindow(FluentWindow):
         row1.setSpacing(12)
         
         v1 = QVBoxLayout()
-        self.settings_card_encoder_label = StrongBodyLabel("魔力核心 (Encoder)", self.card_settings)
+        self.settings_card_encoder_label = BodyLabel("魔力核心 (Encoder)", self.card_settings)
         v1.addWidget(self.settings_card_encoder_label)
         self.combo_encoder = ComboBox(self.card_settings)
         self.combo_encoder.addItems(["Intel QSV", "NVIDIA NVENC", "AMD AMF"])
@@ -510,7 +533,7 @@ class MainWindow(FluentWindow):
         v1.addWidget(self.combo_encoder)
 
         v2 = QVBoxLayout()
-        self.settings_card_vmaf_label = StrongBodyLabel("视界还原度 (VMAF)", self.card_settings)
+        self.settings_card_vmaf_label = BodyLabel("视界还原度 (VMAF)", self.card_settings)
         v2.addWidget(self.settings_card_vmaf_label)
         self.line_vmaf = LineEdit(self.card_settings)
         self.line_vmaf.setMinimumHeight(36)
@@ -518,7 +541,7 @@ class MainWindow(FluentWindow):
         v2.addWidget(self.line_vmaf)
         
         v3 = QVBoxLayout()
-        self.settings_card_bitrate_label = StrongBodyLabel("共鸣频率 (Bitrate)", self.card_settings)
+        self.settings_card_bitrate_label = BodyLabel("共鸣频率 (Bitrate)", self.card_settings)
         v3.addWidget(self.settings_card_bitrate_label)
         self.line_audio = LineEdit(self.card_settings)
         self.line_audio.setMinimumHeight(36)
@@ -526,7 +549,7 @@ class MainWindow(FluentWindow):
         v3.addWidget(self.line_audio)
 
         v4 = QVBoxLayout()
-        self.settings_card_preset_label = StrongBodyLabel("咏唱速度 (Preset)", self.card_settings)
+        self.settings_card_preset_label = BodyLabel("咏唱速度 (Preset)", self.card_settings)
         v4.addWidget(self.settings_card_preset_label)
         self.combo_preset = ComboBox(self.card_settings)
         self.combo_preset.addItems(["1", "2", "3", "4", "5", "6", "7"])
@@ -535,10 +558,9 @@ class MainWindow(FluentWindow):
         v4.addWidget(self.combo_preset)
 
         v8 = QVBoxLayout()
-        self.lbl_offset = StrongBodyLabel("灵力偏移 (Offset)", self.card_settings)
+        self.lbl_offset = BodyLabel("灵力偏移 (Offset)", self.card_settings)
         v8.addWidget(self.lbl_offset)
         self.spin_offset = SpinBox(self.card_settings)
-        self.spin_offset.setRange(-30, 30)
         self.spin_offset.setRange(-30, 0)
         self.spin_offset.setValue(-6)
         self.spin_offset.setMinimumHeight(36)
@@ -548,11 +570,22 @@ class MainWindow(FluentWindow):
         row1.addLayout(v4, 2)
         set_layout.addLayout(row1)
 
+        v9 = QVBoxLayout()
+        self.lbl_color_mode = BodyLabel("色彩幻境 (Color Mode)", self.card_settings)
+        v9.addWidget(self.lbl_color_mode)
+        self.combo_color = ComboBox(self.card_settings)
+        self.combo_color.addItem("自动保留 HDR (Auto)", userData="Auto")
+        self.combo_color.addItem("色彩同调 SDR (Tone Map)", userData="ToneMap")
+        self.combo_color.addItem("强制常规 SDR (Force SDR)", userData="SDR")
+        self.combo_color.setMinimumHeight(36)
+        v9.addWidget(self.combo_color)
+
         row1_b = QHBoxLayout()
         row1_b.setSpacing(12)
         row1_b.addLayout(v2, 1)
         row1_b.addLayout(v8, 1)
         row1_b.addLayout(v3, 1)
+        row1_b.addLayout(v9, 1)
         set_layout.addLayout(row1_b)
 
         row2 = QHBoxLayout()
@@ -560,7 +593,7 @@ class MainWindow(FluentWindow):
 
         v6 = QVBoxLayout()
         h_loud = QHBoxLayout()
-        self.settings_card_loudnorm_label = StrongBodyLabel("音量均一化术式 (Loudnorm)", self.card_settings)
+        self.settings_card_loudnorm_label = BodyLabel("音量均一化术式 (Loudnorm)", self.card_settings)
         h_loud.addWidget(self.settings_card_loudnorm_label)
         h_loud.addStretch(1)
         self.combo_loudnorm = ComboBox(self.card_settings)
@@ -575,7 +608,7 @@ class MainWindow(FluentWindow):
         v6.addWidget(self.line_loudnorm)
         
         v7 = QVBoxLayout()
-        self.lbl_aq = StrongBodyLabel("NVIDIA 感知增强", self.card_settings)
+        self.lbl_aq = BodyLabel("NVIDIA 感知增强", self.card_settings)
         v7.addWidget(self.lbl_aq)
         self.sw_nv_aq = SwitchButton("开启", self.card_settings)
         self.sw_nv_aq.setOnText("开启")
@@ -586,6 +619,26 @@ class MainWindow(FluentWindow):
         row2.addLayout(v6, 3)
         row2.addLayout(v7, 1)
         set_layout.addLayout(row2)
+
+        # 魔导书快捷模版 (Quick Presets Row)
+        h_presets = QHBoxLayout()
+        h_presets.setSpacing(8)
+        self.lbl_presets_title = BodyLabel("魔导书快捷模版 (Templates):", self.card_settings)
+        self.btn_preset_light = PushButton("轻量洗版术", self.card_settings)
+        self.btn_preset_light.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_preset_light.clicked.connect(self.apply_preset_light)
+        self.btn_preset_balanced = PushButton("黄金均衡法则", self.card_settings)
+        self.btn_preset_balanced.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_preset_balanced.clicked.connect(self.apply_preset_balanced)
+        self.btn_preset_heavenly = PushButton("圣殿至高典藏", self.card_settings)
+        self.btn_preset_heavenly.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_preset_heavenly.clicked.connect(self.apply_preset_heavenly)
+        
+        h_presets.addWidget(self.lbl_presets_title)
+        h_presets.addWidget(self.btn_preset_light)
+        h_presets.addWidget(self.btn_preset_balanced)
+        h_presets.addWidget(self.btn_preset_heavenly)
+        set_layout.addLayout(h_presets)
 
         h_btns = QHBoxLayout()
         h_btns.setSpacing(12)
@@ -819,6 +872,10 @@ class MainWindow(FluentWindow):
         self.credits_interface = CreditsInterface(self)
         self.addSubInterface(self.credits_interface, FluentIcon.HEART, tr("credits.title"))
 
+        self.settings_interface = SettingsInterface(self)
+        self.addSubInterface(self.settings_interface, FluentIcon.SETTING, tr("settings.title"))
+        self.settings_interface.saveRequested.connect(self.on_settings_save_requested)
+
     def showEvent(self, event):
         """ 窗口显示事件。 """
         super().showEvent(event)
@@ -909,9 +966,15 @@ class MainWindow(FluentWindow):
         self.move(frame_geo.topLeft())
 
     def show_welcome_wizard(self):
-        """ 显示欢迎向导。 """
-        w = WelcomeWizard(self)
-        w.exec()
+        """ 显示欢迎向导，防重入控制。 """
+        if hasattr(self, '_wizard_running') and self._wizard_running:
+            return
+        self._wizard_running = True
+        try:
+            w = WelcomeWizard(self)
+            w.exec()
+        finally:
+            self._wizard_running = False
 
     def load_settings_to_ui(self):
         """ 从配置文件加载设置到UI。 """
@@ -926,11 +989,10 @@ class MainWindow(FluentWindow):
                 config.read(cfg_path, encoding='utf-8')
                 if "Settings" in config:
                     sect = config["Settings"]
-                    data["encoder"] = sect.get("encoder", DEFAULT_SETTINGS["encoder"])
-                    data["theme"] = sect.get("theme", DEFAULT_SETTINGS["theme"])
+                    for k, v in DEFAULT_SETTINGS.items():
+                        data[k] = sect.get(k, v)
                     raw_save_mode = sect.get("save_mode", DEFAULT_SETTINGS["save_mode"])
                     data["save_mode"] = self.OLD_VALUE_MAP.get(raw_save_mode, raw_save_mode)
-                    data["export_dir"] = sect.get("export_dir", DEFAULT_SETTINGS["export_dir"])
                 
                 for enc_name in self.encoder_settings:
                     if enc_name in config:
@@ -974,6 +1036,16 @@ class MainWindow(FluentWindow):
         self.line_export.setText(data.get("export_dir", ""))
         self.toggle_export_ui()
 
+        color_mode_index = self.combo_color.findData(data.get("color_mode", "Auto"))
+        if color_mode_index > -1:
+            self.combo_color.setCurrentIndex(color_mode_index)
+
+        self.global_settings = data
+
+        # Load settings to the new settings interface
+        if hasattr(self, 'settings_interface'):
+            self.settings_interface.load_settings(data)
+
     def load_encoder_settings_to_ui(self, enc_name):
         """ 加载指定编码器的设置到UI。 """
         settings = self.encoder_settings.get(enc_name, ENCODER_CONFIGS.get(enc_name))
@@ -1013,7 +1085,7 @@ class MainWindow(FluentWindow):
     def block_signals_for_settings(self, block):
         """ 阻止或取消阻止设置控件的信号，以避免在加载设置时触发不必要的操作。 """
         widgets = [self.line_vmaf, self.line_audio, self.line_loudnorm, 
-                   self.combo_loudnorm, self.sw_nv_aq, self.combo_preset, self.spin_offset]
+                   self.combo_loudnorm, self.sw_nv_aq, self.combo_preset, self.spin_offset, self.combo_color]
         for w in widgets:
             w.blockSignals(block)
 
@@ -1051,7 +1123,7 @@ class MainWindow(FluentWindow):
         self.line_loudnorm.textChanged.connect(lambda _: self.auto_save_settings())
         self.line_export.textChanged.connect(lambda _: self.auto_save_settings())
         self.spin_offset.valueChanged.connect(lambda _: self.auto_save_settings())
-        self.spin_offset.valueChanged.connect(lambda _: self.auto_save_settings())
+        self.combo_color.currentIndexChanged.connect(lambda _: self.auto_save_settings())
 
     def auto_save_settings(self):
         """ 自动保存当前设置。 """
@@ -1095,14 +1167,16 @@ class MainWindow(FluentWindow):
                 "nv_aq": str(self.sw_nv_aq.isChecked()),
                 "amf_offset": str(self.spin_offset.value())
             })
-
         settings = {
             "encoder": curr_enc,
             "theme": THEMES[self.combo_theme.currentIndex()],
             "save_mode": self.combo_save_mode.currentData(),
             "export_dir": self.line_export.text().strip(),
-            "language": translator.current_lang
+            "language": translator.current_lang,
+            "color_mode": self.combo_color.currentData() or "Auto"
         }
+        if hasattr(self, 'global_settings'):
+            self.global_settings.update(settings)
         self.save_settings_file(settings, self.encoder_settings)
         if show_tip:
             orig_text = self.btn_save_conf.text()
@@ -1121,7 +1195,7 @@ class MainWindow(FluentWindow):
         widgets_to_block = [
             self.combo_encoder, self.combo_preset, self.combo_theme,
             self.combo_save_mode, self.combo_loudnorm, self.sw_nv_aq,
-            self.line_vmaf, self.line_audio, self.line_loudnorm, self.line_export, self.spin_offset
+            self.line_vmaf, self.line_audio, self.line_loudnorm, self.line_export, self.spin_offset, self.combo_color
         ]
         for w in widgets_to_block:
             w.blockSignals(True)
@@ -1136,6 +1210,7 @@ class MainWindow(FluentWindow):
         
         self.combo_save_mode.setCurrentIndex(self.combo_save_mode.findData(SAVE_MODE_OVERWRITE))
         self.line_export.clear()
+        self.combo_color.setCurrentIndex(self.combo_color.findData("Auto"))
         
         for w in widgets_to_block:
             w.blockSignals(False)
@@ -1160,7 +1235,32 @@ class MainWindow(FluentWindow):
         else:
             self.log(tr("log.recalibrating"), "info")
             QTimer.singleShot(200, self.check_dependencies)
+    def apply_preset_light(self):
+        """ 启用轻量洗版术模板 """
+        self.line_vmaf.setText("91.0")
+        idx = self.combo_preset.findText("5")
+        if idx >= 0:
+            self.combo_preset.setCurrentIndex(idx)
+        InfoBar.success(tr("infobar.success.preset_light.title"), tr("infobar.success.preset_light.content"), parent=self, position=InfoBarPosition.TOP)
+        self.auto_save_settings()
 
+    def apply_preset_balanced(self):
+        """ 启用黄金均衡法则模板 """
+        self.line_vmaf.setText("93.0")
+        idx = self.combo_preset.findText("4")
+        if idx >= 0:
+            self.combo_preset.setCurrentIndex(idx)
+        InfoBar.success(tr("infobar.success.preset_balanced.title"), tr("infobar.success.preset_balanced.content"), parent=self, position=InfoBarPosition.TOP)
+        self.auto_save_settings()
+
+    def apply_preset_heavenly(self):
+        """ 启用圣殿至高典藏模板 """
+        self.line_vmaf.setText("95.5")
+        idx = self.combo_preset.findText("3")
+        if idx >= 0:
+            self.combo_preset.setCurrentIndex(idx)
+        InfoBar.success(tr("infobar.success.preset_heavenly.title"), tr("infobar.success.preset_heavenly.content"), parent=self, position=InfoBarPosition.TOP)
+        self.auto_save_settings()
 
     def on_theme_changed(self, index):
         """ 当用户在设置中更改主题时调用。 """
@@ -1176,6 +1276,7 @@ class MainWindow(FluentWindow):
         if hasattr(self, 'info_interface'): combos.append(self.info_interface.combo_theme)
         if hasattr(self, 'profile_interface'): combos.append(self.profile_interface.combo_theme)
         if hasattr(self, 'credits_interface'): combos.append(self.credits_interface.combo_theme)
+        if hasattr(self, 'settings_interface'): combos.append(self.settings_interface.combo_theme)
         for c in combos:
             if c.currentIndex() != index:
                 c.blockSignals(True)
@@ -1186,6 +1287,38 @@ class MainWindow(FluentWindow):
         
         QTimer.singleShot(0, self.update_selected_zone_border)
         QTimer.singleShot(120, self.update_selected_zone_border)
+
+    def on_settings_save_requested(self, settings):
+        """ 处理设置页面的保存请求。 """
+        # Update global settings
+        current_settings = DEFAULT_SETTINGS.copy()
+        cfg_path = get_config_path()
+        config = configparser.ConfigParser()
+        if os.path.exists(cfg_path):
+            config.read(cfg_path, encoding='utf-8')
+            if "Settings" in config:
+                current_settings.update(dict(config["Settings"]))
+        
+        current_settings.update(settings)
+        self.global_settings = current_settings
+        
+        # Save to file
+        self.save_settings_file(current_settings, self.encoder_settings)
+        
+        # Apply theme and language changes immediately
+        if "theme" in settings:
+            try:
+                idx = THEMES.index(settings["theme"])
+                self.combo_theme.setCurrentIndex(idx)
+                self.on_theme_changed(idx)
+            except ValueError:
+                pass
+        
+        if "language" in settings:
+            lang_code = settings["language"]
+            self.on_language_changed(self.combo_lang.findData(lang_code))
+            
+        InfoBar.success(tr("infobar.success.settings_saved.title"), tr("infobar.success.settings_saved.content"), parent=self, position=InfoBarPosition.TOP)
 
     def _update_card_style(self):
         """ 根据主题调整卡片样式 (解决浅色模式太白的问题)。 """
@@ -1383,8 +1516,8 @@ class MainWindow(FluentWindow):
 
     def process_duration_queue(self):
         """ 处理等待中的视频时长分析任务。 """
-        MAX_CONCURRENT = MAX_DURATION_WORKERS
-        while len(self.active_dur_workers) < MAX_CONCURRENT and self.pending_dur_tasks:
+        limit = int(self.global_settings.get("thread_limit", "4")) if hasattr(self, 'global_settings') else MAX_DURATION_WORKERS
+        while len(self.active_dur_workers) < limit and self.pending_dur_tasks:
             path = self.pending_dur_tasks.pop(0)
             self.start_duration_worker(path)
 
@@ -1423,8 +1556,8 @@ class MainWindow(FluentWindow):
 
     def process_thumbnail_queue(self):
         """ 处理等待中的视频缩略图生成任务。 """
-        MAX_CONCURRENT = MAX_THUMBNAIL_WORKERS
-        while len(self.active_thumb_workers) < MAX_CONCURRENT and self.pending_thumb_tasks:
+        limit = int(self.global_settings.get("thread_limit", "4")) if hasattr(self, 'global_settings') else MAX_THUMBNAIL_WORKERS
+        while len(self.active_thumb_workers) < limit and self.pending_thumb_tasks:
             path, duration = self.pending_thumb_tasks.pop(0)
             self.start_thumbnail_worker(path, duration)
 
@@ -1701,6 +1834,12 @@ class MainWindow(FluentWindow):
                 if lbl.isHidden(): lbl.show()
                 lbl.setText(f"{speed} | {eta}")
             if pbar and pbar.isHidden(): pbar.show()
+            
+        # 如果是 ab-av1 探测阶段，动态更改主界面的当前任务标签
+        if "ab-av1" in speed or "探测" in speed:
+            self.lbl_current.setText(f"✨ 寻觅最优魔法参数 ({speed} · {eta}):")
+        else:
+            self.lbl_current.setText(tr("home.status_bar.current_label"))
 
     def update_file_status(self, filepath, status):
         """ 更新指定文件的状态图标。 """
@@ -1757,11 +1896,12 @@ class MainWindow(FluentWindow):
         if not self.log_mutex.tryLock():
             return
 
+        limit_blocks = int(self.global_settings.get("log_cap", "2000")) if hasattr(self, 'global_settings') else LOG_MAX_BLOCKS
         batch = []
         try:
             if self.log_queue:
-                if len(self.log_queue) > LOG_MAX_BLOCKS // 2:
-                    self.log_queue = self.log_queue[-(LOG_MAX_BLOCKS // 2):]
+                if len(self.log_queue) > limit_blocks // 2:
+                    self.log_queue = self.log_queue[-(limit_blocks // 2):]
                 batch = self.log_queue[:]
                 self.log_queue.clear()
         except Exception as e:
@@ -1806,13 +1946,37 @@ class MainWindow(FluentWindow):
             self.text_log.setTextCursor(cursor)
             self.text_log.ensureCursorVisible()
             
-            if self.text_log.document().blockCount() > LOG_MAX_BLOCKS:
+            if self.text_log.document().blockCount() > limit_blocks:
                 self.text_log.clear()
                 self.text_log.append(f'<div style="color:{c["info"]}; font-family: \'Cascadia Code\'; font-size: 11px;">>>> 历史因果已抹除，日志重新开始记录。</div>')
 
             self.text_log.setUpdatesEnabled(True)
         except Exception as e:
             print(f"Log UI update error: {e}")
+
+    def auto_clean_cache_startup(self):
+        """ 启动时静默清除ab-av1生成的临时缓存文件。 """
+        if not hasattr(self, 'global_settings') or self.global_settings.get("auto_clean_on_launch", "True") != "True":
+            return
+        try:
+            cache_path = self.line_cache.text().strip() or get_default_cache_dir()
+            if not os.path.exists(cache_path):
+                return
+            count = 0
+            for f in os.listdir(cache_path):
+                if f.endswith(".temp.mkv") or f.startswith(".ab-av1-") or "ab-av1" in f:
+                    full_path = os.path.join(cache_path, f)
+                    if os.path.isfile(full_path):
+                        os.remove(full_path)
+                        count += 1
+                    elif os.path.isdir(full_path):
+                        import shutil
+                        shutil.rmtree(full_path, ignore_errors=True)
+                        count += 1
+            if count > 0:
+                self.log(f"🧹 [自动肃清] 成功清除缓存目录下的 {count} 个临时残渣文件/文件夹。", "info")
+        except Exception as e:
+            self.log(f"⚠️ [自动肃清] 清理缓存文件失败: {str(e)}", "warning")
 
     def clear_cache_files(self):
         """ 清除ab-av1生成的临时缓存文件。 """
@@ -1871,7 +2035,10 @@ class MainWindow(FluentWindow):
             'loudnorm': self.line_loudnorm.text(),
             'nv_aq': self.sw_nv_aq.isChecked(),
             'amf_offset': self.spin_offset.value(),
-            'loudnorm_mode': self.combo_loudnorm.currentData()
+            'loudnorm_mode': self.combo_loudnorm.currentData(),
+            'gpu_cooling_time': int(self.global_settings.get('gpu_cooling_time', '3')) if hasattr(self, 'global_settings') else 3,
+            'hw_decoding': (self.global_settings.get('hw_decoding', 'True') == 'True') if hasattr(self, 'global_settings') else True,
+            'color_mode': self.combo_color.currentData() or "Auto"
         }
         os.makedirs(config['cache_dir'], exist_ok=True)
 
@@ -2048,8 +2215,26 @@ class MainWindow(FluentWindow):
     def closeEvent(self, event):
         """ 窗口关闭事件，确保所有后台线程都已停止。 """
         if self.worker and self.worker.isRunning():
+            title = tr("dialog.close_warning.title") or "⚠️ 结界强行切断警告"
+            content = tr("dialog.close_warning.content") or "炼成仪式（转码）正处于奇迹发生阶段。强行关闭终端可能导致魔力逆流（后台残留 FFmpeg 幽灵进程）。\n\n确定要立即破弃契约并退出吗？"
+            dialog = MessageDialog(title, content, self)
+            dialog.yesButton.setText(tr("dialog.close_warning.yes_button") or "确定破弃 (Quit)")
+            dialog.cancelButton.setText(tr("dialog.close_warning.cancel_button") or "维持仪式 (Stay)")
+            if not dialog.exec():
+                event.ignore()
+                return
+                
             self.worker.stop()
-            self.worker.wait(500)
+            # 给予充裕的时间强杀后台进程 (2秒)，保证系统级安全
+            self.worker.wait(2000)
+
+        # 强杀依赖自检线程，杜绝关闭后残留
+        if hasattr(self, 'dep_worker') and self.dep_worker and self.dep_worker.isRunning():
+            try:
+                self.dep_worker.stop()
+                self.dep_worker.wait(500)
+            except Exception:
+                pass
         
         self.pending_dur_tasks.clear()
         self.pending_thumb_tasks.clear()
