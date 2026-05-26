@@ -9,7 +9,7 @@ dependencies = [
 
 [dependency-groups]
 dev = [
-    "nuitka>=2.7.0",
-    "zstandard>=0.23.0",
-    "ruff>=0.13.0",
+    "nuitka>=4.0.8",
+    "zstandard>=0.25.0",
+    "ruff>=0.15.10",
 ]
