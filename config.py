@@ -1,7 +1,7 @@
 # config.py
 from PySide6.QtCore import QSize
 
-VERSION = "1.2.2"
+VERSION = "1.3.0"
 APP_TITLE = f"魔法少女工坊 v{VERSION}"
 APP_ID = f"LingMoe404.MagicalGirlWorkshop.Encoder.{VERSION}"
 
@@ -34,6 +34,8 @@ LOG_MAX_BLOCKS = 2000
 GPU_COOLING_TIME = 3
 ERROR_DECISION_TIMEOUT = 30
 DEPENDENCY_CHECK_DELAY = 500
+DEFAULT_GPU_CHECK_TIMEOUT = 5
+
 
 # UI 相关
 MIN_WINDOW_SIZE = QSize(1180, 780)
@@ -49,11 +51,22 @@ LOUDNORM_MODE_ALWAYS = "Always"
 LOUDNORM_MODE_DISABLE = "Disable"
 LOUDNORM_MODE_AUTO = "Stereo/Mono Only"
 
+COLOR_MODE_AUTO = "Auto"
+COLOR_MODE_TONEMAP = "ToneMap"
+COLOR_MODE_SDR = "SDR"
+
 DEFAULT_SETTINGS = {
     "encoder": ENC_QSV,
     "theme": "Auto",
     "save_mode": SAVE_MODE_OVERWRITE,
-    "export_dir": ""
+    "export_dir": "",
+    "gpu_check_timeout": str(DEFAULT_GPU_CHECK_TIMEOUT),
+    "gpu_cooling_time": "3",
+    "hw_decoding": "True",
+    "auto_clean_on_launch": "True",
+    "thread_limit": "4",
+    "log_cap": "2000",
+    "color_mode": COLOR_MODE_AUTO
 }
 
 ENCODER_CONFIGS = {
