@@ -1,6 +1,6 @@
 # ✨ Magical Girl Workshop - Windows Edition
 
-![Version](https://img.shields.io/badge/version-1.2.2-FB7299?style=for-the-badge&logo=bilibili&logoColor=white)
+![Version](https://img.shields.io/badge/version-1.3.0-FB7299?style=for-the-badge&logo=bilibili&logoColor=white)
 ![Built with Gemini](https://img.shields.io/badge/Built%20with-Gemini-8E75B2?style=for-the-badge&logo=googlegemini&logoColor=white)
 ![Platform](https://img.shields.io/badge/OS-Windows11-0078D6?style=for-the-badge&logo=windows&logoColor=white)
 ![License](https://img.shields.io/badge/License-GPLv3-green?style=for-the-badge)
