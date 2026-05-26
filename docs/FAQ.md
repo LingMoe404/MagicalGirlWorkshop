@@ -23,7 +23,9 @@ A: 由于核心组件 `ab-av1` 目前尚未原生支持 AMD AMF 硬件编码器�
 A: 程序会自动判断：如果是 MP4 源文件，字幕会转为 SRT 以兼容 MKV；如果是 MKV 源文件，则保留原始字幕（如 ASS 特效）。
 
 **Q: 支持 HDR 或杜比视界 (Dolby Vision) 吗？**
-A: ⚠️ **警告**：目前版本暂不建议压制 HDR 或杜比视界内容。虽然已包含基础元数据保留逻辑，但在某些情况下仍可能导致色调映射错误（画面发灰）或元数据丢失。建议仅用于 SDR (标准动态范围) 视频。
+A: ✨ **完美支持**！自 v1.3.0 起，程序已深度重构色彩管线：
+   - **HDR**: 能够自动识别 HDR10/HLG 等视频，提取并在转码过程中完美重构和注入完整的原始色彩元数据，实现无损色彩保留；也可在设置中选择色调映射 (Tone Mapping) 功能，在普通的 SDR 屏幕上无色差播放。
+   - **杜比视界 (Dolby Vision)**: 完美支持杜比视界 RPU 动态元数据的提取、透传与无损注入，确保在支持的播放设备（如 Emby/Plex 搭配 Apple TV/Shield TV）上完美触发“杜比视界”标志，杜绝画面发灰发绿的现象。
 
 ## 💡 给 NAS 用户的建议
 
@@ -58,7 +60,9 @@ A: Because the core component `ab-av1` does not yet natively support the AMD AMF
 A: The program automatically judges: if the source file is MP4, subtitles are converted to SRT to be compatible with MKV; if the source file is MKV, original subtitles (such as ASS effects) are retained.
 
 **Q: Is HDR or Dolby Vision supported?**
-A: ⚠️ **Warning**: It is currently not recommended to encode HDR or Dolby Vision content with this version. Although basic metadata retention logic is included, in some cases it may still lead to tone mapping errors (washed out colors) or metadata loss. It is recommended for use with SDR (Standard Dynamic Range) videos only.
+A: ✨ **Fully Supported**! Starting from v1.3.0, the color pipeline has been deeply restructured:
+   - **HDR**: Automatically identifies HDR10/HLG videos, extracts, perfectly reconstructs, and injects complete original color metadata during transcoding for lossless color preservation. You can also select the Tone Mapping option in settings to play back HDR content on ordinary SDR displays without color distortion.
+   - **Dolby Vision**: Perfectly supports extraction, passthrough, and lossless injection of Dolby Vision RPU dynamic metadata, ensuring the Dolby Vision badge is successfully triggered on supported playback devices (e.g., Emby/Plex paired with Apple TV/Shield TV) and completely preventing washed-out or green tints.
 
 ## 💡 Tips for NAS Users
 
