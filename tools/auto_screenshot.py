@@ -2,6 +2,14 @@ import sys
 import os
 import time
 
+# 确保 Windows 终端下能够正确输出 UTF-8 字符 (避免 Emoji 导致的 GBK 编码报错)
+if sys.platform.startswith('win'):
+    try:
+        sys.stdout.reconfigure(encoding='utf-8')
+        sys.stderr.reconfigure(encoding='utf-8')
+    except AttributeError:
+        pass
+
 # 确保能加载项目根目录下的模块
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -195,11 +203,31 @@ def run_auto_screenshot():
     # 截图的内部函数
     def capture_state(lang_code, name):
         safe_wait(1200) # 给足过渡动画和样式重绘的渲染时间
+
+        # 【核心修复】暂时禁用 Mica 效果
+        # Mica 是 Windows 11 DWM 层渲染的，QWidget::grab() 截不到它。
+        # 暗色模式下透明区域会被填充为黑色，导致截图一半黑一半白。
+        # 临时改用实心背景色代替，截完后再恢复。
+        from qfluentwidgets import isDarkTheme
+        is_dark_now = isDarkTheme()
+        solid_bg = "#1c1c1c" if is_dark_now else "#f3f3f3"
+        original_stylesheet = w.styleSheet()
+        w.windowEffect.setMicaEffect(w.winId(), False)  # 关闭 Mica
+        w.setStyleSheet(original_stylesheet + f" MainWindow {{ background-color: {solid_bg}; }}")
+        w.repaint()
+        QApplication.processEvents()
+        safe_wait(300)  # 等待背景切换渲染完成
+
         pixmap = w.grab()
         file_path = os.path.join(temp_dir, f"{lang_code}_{name}.png")
         pixmap.save(file_path, "PNG")
         lang_screenshots[lang_code].append(file_path)
         print(f"📸 [{lang_code}] 已成功捕获界面: {name}")
+
+        # 恢复 Mica 效果
+        w.windowEffect.setMicaEffect(w.winId())
+        w.setStyleSheet(original_stylesheet)
+        QApplication.processEvents()
 
     # 切换语言逻辑
     def switch_language(lang_code):
@@ -220,7 +248,7 @@ def run_auto_screenshot():
         # A. 切换核心主题
         w.combo_theme.setCurrentIndex(theme_idx)
         w.on_theme_changed(theme_idx)
-        safe_wait(1800) # 暗色模式和样式更新需要充足的重绘时间 (1.8s)
+        safe_wait(3000) # 【增大】暗色模式调色板广播需要更多时间传播至所有子控件 (3s)
         
         # B. 【核心修复】自适应更新“真理之眼鉴定报告”的 HTML 文本颜色
         w.info_interface.info_text.setHtml(get_mock_report(lang_code, is_dark))
