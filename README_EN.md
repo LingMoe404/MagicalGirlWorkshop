@@ -26,6 +26,9 @@
     *   **NVIDIA NVENC**: Supports RTX 40 series AV1 encoding, with built-in **AQ (Adaptive Quantization)** switch for finer quality.
     *   **AMD AMF**: **[New]** Added support for Radeon RX 7000 series & RDNA 3 iGPUs (e.g., Ryzen 8000G) AV1 encoding.
 *   **🧠 Smart Bitrate (ab-av1)**: Integrated `ab-av1` algorithm, automatically calculating optimal encoding parameters based on target VMAF score (default 93 across platforms), supporting **10-bit** depth (AMD currently limited to 8-bit).
+*   **🌈 Color Awakening (HDR & Dolby Vision)**:
+    *   **Tone Mapping**: Supports intelligent tone mapping for High Dynamic Range (HDR) videos, ensuring true color and brightness are restored even on standard SDR displays.
+    *   **Color Preservation**: Perfectly retains original HDR color metadata and Dolby Vision dynamic metadata, restoring a cinema-grade high dynamic range experience losslessly.
 *   **📂 Batch Purification**: Supports selecting entire folders, automatically scanning video files into the queue. Supports resume from breakpoint, suitable for unattended processing of TB-level data.
 *   **🔮 Eye of Truth**: Drag and drop video files to quickly view detailed media info (codec, stream info, bitrate, etc.) with an anime-style report.
 *   **🛠️ Media Library Friendly**:
