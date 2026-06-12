@@ -58,6 +58,11 @@ translation = {
     "home.action_card.start_button": "✨ 契約締結 (Start)", # トランスコード開始
     "home.action_card.pause_button": "⏳ 時空凍結 (Pause)", # 一時停止
     "home.action_card.stop_button": " 契約破棄 (Stop)", # 停止
+    "home.action_card.concurrency.mode_label": "変換の同時実行モード",
+    "home.action_card.concurrency.count_label": "手動同時実行数",
+    "home.action_card.concurrency.auto": "自動調整",
+    "home.action_card.concurrency.manual": "手動固定",
+    "home.action_card.concurrency.idle": "同時実行スケジューラー待機中",
     
     # Source Card
     "home.source_card.title": "素材次元 (Source)", # 入力ソース設定

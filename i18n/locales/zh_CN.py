@@ -58,6 +58,11 @@ translation = {
     "home.action_card.start_button": "✨ 缔结契约 (Start)", # 开始转码
     "home.action_card.pause_button": "⏳ 时空冻结 (Pause)", # 暂停
     "home.action_card.stop_button": " 契约破弃 (Stop)", # 停止
+    "home.action_card.concurrency.mode_label": "转码并发模式",
+    "home.action_card.concurrency.count_label": "手动并发数",
+    "home.action_card.concurrency.auto": "自动动态调节",
+    "home.action_card.concurrency.manual": "手动固定",
+    "home.action_card.concurrency.idle": "并发调度待命",
     
     # Source Card
     "home.source_card.title": "素材次元 (Source)", # 输入源设置

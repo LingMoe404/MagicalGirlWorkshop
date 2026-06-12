@@ -60,6 +60,8 @@ DEFAULT_SETTINGS = {
     "theme": "Auto",
     "save_mode": SAVE_MODE_OVERWRITE,
     "export_dir": "",
+    "transcode_concurrency_mode": "auto",
+    "transcode_concurrency": "2",
     "gpu_check_timeout": str(DEFAULT_GPU_CHECK_TIMEOUT),
     "gpu_cooling_time": "3",
     "hw_decoding": "True",

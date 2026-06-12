@@ -31,7 +31,12 @@ from config import (
 from utils import (
     resource_path, get_default_cache_dir, get_config_path
 )
-from workers import DurationWorker, ThumbnailWorker, DependencyWorker, EncoderWorker
+from workers import (
+    DurationWorker,
+    ThumbnailWorker,
+    DependencyWorker,
+    EncodingCoordinator,
+)
 from ui.interfaces import MediaInfoInterface, ProfileInterface, CreditsInterface, SettingsInterface
 from i18n.translator import tr, translator
 from ui.common import ClickableBodyLabel, DroppableBodyLabel, DroppableListWidget
@@ -165,6 +170,7 @@ class MainWindow(FluentWindow):
         
         self.save_modes = [SAVE_MODE_SAVE_AS, SAVE_MODE_OVERWRITE, SAVE_MODE_REMAIN]
         self.loudnorm_modes = [LOUDNORM_MODE_AUTO, LOUDNORM_MODE_ALWAYS, LOUDNORM_MODE_DISABLE]
+        self.transcode_modes = ["auto", "manual"]
 
         # [Fix] 缩减侧边栏展开宽度，避免留白过多，视觉更紧凑
         self.navigationInterface.setExpandWidth(NAV_EXPAND_WIDTH)
@@ -249,6 +255,8 @@ class MainWindow(FluentWindow):
             LOUDNORM_MODE_AUTO: "home.settings_card.loudnorm_mode.auto",
             LOUDNORM_MODE_ALWAYS: "home.settings_card.loudnorm_mode.always",
             LOUDNORM_MODE_DISABLE: "home.settings_card.loudnorm_mode.disable",
+            "auto": "home.action_card.concurrency.auto",
+            "manual": "home.action_card.concurrency.manual",
         }
 
         for key in items:
@@ -321,6 +329,20 @@ class MainWindow(FluentWindow):
 
         # 操作卡片
         self._populate_combo(self.combo_save_mode, self.save_modes)
+        self.lbl_transcode_mode.setText(
+            tr("home.action_card.concurrency.mode_label")
+        )
+        self.lbl_transcode_count.setText(
+            tr("home.action_card.concurrency.count_label")
+        )
+        self._populate_combo(
+            self.combo_transcode_mode,
+            self.transcode_modes,
+        )
+        if not (self.worker and self.worker.isRunning()):
+            self.lbl_concurrency_status.setText(
+                tr("home.action_card.concurrency.idle")
+            )
         self.line_export.setPlaceholderText(tr("home.action_card.export_path_placeholder"))
         self.btn_export.setText(tr("home.action_card.choose_button"))
         self.btn_start.setText(tr("home.action_card.start_button"))
@@ -692,8 +714,54 @@ class MainWindow(FluentWindow):
         exp_layout.addWidget(self.btn_export)
         mode_layout.addWidget(self.export_container)
         act_layout.addLayout(mode_layout)
+
+        concurrency_layout = QHBoxLayout()
+        concurrency_layout.setSpacing(12)
+
+        concurrency_mode_layout = QVBoxLayout()
+        self.lbl_transcode_mode = BodyLabel(
+            tr("home.action_card.concurrency.mode_label"),
+            self.card_action,
+        )
+        concurrency_mode_layout.addWidget(self.lbl_transcode_mode)
+        self.combo_transcode_mode = ComboBox(self.card_action)
+        self._populate_combo(
+            self.combo_transcode_mode,
+            self.transcode_modes,
+        )
+        self.combo_transcode_mode.setMinimumHeight(36)
+        self.combo_transcode_mode.currentIndexChanged.connect(
+            self.toggle_transcode_concurrency_ui
+        )
+        concurrency_mode_layout.addWidget(self.combo_transcode_mode)
+
+        concurrency_count_layout = QVBoxLayout()
+        self.lbl_transcode_count = BodyLabel(
+            tr("home.action_card.concurrency.count_label"),
+            self.card_action,
+        )
+        concurrency_count_layout.addWidget(self.lbl_transcode_count)
+        self.spin_transcode_concurrency = SpinBox(self.card_action)
+        self.spin_transcode_concurrency.setRange(1, 4)
+        self.spin_transcode_concurrency.setValue(2)
+        self.spin_transcode_concurrency.setMinimumHeight(36)
+        concurrency_count_layout.addWidget(
+            self.spin_transcode_concurrency
+        )
+
+        concurrency_layout.addLayout(concurrency_mode_layout, 2)
+        concurrency_layout.addLayout(concurrency_count_layout, 1)
+        act_layout.addLayout(concurrency_layout)
+
+        self.lbl_concurrency_status = BodyLabel(
+            tr("home.action_card.concurrency.idle"),
+            self.card_action,
+        )
+        self.lbl_concurrency_status.setWordWrap(True)
+        act_layout.addWidget(self.lbl_concurrency_status)
         act_layout.addStretch(1)
         self.toggle_export_ui()
+        self.toggle_transcode_concurrency_ui()
 
         btn_layout = QHBoxLayout()
         btn_layout.setSpacing(10)
@@ -1036,6 +1104,22 @@ class MainWindow(FluentWindow):
         self.line_export.setText(data.get("export_dir", ""))
         self.toggle_export_ui()
 
+        concurrency_mode_index = self.combo_transcode_mode.findData(
+            data.get("transcode_concurrency_mode", "auto")
+        )
+        if concurrency_mode_index > -1:
+            self.combo_transcode_mode.setCurrentIndex(
+                concurrency_mode_index
+            )
+        try:
+            concurrency = int(data.get("transcode_concurrency", "2"))
+        except (TypeError, ValueError):
+            concurrency = 2
+        self.spin_transcode_concurrency.setValue(
+            max(1, min(4, concurrency))
+        )
+        self.toggle_transcode_concurrency_ui()
+
         color_mode_index = self.combo_color.findData(data.get("color_mode", "Auto"))
         if color_mode_index > -1:
             self.combo_color.setCurrentIndex(color_mode_index)
@@ -1124,6 +1208,12 @@ class MainWindow(FluentWindow):
         self.line_export.textChanged.connect(lambda _: self.auto_save_settings())
         self.spin_offset.valueChanged.connect(lambda _: self.auto_save_settings())
         self.combo_color.currentIndexChanged.connect(lambda _: self.auto_save_settings())
+        self.combo_transcode_mode.currentIndexChanged.connect(
+            lambda _: self.auto_save_settings()
+        )
+        self.spin_transcode_concurrency.valueChanged.connect(
+            lambda _: self.auto_save_settings()
+        )
 
     def auto_save_settings(self):
         """ 自动保存当前设置。 """
@@ -1173,7 +1263,11 @@ class MainWindow(FluentWindow):
             "save_mode": self.combo_save_mode.currentData(),
             "export_dir": self.line_export.text().strip(),
             "language": translator.current_lang,
-            "color_mode": self.combo_color.currentData() or "Auto"
+            "color_mode": self.combo_color.currentData() or "Auto",
+            "transcode_concurrency_mode":
+                self.combo_transcode_mode.currentData() or "auto",
+            "transcode_concurrency":
+                str(self.spin_transcode_concurrency.value()),
         }
         if hasattr(self, 'global_settings'):
             self.global_settings.update(settings)
@@ -1195,7 +1289,9 @@ class MainWindow(FluentWindow):
         widgets_to_block = [
             self.combo_encoder, self.combo_preset, self.combo_theme,
             self.combo_save_mode, self.combo_loudnorm, self.sw_nv_aq,
-            self.line_vmaf, self.line_audio, self.line_loudnorm, self.line_export, self.spin_offset, self.combo_color
+            self.line_vmaf, self.line_audio, self.line_loudnorm,
+            self.line_export, self.spin_offset, self.combo_color,
+            self.combo_transcode_mode, self.spin_transcode_concurrency
         ]
         for w in widgets_to_block:
             w.blockSignals(True)
@@ -1211,11 +1307,16 @@ class MainWindow(FluentWindow):
         self.combo_save_mode.setCurrentIndex(self.combo_save_mode.findData(SAVE_MODE_OVERWRITE))
         self.line_export.clear()
         self.combo_color.setCurrentIndex(self.combo_color.findData("Auto"))
+        self.combo_transcode_mode.setCurrentIndex(
+            self.combo_transcode_mode.findData("auto")
+        )
+        self.spin_transcode_concurrency.setValue(2)
         
         for w in widgets_to_block:
             w.blockSignals(False)
 
         self.toggle_export_ui()
+        self.toggle_transcode_concurrency_ui()
         self.setUpdatesEnabled(True)
         self._auto_save_blocked = False
 
@@ -1877,6 +1978,11 @@ class MainWindow(FluentWindow):
         self.sync_settings_selected_card_height()
         QTimer.singleShot(0, self.sync_settings_selected_card_height)
 
+    def toggle_transcode_concurrency_ui(self):
+        is_manual = self.combo_transcode_mode.currentData() == "manual"
+        self.spin_transcode_concurrency.setEnabled(is_manual)
+        self.lbl_transcode_count.setEnabled(is_manual)
+
     def log(self, msg, level="info"):
         """ 将日志消息添加到队列中以便稍后处理。 """
         # 使用 tryLock(timeout) 防止在 log 本身发生死锁
@@ -2038,11 +2144,15 @@ class MainWindow(FluentWindow):
             'loudnorm_mode': self.combo_loudnorm.currentData(),
             'gpu_cooling_time': int(self.global_settings.get('gpu_cooling_time', '3')) if hasattr(self, 'global_settings') else 3,
             'hw_decoding': (self.global_settings.get('hw_decoding', 'True') == 'True') if hasattr(self, 'global_settings') else True,
-            'color_mode': self.combo_color.currentData() or "Auto"
+            'color_mode': self.combo_color.currentData() or "Auto",
+            'transcode_concurrency_mode':
+                self.combo_transcode_mode.currentData() or "auto",
+            'transcode_concurrency':
+                self.spin_transcode_concurrency.value(),
         }
         os.makedirs(config['cache_dir'], exist_ok=True)
 
-        self.worker = EncoderWorker(config)
+        self.worker = EncodingCoordinator(config)
         self.worker.log_signal.connect(self.log)
         self.worker.progress_total_signal.connect(self.pbar_total.setValue)
         self.worker.progress_current_signal.connect(self.pbar_current.setValue)
@@ -2051,7 +2161,9 @@ class MainWindow(FluentWindow):
         self.worker.file_status_signal.connect(self.update_file_status)
         self.worker.finished_signal.connect(self.on_finished)
         self.worker.ask_error_decision.connect(self.on_worker_error)
-        self.worker.finished.connect(self.worker.deleteLater)
+        self.worker.concurrency_status_signal.connect(
+            self.lbl_concurrency_status.setText
+        )
         
         self.worker.start()
         
@@ -2061,12 +2173,14 @@ class MainWindow(FluentWindow):
         self.btn_pause.setEnabled(True)
         self.combo_encoder.setEnabled(False)
         self.combo_save_mode.setEnabled(False)
+        self.combo_transcode_mode.setEnabled(False)
+        self.spin_transcode_concurrency.setEnabled(False)
         self.btn_pause.setText(tr("home.action_card.pause_button"))
         self.btn_stop.setEnabled(True)
         self.pbar_total.setValue(0)
         self.pbar_current.setValue(0)
 
-    def on_worker_error(self, title, content):
+    def on_worker_error(self, task_id, title, content):
         """ 当工作线程遇到错误时，弹出一个对话框让用户决定是跳过还是停止。 """
         dialog = MessageDialog(title, content, self)
         dialog.yesButton.setText(tr("dialog.error.skip_button"))
@@ -2091,7 +2205,7 @@ class MainWindow(FluentWindow):
         
         decision = 'continue' if res else 'stop'
         if self.worker:
-            self.worker.receive_decision(decision)
+            self.worker.receive_error_decision(task_id, decision)
 
     def stop_task(self):
         """ 停止当前正在运行的编码任务。 """
@@ -2122,6 +2236,11 @@ class MainWindow(FluentWindow):
         self.btn_stop.setEnabled(False)
         self.combo_encoder.setEnabled(True)
         self.combo_save_mode.setEnabled(True)
+        self.combo_transcode_mode.setEnabled(True)
+        self.toggle_transcode_concurrency_ui()
+        self.lbl_concurrency_status.setText(
+            tr("home.action_card.concurrency.idle")
+        )
         self.worker = None
 
     def apply_encoder_availability(self, has_qsv, has_nvenc, has_amf):

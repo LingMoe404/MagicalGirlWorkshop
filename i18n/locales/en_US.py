@@ -58,6 +58,11 @@ translation = {
     "home.action_card.start_button": "✨ Form Pact (Start)", # Start Transcoding
     "home.action_card.pause_button": "⏳ Time Freeze (Pause)", # Pause
     "home.action_card.stop_button": " Break Pact (Stop)", # Stop
+    "home.action_card.concurrency.mode_label": "Transcode Concurrency",
+    "home.action_card.concurrency.count_label": "Manual Workers",
+    "home.action_card.concurrency.auto": "Automatic",
+    "home.action_card.concurrency.manual": "Manual",
+    "home.action_card.concurrency.idle": "Concurrency scheduler ready",
     
     # Source Card
     "home.source_card.title": "Material Dimension (Source)", # Input Source Settings
