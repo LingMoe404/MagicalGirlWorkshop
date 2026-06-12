@@ -79,9 +79,11 @@
 
 ### 方式一：下载正式版 (推荐)
 
-1.  前往 [**Releases 页面**](https://github.com/LingMoe404/MagicalGirlWorkshop/releases) 下载最新版本的压缩包。
-2.  解压至任意目录。
-3.  双击 `MagicalGirlWorkshop.exe` 即可直接使用 (已内置 FFmpeg, ab-av1 等核心组件，无需额外配置)。
+1.  前往 [**Releases 页面**](https://github.com/LingMoe404/MagicalGirlWorkshop/releases) 下载最新版本的发布包。
+2.  按需选择其一：
+    *   `MagicalGirlWorkshop-v<版本号>-Portable.7z`：解压至任意目录后，双击 `MagicalGirlWorkshop.exe` 即可直接使用。
+    *   `MagicalGirlWorkshop-v<版本号>-Setup.exe`：运行安装程序，按向导安装到当前用户目录即可开始使用。
+3.  两种正式版都已内置 FFmpeg、ab-av1 等核心组件，无需额外配置。
 
 ### 方式二：源码运行 (Dev)
 
