@@ -35,7 +35,7 @@
 - Create: `docs/superpowers/plans/2026-06-12-ab-av1-result-parsing.md`
 - Create: `docs/superpowers/plans/2026-06-12-nvenc-rdp-fallback.md`
 
-- [ ] **Step 1: Run the existing regression suite**
+- [x] **Step 1: Run the existing regression suite**
 
 Run:
 
@@ -45,7 +45,7 @@ uv run python -m unittest discover -s tests -v
 
 Expected: 25 tests pass.
 
-- [ ] **Step 2: Run static verification**
+- [x] **Step 2: Run static verification**
 
 Run:
 
@@ -58,7 +58,7 @@ git -c safe.directory=A:/Code/MagicalGirlWorkshop diff --check
 
 Expected: all commands exit with code `0`; Git may print line-ending conversion warnings but no whitespace errors.
 
-- [ ] **Step 3: Commit only the existing fallback and parser work**
+- [x] **Step 3: Commit only the existing fallback and parser work**
 
 Run:
 
@@ -75,7 +75,7 @@ Expected: a commit containing the already verified CUDA, subtitle, retry, and ab
 - Create: `workers/transcode_schedule.py`
 - Create: `tests/test_transcode_schedule.py`
 
-- [ ] **Step 1: Write failing tests for task states and slot filling**
+- [x] **Step 1: Write failing tests for task states and slot filling**
 
 Add:
 
@@ -114,7 +114,7 @@ class BatchScheduleTests(unittest.TestCase):
         )
 ```
 
-- [ ] **Step 2: Run tests and verify RED**
+- [x] **Step 2: Run tests and verify RED**
 
 Run:
 
@@ -124,7 +124,7 @@ uv run python -m unittest tests.test_transcode_schedule -v
 
 Expected: import failure because `workers.transcode_schedule` does not exist.
 
-- [ ] **Step 3: Implement the minimal schedule**
+- [x] **Step 3: Implement the minimal schedule**
 
 Create:
 
@@ -185,7 +185,7 @@ class BatchSchedule:
         self._states[path] = TaskState.WAITING_DECISION
 ```
 
-- [ ] **Step 4: Add tests for transitions and batch completion**
+- [x] **Step 4: Add tests for transitions and batch completion**
 
 Cover:
 
@@ -207,7 +207,7 @@ def test_stop_cancels_queued_and_active_files(self):
 
 Implement `mark_encoding`, `mark_terminal`, `cancel_all`, `is_finished`, `queued_count`, and `waiting_count`.
 
-- [ ] **Step 5: Run tests and commit**
+- [x] **Step 5: Run tests and commit**
 
 Run:
 
