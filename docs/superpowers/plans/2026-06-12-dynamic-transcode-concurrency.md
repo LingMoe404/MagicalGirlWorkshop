@@ -515,7 +515,7 @@ Expected: CPU is in `0–100`, available memory is positive, and tests pass.
 - Modify: `tests/test_ab_av1_result.py`
 - Create: `tests/test_encoder_coordination_contract.py`
 
-- [ ] **Step 1: Write failing coordination-contract tests**
+- [x] **Step 1: Write failing coordination-contract tests**
 
 Inspect the worker source and instantiate it without starting FFmpeg:
 
@@ -538,7 +538,7 @@ class EncoderCoordinationContractTests(unittest.TestCase):
         self.assertNotIn("os.listdir(cache_dir)", source)
 ```
 
-- [ ] **Step 2: Verify RED**
+- [x] **Step 2: Verify RED**
 
 Run:
 
@@ -546,7 +546,7 @@ Run:
 uv run python -m unittest tests.test_encoder_coordination_contract -v
 ```
 
-- [ ] **Step 3: Add the coordination contract**
+- [x] **Step 3: Add the coordination contract**
 
 Add:
 
@@ -572,7 +572,7 @@ Behavior changes:
 - Delete only `task_paths.task_dir` in `finally`.
 - Call `set_system_awake` only when `manage_system_awake` is true.
 
-- [ ] **Step 4: Preserve existing fallback behavior**
+- [x] **Step 4: Preserve existing fallback behavior**
 
 Run:
 
@@ -582,7 +582,7 @@ uv run python -m unittest tests.test_ffmpeg_retry tests.test_ab_av1_result tests
 
 Expected: existing 25 tests and new contract tests pass.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```powershell
 git -c safe.directory=A:/Code/MagicalGirlWorkshop add workers/encoder.py tests/test_ffmpeg_retry.py tests/test_ab_av1_result.py tests/test_encoder_coordination_contract.py

@@ -7,6 +7,7 @@ from workers.ffmpeg_retry import (
     RetryDecision,
     RetryState,
     build_hw_decode_args,
+    is_hardware_resource_error,
     next_retry_state,
 )
 
@@ -196,6 +197,27 @@ class RetryStateTests(unittest.TestCase):
             next_retry_state(
                 state,
                 ["Error while decoding subtitle stream #0:2"],
+            )
+        )
+
+
+class HardwareResourceErrorTests(unittest.TestCase):
+    def test_concurrent_session_exhaustion_is_resource_error(self):
+        self.assertTrue(
+            is_hardware_resource_error(
+                ["OpenEncodeSessionEx failed: out of memory (10)"]
+            )
+        )
+
+    def test_qsv_device_busy_is_resource_error(self):
+        self.assertTrue(
+            is_hardware_resource_error(["MFX_ERR_DEVICE_BUSY"])
+        )
+
+    def test_decode_device_reinitialization_is_not_resource_error(self):
+        self.assertFalse(
+            is_hardware_resource_error(
+                ["Device setup failed for decoder on input stream #0:0"]
             )
         )
 

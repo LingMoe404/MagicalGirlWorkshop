@@ -47,6 +47,21 @@ _SUBTITLE_ERROR_DETAILS = (
     "could not",
 )
 
+_HARDWARE_RESOURCE_ERRORS = (
+    "out of memory",
+    "not enough memory",
+    "cannot allocate memory",
+    "mfx_err_memory_alloc",
+    "mfx_err_device_busy",
+    "amf_out_of_memory",
+    "amf_input_full",
+    "maximum number of concurrent sessions",
+    "too many concurrent sessions",
+    "failed to open encode session",
+    "encoder device is busy",
+    "resource temporarily unavailable",
+)
+
 
 def build_hw_decode_args(encoder_name, enabled):
     if not enabled:
@@ -130,3 +145,11 @@ def next_retry_state(state, log_lines):
         )
 
     return None
+
+
+def is_hardware_resource_error(log_lines):
+    return any(
+        marker in line.casefold()
+        for line in log_lines
+        for marker in _HARDWARE_RESOURCE_ERRORS
+    )

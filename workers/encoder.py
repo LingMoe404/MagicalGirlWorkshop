@@ -25,8 +25,11 @@ from .ffmpeg_retry import (
     FailureKind,
     RetryState,
     build_hw_decode_args,
+    is_hardware_resource_error,
     next_retry_state,
 )
+from .batch_progress import map_encode_progress, map_probe_progress
+from .transcode_paths import TaskPaths, build_final_output
 
 # --- 工作线程 (负责耗时的转码任务) ---
 class EncoderWorker(BaseWorker):
@@ -43,12 +46,22 @@ class EncoderWorker(BaseWorker):
     file_status_signal = Signal(str, str)   # filepath, status (processing, success, error)
     finished_signal = Signal()
     ask_error_decision = Signal(str, str)
+    stage_signal = Signal(str, str)
+    encoding_speed_signal = Signal(str, float)
+    resource_error_signal = Signal(str, str)
     
     def __init__(self, config):
         super().__init__()
         self.config = config
         self.is_paused = False
         self.current_proc = None
+        self.manage_system_awake = config.get("manage_system_awake", True)
+        task_paths = config.get("task_paths")
+        if isinstance(task_paths, dict):
+            task_paths = TaskPaths(**task_paths)
+        self.task_paths = task_paths
+        self.waiting_decision = False
+        self.decision = None
 
     def stop(self):
         """ 强制停止当前正在运行的子进程（ffmpeg 或 ab-av1）。 """
@@ -86,8 +99,12 @@ class EncoderWorker(BaseWorker):
         # --- 1. 解包配置 ---
         selected_files = self.config.get('selected_files') or []
         encoder_type = self.config.get('encoder', 'Intel QSV')
-        export_dir = self.config['export_dir']
-        cache_dir = self.config.get('cache_dir') or get_default_cache_dir()
+        export_dir = self.config.get('export_dir', '')
+        cache_dir = (
+            self.task_paths.ab_av1_dir
+            if self.task_paths is not None
+            else self.config.get('cache_dir') or get_default_cache_dir()
+        )
         save_mode = self.config.get('save_mode', SAVE_MODE_OVERWRITE)
         try:
             os.makedirs(cache_dir, exist_ok=True)
@@ -108,12 +125,18 @@ class EncoderWorker(BaseWorker):
         startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
 
         try:
-            self.set_system_awake(True)
+            if self.manage_system_awake:
+                self.set_system_awake(True)
             tasks = []
             
             for p in selected_files:
                 if os.path.isfile(p) and p.lower().endswith(VIDEO_EXTS):
                     tasks.append(p)
+
+            if self.task_paths is not None and len(tasks) > 1:
+                raise ValueError(
+                    "coordinated EncoderWorker accepts exactly one file"
+                )
             
             total_tasks = len(tasks)
             if total_tasks == 0:
@@ -205,6 +228,7 @@ class EncoderWorker(BaseWorker):
                         self.log_signal.emit(tr("log.encoder.skip_av1"), "success")
                         total_duration = time.time() - task_start_time
                         self.file_stats_signal.emit(filepath, tr("log.encoder.status_skipped"), tr("log.encoder.status_duration", total_duration=total_duration))
+                        self.file_progress_signal.emit(filepath, 100)
                         self.file_status_signal.emit(filepath, "success")
                         continue
                 except Exception:
@@ -224,9 +248,17 @@ class EncoderWorker(BaseWorker):
                 final_strategy = None
                 search_start_time = time.time()
                 search_paused_time = 0.0
+                self.stage_signal.emit(filepath, "probing")
 
-                for strategy in search_strategies:
+                for strategy_index, strategy in enumerate(search_strategies):
                     if not self.is_running: break
+                    self.file_progress_signal.emit(
+                        filepath,
+                        map_probe_progress(
+                            strategy_index,
+                            len(search_strategies),
+                        ),
+                    )
                     s_enc, s_preset, s_desc = strategy["encoder"], strategy["preset"], strategy["desc"]
                     if strategy != search_strategies[0]:
                          self.log_signal.emit(tr("log.encoder.ab_av1_fallback", desc=s_desc), "warning")
@@ -325,6 +357,11 @@ class EncoderWorker(BaseWorker):
                         self.log_signal.emit(tr("log.encoder.ab_av1_error_log_header"), "error")
                         for log_line in ab_av1_log[-5:]:
                             self.log_signal.emit(f"    {log_line}", "error")
+                    if is_hardware_resource_error(ab_av1_log):
+                        self.resource_error_signal.emit(
+                            filepath,
+                            ab_av1_log[-1].strip(),
+                        )
                     self.file_status_signal.emit(filepath, "error")
 
                     if self.is_running:
@@ -364,15 +401,33 @@ class EncoderWorker(BaseWorker):
 
                 # --- 3.4 FFmpeg 最终编码 ---
                 base_name = os.path.splitext(fname)[0]
-                temp_file = os.path.join(cache_dir, f"{base_name}_{int(time.time())}.temp.mkv") if cache_dir and os.path.isdir(cache_dir) else os.path.join(os.path.dirname(std_filepath), base_name + ".temp.mkv")
-                if save_mode == SAVE_MODE_OVERWRITE:
-                    final_dest = os.path.join(os.path.dirname(std_filepath), base_name + ".mkv")
-                elif save_mode == SAVE_MODE_REMAIN:
-                    final_dest = os.path.join(os.path.dirname(std_filepath), base_name + "_opt.mkv")
+                if self.task_paths is not None:
+                    temp_file = self.task_paths.temp_output
+                    final_dest = self.task_paths.final_output
                 else:
-                    if not export_dir: export_dir = os.path.dirname(std_filepath)
-                    os.makedirs(export_dir, exist_ok=True)
-                    final_dest = os.path.join(export_dir, base_name + ".mkv")
+                    temp_file = (
+                        os.path.join(
+                            cache_dir,
+                            f"{base_name}_{int(time.time())}.temp.mkv",
+                        )
+                        if cache_dir and os.path.isdir(cache_dir)
+                        else os.path.join(
+                            os.path.dirname(std_filepath),
+                            base_name + ".temp.mkv",
+                        )
+                    )
+                    if save_mode not in (
+                        SAVE_MODE_OVERWRITE,
+                        SAVE_MODE_REMAIN,
+                    ) and not export_dir:
+                        export_dir = os.path.dirname(std_filepath)
+                    final_dest = build_final_output(
+                        std_filepath,
+                        save_mode,
+                        export_dir,
+                    )
+                os.makedirs(os.path.dirname(final_dest), exist_ok=True)
+                self.stage_signal.emit(filepath, "encoding")
 
                 sub_codec = "copy"
                 if fname.lower().endswith(('.mp4', '.mov', '.m4v')):
@@ -525,14 +580,26 @@ class EncoderWorker(BaseWorker):
                                             percent = min(100, int((current_sec / duration_sec) * 100))
                                             if percent > max_percent:
                                                 max_percent = percent
-                                                self.progress_current_signal.emit(percent)
-                                                self.file_progress_signal.emit(filepath, percent)
+                                                mapped_percent = map_encode_progress(
+                                                    percent
+                                                )
+                                                self.progress_current_signal.emit(
+                                                    mapped_percent
+                                                )
+                                                self.file_progress_signal.emit(
+                                                    filepath,
+                                                    mapped_percent,
+                                                )
                                             
                                             s_match = re.search(r"speed=\s*([\d.]+)x", d)
                                             if s_match:
                                                 try:
                                                     speed_val = float(s_match.group(1))
                                                     if speed_val > 0:
+                                                        self.encoding_speed_signal.emit(
+                                                            filepath,
+                                                            speed_val,
+                                                        )
                                                         remaining = (duration_sec - current_sec) / speed_val
                                                         m, s = divmod(int(remaining), 60)
                                                         h, m = divmod(m, 60)
@@ -652,6 +719,11 @@ class EncoderWorker(BaseWorker):
                     self.file_status_signal.emit(filepath, "error")
                     for err_line in err_log:
                         self.log_signal.emit(f"   {err_line}", "error")
+                    if is_hardware_resource_error(err_log):
+                        self.resource_error_signal.emit(
+                            filepath,
+                            err_log[-1] if err_log else "",
+                        )
                     lp_temp = to_long_path(temp_file)
                     if os.path.exists(lp_temp): os.remove(lp_temp)
                     
@@ -679,18 +751,11 @@ class EncoderWorker(BaseWorker):
         except Exception as e:
             self.log_signal.emit(tr("log.encoder.fatal_error", error=e), "error")
         finally:
-            # 自动静默清理当前编码任务产生的 ab-av1 临时文件夹和同名 .temp.mkv 文件
-            try:
-                if cache_dir and os.path.exists(cache_dir):
-                    for entry in os.listdir(cache_dir):
-                        full_path = os.path.join(cache_dir, entry)
-                        # 1. 清除 ab-av1 产生的临时目录 (通常以 .ab-av1- 开头)
-                        if os.path.isdir(full_path) and entry.startswith(".ab-av1-"):
-                            shutil.rmtree(full_path, ignore_errors=True)
-                        # 2. 清除最终未正常清理的临时视频块 (.temp.mkv)
-                        elif os.path.isfile(full_path) and entry.endswith(".temp.mkv"):
-                            os.remove(full_path)
-            except Exception:
-                pass
-            self.set_system_awake(False)
+            if self.task_paths is not None:
+                shutil.rmtree(
+                    self.task_paths.task_dir,
+                    ignore_errors=True,
+                )
+            if self.manage_system_awake:
+                self.set_system_awake(False)
             self.finished_signal.emit()
