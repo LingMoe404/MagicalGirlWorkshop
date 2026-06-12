@@ -9,7 +9,7 @@ translation = {
     "app.title": "Magical Girl Workshop", # Application Main Title
     "app.subtitle": "AV1 Hardware Acceleration Mana Drive · Absolute Territory Edition", # Application Subtitle
     "app.welcome": "Welcome to the Magical Girl Workshop ✨", # Welcome Message
-    "app.designed_by": "Designed by <a href='https://space.bilibili.com/136850' style='color: #FB7299; text-decoration: none; font-weight: bold;'>LingMoe404</a> | Powered by Python, PySide6, QFluentWidgets, FFmpeg, ab-av1, Gemini", # Designer and Tech Support Info
+    "app.designed_by": "Designed by <a href='https://space.bilibili.com/136850' style='color: #FB7299; text-decoration: none; font-weight: bold;'>LingMoe404</a> | AI-assisted with Codex, GPT, Antigravity & Gemini", # Designer and Tech Support Info
 
     # -------------------------------------------------------------------------
     # Home Interface (view/home_interface.py)
@@ -58,6 +58,11 @@ translation = {
     "home.action_card.start_button": "✨ Form Pact (Start)", # Start Transcoding
     "home.action_card.pause_button": "⏳ Time Freeze (Pause)", # Pause
     "home.action_card.stop_button": " Break Pact (Stop)", # Stop
+    "home.action_card.concurrency.mode_label": "Transcode Concurrency",
+    "home.action_card.concurrency.count_label": "Manual Workers",
+    "home.action_card.concurrency.auto": "Automatic",
+    "home.action_card.concurrency.manual": "Manual",
+    "home.action_card.concurrency.idle": "Concurrency scheduler ready",
     
     # Source Card
     "home.source_card.title": "Material Dimension (Source)", # Input Source Settings
@@ -129,21 +134,8 @@ translation = {
     # Credits Interface (view/credits_interface.py)
     # -------------------------------------------------------------------------
     "credits.title": "Proof of Bond", # "Proof of Bond" Page Title
-    "credits.card.contributor_role": "Spell Construction Co-op", # "Proof of Bond" Page Contributor Role
-    "credits.card.intro": "Workshop Upgrade Contributors, their feats are as follows:", # "Proof of Bond" Page Intro
-    "credits.contributions.item1.title": "New Mana Cycle System", # "Proof of Bond" Page Contribution Item 1 Title
-    "credits.contributions.item1.desc": "Optimized Mana Flow Stability", # "Proof of Bond" Page Contribution Item 1 Description
-    "credits.contributions.item2.title": "Solidified Core Chant Base", # "Proof of Bond" Page Contribution Item 2 Title
-    "credits.contributions.item2.desc": "Improved Ritual Stability", # "Proof of Bond" Page Contribution Item 2 Description
-    "credits.contributions.item3.title": "Relic Framework Upgrade", # "Proof of Bond" Page Contribution Item 3 Title
-    "credits.contributions.item3.desc": "Embracing Open Source & Greater Power", # "Proof of Bond" Page Contribution Item 3 Description
-    "credits.contributions.item4.title": "Portable Alchemy Encapsulation", # "Proof of Bond" Page Contribution Item 4 Title
-    "credits.contributions.item4.desc": "Smaller Spirits, Faster Summoning", # "Proof of Bond" Page Contribution Item 4 Description
-    "credits.contributions.item5.title": "Reforged Alchemy Toolchain", # "Proof of Bond" Page Contribution Item 5 Title
-    "credits.contributions.item5.desc": "Supporting Flexible Spell Distribution", # "Proof of Bond" Page Contribution Item 5 Description
-    "credits.contributions.item6.title": "Automated Alchemy Workshop", # "Proof of Bond" Page Contribution Item 6 Title
-    "credits.contributions.item6.desc": "Cloud Automated Construction & Distribution", # "Proof of Bond" Page Contribution Item 6 Description
-    "credits.card.footer": "Special Thanks: PySide6, QFluentWidgets, FFmpeg, ab-av1, Gemini", # "Proof of Bond" Page Footer
+    "credits.card.contributor_role": "Early Guidance", # "Proof of Bond" Page Contributor Role
+    "credits.card.intro": "Thank you for sharing development experience and toolchain ideas during the workshop's early days.\n\nThose first lessons became the starting point for exploring stronger spells independently.", # "Proof of Bond" Page Intro
 
     # -------------------------------------------------------------------------
     # Welcome Wizard (view/welcome_wizard.py)
@@ -270,7 +262,7 @@ translation = {
     "log.encoder.ab_av1_success_offset_corrected": " -> Spell Analysis Complete ({desc}): Raw CRF {cpu_crf} + Offset {offset} = {raw_icq} (Corrected to {reason} limit {best_icq}) [Time: {search_duration:.1f}s]", # ab-av1 Success Corrected Log
     "log.encoder.ab_av1_success_offset": " -> Spell Analysis Complete ({desc}): Raw CRF {cpu_crf} + Offset {offset} => Final Param {best_icq} [Time: {search_duration:.1f}s]", # ab-av1 Success Offset Log
     "log.encoder.ab_av1_success": " -> Spell Analysis Complete (ICQ): {best_icq} [Time: {search_duration:.1f}s] (๑•̀ㅂ•́)و✧", # ab-av1 Success Log
-    "log.encoder.ab_av1_failed": " -> Analysis failed, forcing basic spell ICQ: {best_icq} (T_T)", # ab-av1 Failed Log
+    "log.encoder.ab_av1_failed": " -> Analysis failed; encoding will not start without a trustworthy CRF. (T_T)", # ab-av1 Failed Log
     "log.encoder.ab_av1_error_log_header": "    [ab-av1 Error Traceback]:", # ab-av1 Error Header Log
     "log.encoder.icq_corrected": " -> Correction: Hardware encoder param limit ({icq} -> 51)", # ICQ Corrected Log
     "log.encoder.ffmpeg_exception": " -> Mana Backflow: {error} (×_×)", # FFmpeg Exception Log

@@ -1,7 +1,7 @@
 # config.py
 from PySide6.QtCore import QSize
 
-VERSION = "1.3.0"
+VERSION = "1.4.0"
 APP_TITLE = f"魔法少女工坊 v{VERSION}"
 APP_ID = f"LingMoe404.MagicalGirlWorkshop.Encoder.{VERSION}"
 
@@ -60,6 +60,8 @@ DEFAULT_SETTINGS = {
     "theme": "Auto",
     "save_mode": SAVE_MODE_OVERWRITE,
     "export_dir": "",
+    "transcode_concurrency_mode": "auto",
+    "transcode_concurrency": "2",
     "gpu_check_timeout": str(DEFAULT_GPU_CHECK_TIMEOUT),
     "gpu_cooling_time": "3",
     "hw_decoding": "True",

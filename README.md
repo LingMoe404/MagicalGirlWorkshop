@@ -1,7 +1,7 @@
 # ✨ 魔法少女工坊 (Magical Girl Workshop) - Windows Edition
 
-![Version](https://img.shields.io/badge/version-1.3.0-FB7299?style=for-the-badge&logo=bilibili&logoColor=white)
-![Built with Gemini](https://img.shields.io/badge/Built%20with-Gemini-8E75B2?style=for-the-badge&logo=googlegemini&logoColor=white)
+![Version](https://img.shields.io/badge/version-1.4.0-FB7299?style=for-the-badge&logo=bilibili&logoColor=white)
+![AI Co-developed](https://img.shields.io/badge/AI_Co--developed-Codex_%7C_GPT_%7C_Antigravity_%7C_Gemini-8E75B2?style=for-the-badge)
 ![Platform](https://img.shields.io/badge/OS-Windows11-0078D6?style=for-the-badge&logo=windows&logoColor=white)
 ![License](https://img.shields.io/badge/License-GPLv3-green?style=for-the-badge)
 
@@ -11,7 +11,7 @@
 >
 > 一款运行在 Windows 终端上，专为 **NAS 用户** 和 **仓鼠党** 打造的智能 AV1 硬件转码工具。<br>
 > 核心基于 **VMAF 视界还原度** 智能测算最优码率，利用 Intel QSV、NVIDIA NVENC 或 AMD AMF 技术，在肉眼无损保留画质的前提下，将庞大的影视库体积缩小 **30% - 50%** ，拯救您的本地硬盘与 NAS 空间。<br>
-> *Powered by Python, PySide6, QFluentWidgets, FFmpeg, ab-av1, Gemini.*
+> *Built with Python, PySide6, QFluentWidgets, FFmpeg and ab-av1 · AI-assisted with Codex, GPT, Antigravity & Gemini.*
 
 ---
 
@@ -79,9 +79,11 @@
 
 ### 方式一：下载正式版 (推荐)
 
-1.  前往 [**Releases 页面**](https://github.com/LingMoe404/MagicalGirlWorkshop/releases) 下载最新版本的压缩包。
-2.  解压至任意目录。
-3.  双击 `MagicalGirlWorkshop.exe` 即可直接使用 (已内置 FFmpeg, ab-av1 等核心组件，无需额外配置)。
+1.  前往 [**Releases 页面**](https://github.com/LingMoe404/MagicalGirlWorkshop/releases) 下载最新版本的发布包。
+2.  按需选择其一：
+    *   `MagicalGirlWorkshop-v<版本号>-Portable.7z`：解压至任意目录后，双击 `MagicalGirlWorkshop.exe` 即可直接使用。
+    *   `MagicalGirlWorkshop-v<版本号>-Setup.exe`：运行安装程序，按向导安装到当前用户目录即可开始使用。
+3.  两种正式版都已内置 FFmpeg、ab-av1 等核心组件，无需额外配置。
 
 ### 方式二：源码运行 (Dev)
 
@@ -105,7 +107,7 @@
 
 3.  **准备工具链**
     请确保项目根目录下的 `tools/` 文件夹内包含以下可执行文件：
-    *   `ffmpeg.exe` & `ffprobe.exe`: **注意**：仓库源码中上传的是 `essentials` 版本，缺少部分编码支持。建议前往 gyan.dev 下载 `ffmpeg-release-full.7z` (Full 版本) 并替换。*(注：下载的正式版 Releases 压缩包已内置 Full 版本，无需额外操作)*
+    *   `ffmpeg.exe` & `ffprobe.exe`: **注意**：仓库源码中上传的是 `essentials` 版本，已经足够满足本项目的常规转码与探测需求。若你确实需要更丰富的编解码/滤镜库，再前往 gyan.dev 下载 `ffmpeg-release-full.7z` (Full 版本) 并替换。*(注：正式版 Releases 压缩包里也提供 Full 版本，按需使用即可)*
     *   `ab-av1.exe`
 
 4.  **启动**
@@ -145,13 +147,13 @@
 *   [**ab-av1**](https://github.com/alexheretic/ab-av1): 自动寻找最佳 AV1 编码参数的工具。
 *   [**PySide6**](https://doc.qt.io/qtforpython/): Python 的 Qt 绑定。
 *   [**QFluentWidgets**](https://github.com/zhiyiYo/PyQt-Fluent-Widgets): 精美的 Fluent Design 风格组件库。
-*   [**Google Gemini**](https://deepmind.google/technologies/gemini/): 提供了强大的代码生成与辅助能力。
+*   **OpenAI Codex / GPT**: 参与代码实现、调试、测试与文档整理。
+*   **Google Antigravity / Gemini**: 参与方案探索、代码生成与开发辅助。
 
 ## 🤖 开发幕后
 
-本项目是一个纯粹的 **AI 辅助开发** 实验。
-**100% 的代码** 均由 **Google Gemini** 在我的 Prompt 引导下生成。
-我负责提供逻辑架构和需求，AI 负责编写 Python 代码和 UI 实现。
+本项目是一个由 **泠萌404 主导的 AI 辅助开发** 实验。
+泠萌404负责产品方向、逻辑架构、需求定义、评审与最终决策；**OpenAI Codex / GPT** 与 **Google Antigravity / Gemini** 协作参与代码实现、调试、测试和文档整理。
 
 ## 🤝 贡献指南 (Contributing)
 

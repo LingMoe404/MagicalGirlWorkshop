@@ -8,7 +8,7 @@
 A: 说明程序目录下的 `tools/` 文件夹内缺少 `ffmpeg.exe`、`ffprobe.exe` 或 `ab-av1.exe`。请确保这些工具存在于 `tools/` 目录中。
 
 **Q: 为什么部分视频转码失败？**
-A: 源码仓库中有单文件体积限制，上传的 `ffmpeg.exe` 为 `essentials` 版本，可能缺少部分非主流编码格式的支持。建议前往 gyan.dev 下载 `ffmpeg-release-full.7z` (Full 版本) 并替换 `tools/` 目录下的文件。*(注：Releases 发布页下载的正式版已内置 Full 版本)*
+A: 源码仓库中上传的是 `essentials` 版本，已经足够满足本项目的常规转码与探测需求。若你确实需要更丰富的编解码/滤镜库，再前往 gyan.dev 下载 `ffmpeg-release-full.7z` (Full 版本) 并替换 `tools/` 目录下的文件。*(注：Releases 发布页下载的正式版也可直接使用 Full 版本)*
 
 **Q: 为什么点击开始后直接报错/闪退？**
 A: 请检查您的显卡是否支持 AV1 硬件编码。
@@ -45,7 +45,7 @@ A: ✨ **完美支持**！自 v1.3.0 起，程序已深度重构色彩管线：
 A: This indicates that `ffmpeg.exe`, `ffprobe.exe`, or `ab-av1.exe` are missing from the `tools/` folder in the program directory. Please ensure these tools exist in the `tools/` directory.
 
 **Q: Why do some video transcodes fail?**
-A: The source code repository has a single file size limit, so the uploaded `ffmpeg.exe` is the `essentials` version, which may lack support for some non-mainstream encoding formats. It is recommended to download `ffmpeg-release-full.7z` (Full version) from gyan.dev and replace the files in the `tools/` directory. *(Note: The official version downloaded from the Releases page already has the Full version built-in)*
+A: The source code repository ships the `essentials` version, which is sufficient for this project’s normal transcoding and probing flow. If you specifically need extra codecs or filters, download `ffmpeg-release-full.7z` (Full version) from gyan.dev and replace the files in the `tools/` directory. *(Note: the official Releases archive also provides the Full version, so use it only when needed.)*
 
 **Q: Why does it crash/close immediately after clicking start?**
 A: Please check if your graphics card supports AV1 hardware encoding.

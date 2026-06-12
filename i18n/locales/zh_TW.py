@@ -9,7 +9,7 @@ translation = {
     "app.title": "魔法少女工坊", # 應用主標題
     "app.subtitle": "AV1 硬體加速魔力驅動 · 絕對領域 Edition", # 應用副標題
     "app.welcome": "歡迎來到魔法少女工坊 ✨", # 歡迎訊息
-    "app.designed_by": "Designed by <a href='https://space.bilibili.com/136850' style='color: #FB7299; text-decoration: none; font-weight: bold;'>泠萌404</a> | Powered by Python, PySide6, QFluentWidgets, FFmpeg, ab-av1, Gemini", # 設計者和技術支援資訊
+    "app.designed_by": "Designed by <a href='https://space.bilibili.com/136850' style='color: #FB7299; text-decoration: none; font-weight: bold;'>泠萌404</a> | AI-assisted with Codex, GPT, Antigravity & Gemini", # 設計者和技術支援資訊
 
     # -------------------------------------------------------------------------
     # Home Interface (view/home_interface.py)
@@ -58,6 +58,11 @@ translation = {
     "home.action_card.start_button": "✨ 締結契約 (Start)", # 開始轉碼
     "home.action_card.pause_button": "⏳ 時空凍結 (Pause)", # 暫停
     "home.action_card.stop_button": " 契約破棄 (Stop)", # 停止
+    "home.action_card.concurrency.mode_label": "轉碼並行模式",
+    "home.action_card.concurrency.count_label": "手動並行數",
+    "home.action_card.concurrency.auto": "自動動態調節",
+    "home.action_card.concurrency.manual": "手動固定",
+    "home.action_card.concurrency.idle": "並行調度待命",
     
     # Source Card
     "home.source_card.title": "素材次元 (Source)", # 輸入源設定
@@ -129,21 +134,8 @@ translation = {
     # Credits Interface (view/credits_interface.py)
     # -------------------------------------------------------------------------
     "credits.title": "羈絆之證", # 「羈絆之證」頁面標題
-    "credits.card.contributor_role": "術式構築協力", # 「羈絆之證」頁面貢獻者角色
-    "credits.card.intro": "工坊升級改造貢獻者，其偉績如下：", # 「羈絆之證」頁面介紹
-    "credits.contributions.item1.title": "新魔力循環系統", # 「羈絆之證」頁面貢獻項1標題
-    "credits.contributions.item1.desc": "最佳化魔力流動穩定性", # 「羈絆之證」頁面貢獻項1描述
-    "credits.contributions.item2.title": "固化核心詠唱基盤", # 「羈絆之證」頁面貢獻項2標題
-    "credits.contributions.item2.desc": "提升儀式穩定性", # 「羈絆之證」頁面貢獻項2描述
-    "credits.contributions.item3.title": "聖遺物框架升級", # 「羈絆之證」頁面貢獻項3標題
-    "credits.contributions.item3.desc": "擁抱開源與更強的力量", # 「羈絆之證」頁面貢獻項3描述
-    "credits.contributions.item4.title": "鍊成物可攜化封裝", # 「羈絆之證」頁面貢獻項4標題
-    "credits.contributions.item4.desc": "靈體更小，召喚更快", # 「羈絆之證」頁面貢獻項4描述
-    "credits.contributions.item5.title": "重構鍊成工具鏈", # 「羈絆之證」頁面貢獻項5標題
-    "credits.contributions.item5.desc": "支援更靈活的術式分發", # 「羈絆之證」頁面貢獻項5描述
-    "credits.contributions.item6.title": "自動化鍊金工坊", # 「羈絆之證」頁面貢獻項6標題
-    "credits.contributions.item6.desc": "雲端自動構築與分發", # 「羈絆之證」頁面貢獻項6描述
-    "credits.card.footer": "特別鳴謝: PySide6, QFluentWidgets, FFmpeg, ab-av1, Gemini", # 「羈絆之證」頁面頁尾
+    "credits.card.contributor_role": "啟蒙協力", # 「羈絆之證」頁面貢獻者角色
+    "credits.card.intro": "感謝在工坊早期分享開發經驗與工具鏈思路。\n\n那些最初的指引，已經成為獨立探索更強術式的起點。", # 「羈絆之證」頁面介紹
 
     # -------------------------------------------------------------------------
     # Welcome Wizard (view/welcome_wizard.py)
@@ -270,7 +262,7 @@ translation = {
     "log.encoder.ab_av1_success_offset_corrected": " -> 術式解析完畢 ({desc}): 原始CRF {cpu_crf} + 偏移 {offset} = {raw_icq} (已修正為{reason}限制 {best_icq}) [耗時: {search_duration:.1f}s]", # ab-av1 成功(修正)日誌
     "log.encoder.ab_av1_success_offset": " -> 術式解析完畢 ({desc}): 原始CRF {cpu_crf} + 偏移 {offset} => 最終參數 {best_icq} [耗時: {search_duration:.1f}s]", # ab-av1 成功(偏移)日誌
     "log.encoder.ab_av1_success": " -> 術式解析完畢 (ICQ): {best_icq} [耗時: {search_duration:.1f}s] (๑•̀ㅂ•́)و✧", # ab-av1 成功日誌
-    "log.encoder.ab_av1_failed": " -> 解析失敗，強制使用基礎術式 ICQ: {best_icq} (T_T)", # ab-av1 失敗日誌
+    "log.encoder.ab_av1_failed": " -> 解析失敗，未找到可信的 CRF 參數；不會強制開始編碼。 (T_T)", # ab-av1 失敗日誌
     "log.encoder.ab_av1_error_log_header": "    [ab-av1 錯誤回溯]:", # ab-av1 錯誤頭日誌
     "log.encoder.icq_corrected": " -> 修正: 硬體編碼器參數限制 ({icq} -> 51)", # ICQ 修正日誌
     "log.encoder.ffmpeg_exception": " -> 魔力逆流: {error} (×_×)", # FFmpeg 異常日誌

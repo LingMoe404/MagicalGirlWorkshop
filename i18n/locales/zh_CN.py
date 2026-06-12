@@ -9,7 +9,7 @@ translation = {
     "app.title": "魔法少女工坊", # 应用主标题
     "app.subtitle": "AV1 硬件加速魔力驱动 · 绝对领域 Edition", # 应用副标题
     "app.welcome": "欢迎来到魔法少女工坊 ✨", # 欢迎信息
-    "app.designed_by": "Designed by <a href='https://space.bilibili.com/136850' style='color: #FB7299; text-decoration: none; font-weight: bold;'>泠萌404</a> | Powered by Python, PySide6, QFluentWidgets, FFmpeg, ab-av1, Gemini", # 设计者和技术支持信息
+    "app.designed_by": "Designed by <a href='https://space.bilibili.com/136850' style='color: #FB7299; text-decoration: none; font-weight: bold;'>泠萌404</a> | AI-assisted with Codex, GPT, Antigravity & Gemini", # 设计者和技术支持信息
 
     # -------------------------------------------------------------------------
     # Home Interface (view/home_interface.py)
@@ -58,6 +58,11 @@ translation = {
     "home.action_card.start_button": "✨ 缔结契约 (Start)", # 开始转码
     "home.action_card.pause_button": "⏳ 时空冻结 (Pause)", # 暂停
     "home.action_card.stop_button": " 契约破弃 (Stop)", # 停止
+    "home.action_card.concurrency.mode_label": "转码并发模式",
+    "home.action_card.concurrency.count_label": "手动并发数",
+    "home.action_card.concurrency.auto": "自动动态调节",
+    "home.action_card.concurrency.manual": "手动固定",
+    "home.action_card.concurrency.idle": "并发调度待命",
     
     # Source Card
     "home.source_card.title": "素材次元 (Source)", # 输入源设置
@@ -129,21 +134,8 @@ translation = {
     # Credits Interface (view/credits_interface.py)
     # -------------------------------------------------------------------------
     "credits.title": "羁绊之证", # “羁绊之证”页面标题
-    "credits.card.contributor_role": "术式构筑协力", # “羁绊之证”页面贡献者角色
-    "credits.card.intro": "工坊升级改造贡献者，其伟绩如下：", # “羁绊之证”页面介绍
-    "credits.contributions.item1.title": "新魔力循环系统", # “羁绊之证”页面贡献项1标题
-    "credits.contributions.item1.desc": "优化魔力流动稳定性", # “羁绊之证”页面贡献项1描述
-    "credits.contributions.item2.title": "固化核心咏唱基盘", # “羁绊之证”页面贡献项2标题
-    "credits.contributions.item2.desc": "提升仪式稳定性", # “羁绊之证”页面贡献项2描述
-    "credits.contributions.item3.title": "圣遗物框架升级", # “羁绊之证”页面贡献项3标题
-    "credits.contributions.item3.desc": "拥抱开源与更强的力量", # “羁绊之证”页面贡献项3描述
-    "credits.contributions.item4.title": "炼成物便携化封装", # “羁绊之证”页面贡献项4标题
-    "credits.contributions.item4.desc": "灵体更小，召唤更快", # “羁绊之证”页面贡献项4描述
-    "credits.contributions.item5.title": "重构炼成工具链", # “羁绊之证”页面贡献项5标题
-    "credits.contributions.item5.desc": "支持更灵活的术式分发", # “羁绊之证”页面贡献项5描述
-    "credits.contributions.item6.title": "自动化炼金工坊", # “羁绊之证”页面贡献项6标题
-    "credits.contributions.item6.desc": "云端自动构筑与分发", # “羁绊之证”页面贡献项6描述
-    "credits.card.footer": "特别鸣谢: PySide6, QFluentWidgets, FFmpeg, ab-av1, Gemini", # “羁绊之证”页面页脚
+    "credits.card.contributor_role": "启蒙协力", # “羁绊之证”页面贡献者角色
+    "credits.card.intro": "感谢在工坊早期分享开发经验与工具链思路。\n\n那些最初的指引，已经成为独立探索更强术式的起点。", # “羁绊之证”页面介绍
 
     # -------------------------------------------------------------------------
     # Welcome Wizard (view/welcome_wizard.py)
@@ -270,7 +262,7 @@ translation = {
     "log.encoder.ab_av1_success_offset_corrected": " -> 术式解析完毕 ({desc}): 原始CRF {cpu_crf} + 偏移 {offset} = {raw_icq} (已修正为{reason}限制 {best_icq}) [耗时: {search_duration:.1f}s]", # ab-av1 成功(修正)日志
     "log.encoder.ab_av1_success_offset": " -> 术式解析完毕 ({desc}): 原始CRF {cpu_crf} + 偏移 {offset} => 最终参数 {best_icq} [耗时: {search_duration:.1f}s]", # ab-av1 成功(偏移)日志
     "log.encoder.ab_av1_success": " -> 术式解析完毕 (ICQ): {best_icq} [耗时: {search_duration:.1f}s] (๑•̀ㅂ•́)و✧", # ab-av1 成功日志
-    "log.encoder.ab_av1_failed": " -> 解析失败，强制使用基础术式 ICQ: {best_icq} (T_T)", # ab-av1 失败日志
+    "log.encoder.ab_av1_failed": " -> 解析失败，未找到可信的 CRF 参数；不会强制开始编码。 (T_T)", # ab-av1 失败日志
     "log.encoder.ab_av1_error_log_header": "    [ab-av1 错误回溯]:", # ab-av1 错误头日志
     "log.encoder.icq_corrected": " -> 修正: 硬件编码器参数限制 ({icq} -> 51)", # ICQ 修正日志
     "log.encoder.ffmpeg_exception": " -> 魔力逆流: {error} (×_×)", # FFmpeg 异常日志
@@ -290,7 +282,7 @@ translation = {
     "log.encoder.info_loudnorm_skipped": " -> 声场调和 (Loudnorm): 跳过 ({mode})", # 响度均衡跳过日志
     
     # Settings Interface
-    "settings.title": "禁忌设定 (Settings)", # 系统设置标题
+    "settings.title": "禁忌设定", # 系统设置标题
     "settings.gpu_timeout_label": "核心探测超时 (秒)", # 硬件探测超时
     "settings.gpu_cooling_time_label": "核心冷却间隔 (秒)", # 核心冷却间隔
     "settings.hw_decoding_label": "硬件解码超载术式 (GPU Decoding)", # 硬件解码

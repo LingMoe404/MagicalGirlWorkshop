@@ -20,7 +20,7 @@
     uv sync
     ```
 4.  **准备工具链**:
-    确保 `tools/` 目录下有可执行的 `ffmpeg.exe`、`ffprobe.exe` 和 `ab-av1.exe`。建议使用 gyan.dev 的 Full Release 版本。
+    确保 `tools/` 目录下有可执行的 `ffmpeg.exe`、`ffprobe.exe` 和 `ab-av1.exe`。仓库默认提供 `essentials` 版本，通常已足够日常开发和测试；如果你确实需要更多编解码/滤镜库，再按需换成 gyan.dev 的 Full Release 版本。
 
 ## 📝 贡献流程
 
@@ -86,7 +86,7 @@ This project uses [uv](https://github.com/astral-sh/uv) for dependency managemen
     uv sync
     ```
 4.  **Prepare Toolchain**:
-    Ensure that executable `ffmpeg.exe`, `ffprobe.exe`, and `ab-av1.exe` are present in the `tools/` directory. It is recommended to use the Full Release version from gyan.dev.
+    Ensure that executable `ffmpeg.exe`, `ffprobe.exe`, and `ab-av1.exe` are present in the `tools/` directory. The repository defaults to the `essentials` build, which is usually enough for daily development and testing; only switch to the Full Release from gyan.dev if you specifically need extra codecs or filters.
 
 ## 📝 Contribution Process
 

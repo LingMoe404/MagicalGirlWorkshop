@@ -9,7 +9,7 @@ translation = {
     "app.title": "魔法少女工房", # アプリケーションのメインタイトル
     "app.subtitle": "AV1 ハードウェア加速魔力駆動 · 絶対領域 Edition", # アプリケーションのサブタイトル
     "app.welcome": "ようこそ、魔法少女工房へ ✨", # ウェルカムメッセージ
-    "app.designed_by": "Designed by <a href='https://space.bilibili.com/136850' style='color: #FB7299; text-decoration: none; font-weight: bold;'>泠萌404</a> | Powered by Python, PySide6, QFluentWidgets, FFmpeg, ab-av1, Gemini", # 設計者と技術サポート情報
+    "app.designed_by": "Designed by <a href='https://space.bilibili.com/136850' style='color: #FB7299; text-decoration: none; font-weight: bold;'>泠萌404</a> | AI-assisted with Codex, GPT, Antigravity & Gemini", # 設計者と技術サポート情報
 
     # -------------------------------------------------------------------------
     # Home Interface (view/home_interface.py)
@@ -58,6 +58,11 @@ translation = {
     "home.action_card.start_button": "✨ 契約締結 (Start)", # トランスコード開始
     "home.action_card.pause_button": "⏳ 時空凍結 (Pause)", # 一時停止
     "home.action_card.stop_button": " 契約破棄 (Stop)", # 停止
+    "home.action_card.concurrency.mode_label": "変換の同時実行モード",
+    "home.action_card.concurrency.count_label": "手動同時実行数",
+    "home.action_card.concurrency.auto": "自動調整",
+    "home.action_card.concurrency.manual": "手動固定",
+    "home.action_card.concurrency.idle": "同時実行スケジューラー待機中",
     
     # Source Card
     "home.source_card.title": "素材次元 (Source)", # 入力ソース設定
@@ -129,21 +134,8 @@ translation = {
     # Credits Interface (view/credits_interface.py)
     # -------------------------------------------------------------------------
     "credits.title": "絆の証", # 「絆の証」ページタイトル
-    "credits.card.contributor_role": "術式構築協力", # 「絆の証」ページ貢献者役割
-    "credits.card.intro": "工房アップグレード貢献者、その偉業は以下の通り：", # 「絆の証」ページ紹介
-    "credits.contributions.item1.title": "新魔力循環システム", # 「絆の証」ページ貢献項目1タイトル
-    "credits.contributions.item1.desc": "魔力流動の安定化", # 「絆の証」ページ貢献項目1説明
-    "credits.contributions.item2.title": "コア詠唱基盤の固定", # 「絆の証」ページ貢献項目2タイトル
-    "credits.contributions.item2.desc": "儀式安定性の向上", # 「絆の証」ページ貢献項目2説明
-    "credits.contributions.item3.title": "聖遺物フレームワーク昇華", # 「絆の証」ページ貢献項目3タイトル
-    "credits.contributions.item3.desc": "オープンソースとより強き力を", # 「絆の証」ページ貢献項目3説明
-    "credits.contributions.item4.title": "錬成物ポータブル封入", # 「絆の証」ページ貢献項目4タイトル
-    "credits.contributions.item4.desc": "霊体はより小さく、召喚はより速く", # 「絆の証」ページ貢献項目4説明
-    "credits.contributions.item5.title": "錬成ツールチェーン再構築", # 「絆の証」ページ貢献項目5タイトル
-    "credits.contributions.item5.desc": "より柔軟な術式配布をサポート", # 「絆の証」ページ貢献項目5説明
-    "credits.contributions.item6.title": "自動化錬金工房", # 「絆の証」ページ貢献項目6タイトル
-    "credits.contributions.item6.desc": "クラウドによる自動構築と配布", # 「絆の証」ページ貢献項目6説明
-    "credits.card.footer": "特別感謝: PySide6, QFluentWidgets, FFmpeg, ab-av1, Gemini", # 「絆の証」ページフッター
+    "credits.card.contributor_role": "啓蒙協力", # 「絆の証」ページ貢献者役割
+    "credits.card.intro": "工房の初期に、開発経験とツールチェーンの考え方を共有してくれたことに感謝します。\n\n最初の導きは、より強い術式を自ら探求するための出発点になりました。", # 「絆の証」ページ紹介
 
     # -------------------------------------------------------------------------
     # Welcome Wizard (view/welcome_wizard.py)
@@ -270,7 +262,7 @@ translation = {
     "log.encoder.ab_av1_success_offset_corrected": " -> 術式解析完了 ({desc}): 原始CRF {cpu_crf} + オフセット {offset} = {raw_icq} ({reason}制限により {best_icq} に修正) [所要時間: {search_duration:.1f}s]", # ab-av1 成功(修正)ログ
     "log.encoder.ab_av1_success_offset": " -> 術式解析完了 ({desc}): 原始CRF {cpu_crf} + オフセット {offset} => 最終パラメータ {best_icq} [所要時間: {search_duration:.1f}s]", # ab-av1 成功(オフセット)ログ
     "log.encoder.ab_av1_success": " -> 術式解析完了 (ICQ): {best_icq} [所要時間: {search_duration:.1f}s] (๑•̀ㅂ•́)و✧", # ab-av1 成功ログ
-    "log.encoder.ab_av1_failed": " -> 解析失敗、基礎術式を強制使用 ICQ: {best_icq} (T_T)", # ab-av1 失敗ログ
+    "log.encoder.ab_av1_failed": " -> 解析失敗。信頼できる CRF がないため、エンコードは開始しません。 (T_T)", # ab-av1 失敗ログ
     "log.encoder.ab_av1_error_log_header": "    [ab-av1 エラー回想]:", # ab-av1 エラーヘッダーログ
     "log.encoder.icq_corrected": " -> 修正: ハードウェアエンコーダーパラメータ制限 ({icq} -> 51)", # ICQ 修正ログ
     "log.encoder.ffmpeg_exception": " -> 魔力逆流: {error} (×_×)", # FFmpeg 異常ログ
