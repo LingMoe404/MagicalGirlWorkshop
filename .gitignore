@@ -16,6 +16,7 @@ __pycache__/
 # --- 开发工具缓存 (Ruff/Mypy) ---
 .ruff_cache/
 .mypy_cache/
+.superpowers/
 
 # --- Nuitka 打包产物与构建目录 (强化防御) ---
 build/
