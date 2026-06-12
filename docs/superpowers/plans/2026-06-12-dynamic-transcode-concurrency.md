@@ -376,7 +376,7 @@ git -c safe.directory=A:/Code/MagicalGirlWorkshop commit -m "feat: add dynamic c
 - Create: `tests/test_transcode_paths.py`
 - Create: `tests/test_batch_progress.py`
 
-- [ ] **Step 1: Write failing output-path tests**
+- [x] **Step 1: Write failing output-path tests**
 
 Cover overwrite, remain, save-as, case-insensitive collision, and cross-overwrite:
 
@@ -394,7 +394,7 @@ def test_same_basename_in_save_as_is_rejected(tmp_path):
     self.assertEqual(len(conflicts), 1)
 ```
 
-- [ ] **Step 2: Verify RED and implement path helpers**
+- [x] **Step 2: Verify RED and implement path helpers**
 
 Run:
 
@@ -424,7 +424,7 @@ Implement:
 Use `os.path.abspath`, `os.path.normcase`, and `os.path.normpath` for comparisons.
 The cleanup helper may delete only directories named `mgw-session-*` whose batch ID is not active and whose last modification time is older than the supplied threshold.
 
-- [ ] **Step 3: Write failing weighted-progress tests**
+- [x] **Step 3: Write failing weighted-progress tests**
 
 Cover:
 
@@ -448,7 +448,7 @@ def test_terminal_failures_count_as_finished():
 
 Also test unknown durations use the median known duration, and all-unknown durations use an arithmetic average. Add a stale-session test that creates one active session, one recent inactive session, and one old inactive session; only the old inactive directory may be removed.
 
-- [ ] **Step 4: Implement progress helpers and commit**
+- [x] **Step 4: Implement progress helpers and commit**
 
 Implement:
 
