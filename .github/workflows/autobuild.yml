@@ -48,10 +48,23 @@ jobs:
       - name: Sync project dependencies # 步骤四：签订契约，同步召唤工坊所需的所有使魔 (第三方依赖库)
         run: uv sync --locked --no-dev
 
-      - name: Build onefile executable # 步骤五：🚀 究极炼成术式展开！将零散的代码凝结为唯一的贤者之石 (EXE)
+      - name: Resolve application version # 步骤五：读取版本真名，统一铭刻到便携版与安装版
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $version = uv run --locked python -c "from config import VERSION; print(VERSION)"
+          if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($version)) {
+            throw "无法从 config.py 读取应用版本"
+          }
+
+          $version = $version.Trim()
+          "MGW_VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          Write-Host "✨ 当前炼成版本：$version"
+
+      - name: Build standalone application # 步骤六：构筑无需运行时解包的完整程序目录
         run: >
-          uv run --locked --with nuitka --with zstandard python -m nuitka main.py
-          --onefile
+          uv run --locked --with nuitka python -m nuitka main.py
+          --standalone
           --windows-console-mode=disable
           --enable-plugin=pyside6
           --assume-yes-for-downloads
@@ -62,60 +75,116 @@ jobs:
           --output-dir=build/nuitka
           --output-filename=MagicalGirlWorkshop.exe
 
-      - name: Ensure 7-Zip is available # 步骤六：检视空间压缩魔导具 (7-Zip)，若结界中不存在则强制祈愿召唤 (choco install)
-        shell: pwsh
-        run: |
-          if (-not (Get-Command 7z -ErrorAction SilentlyContinue)) {
-            choco install 7zip -y
-          }
-          7z i | Select-Object -First 5
-
-      - name: Package release archive # 步骤七：封印仪式！将贤者之石与附属工具链一同封入高维结晶 (.7z) 中
+      - name: Prepare shared distribution # 步骤七：合并 standalone 运行目录与外置工具链
         shell: pwsh
         run: |
           $ErrorActionPreference = "Stop"
 
-          $exe = "build/nuitka/MagicalGirlWorkshop.exe"
+          $dist = "build/nuitka/main.dist"
           $tools = "tools"
           $stage = "build/package/MagicalGirlWorkshop"
-          $archive = "build/package/MagicalGirlWorkshop.7z"
 
-          if (!(Test-Path $exe)) { throw "炼成失败：找不到核心容器 $exe" }
+          if (!(Test-Path $dist)) { throw "炼成失败：找不到 standalone 目录 $dist" }
           if (!(Test-Path $tools)) { throw "炼成失败：找不到附属法器 $tools" }
 
-          # 展开临时空间
           New-Item -ItemType Directory -Force -Path $stage | Out-Null
-          Get-ChildItem -Path $stage -Force -ErrorAction SilentlyContinue | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+          Get-ChildItem -Path $stage -Force -ErrorAction SilentlyContinue |
+            Remove-Item -Recurse -Force -ErrorAction Stop
 
-          # 转移所有圣物至法阵中心
-          Copy-Item -LiteralPath $exe -Destination (Join-Path $stage "MagicalGirlWorkshop.exe") -Force
+          Copy-Item -Path "$dist\*" -Destination $stage -Recurse -Force
           Copy-Item -LiteralPath $tools -Destination (Join-Path $stage "tools") -Recurse -Force
 
           $stagedExe = Join-Path $stage "MagicalGirlWorkshop.exe"
           $stagedTools = Join-Path $stage "tools"
-          if (!(Test-Path $stagedExe)) { throw "转移异常：核心容器在传送中丢失" }
-          if (!(Test-Path $stagedTools)) { throw "转移异常：附属法器在传送中丢失" }
+          if (!(Test-Path $stagedExe)) { throw "暂存失败：找不到 $stagedExe" }
+          if (!(Test-Path $stagedTools)) { throw "暂存失败：找不到 $stagedTools" }
+
+      - name: Ensure packaging tools are available # 步骤八：召唤 7-Zip 与 Inno Setup
+        shell: pwsh
+        run: |
+          if (-not (Get-Command 7z -ErrorAction SilentlyContinue)) {
+            choco install 7zip -y --no-progress
+          }
+          7z i | Select-Object -First 5
+
+          $iscc = Get-Command ISCC.exe -ErrorAction SilentlyContinue
+          if ($iscc) {
+            $isccPath = $iscc.Source
+          } else {
+            choco install innosetup -y --no-progress
+            $isccPath = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          }
+
+          if (!(Test-Path $isccPath)) {
+            throw "无法找到 Inno Setup 编译器：$isccPath"
+          }
+
+          "ISCC_PATH=$isccPath" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Build portable archive # 步骤九：将共享运行目录封装为便携版
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+
+          $stage = "build/package/MagicalGirlWorkshop"
+          $archiveName = "MagicalGirlWorkshop-v$($env:MGW_VERSION)-Portable.7z"
+          $archive = Join-Path "build/package" $archiveName
 
           if (Test-Path $archive) { Remove-Item $archive -Force }
           Push-Location $stage
-          # 发动极限空间压缩术式 (lzma2, 级别9, 开启多线程魔力倾注)
-          7z a -t7z "..\MagicalGirlWorkshop.7z" ".\*" -m0=lzma2 -mx=9 -mfb=273 -md=128m -ms=on -mmt=on
+          7z a -t7z "..\$archiveName" ".\*" -m0=lzma2 -mx=9 -mfb=273 -md=128m -ms=on -mmt=on
           $exitCode = $LASTEXITCODE
           Pop-Location
-          if ($exitCode -ne 0) { throw "空间封印术式崩溃！因果反噬错误码: $exitCode" }
+          if ($exitCode -ne 0) { throw "便携版压缩失败，错误码: $exitCode" }
+          if (!(Test-Path $archive)) { throw "未生成便携版：$archive" }
 
-      - name: Show artifact info # 步骤八：睁开“真理之眼”，鉴定最终封印结晶的形态与质量
+      - name: Build installer # 步骤十：使用同一份共享运行目录生成用户级安装版
         shell: pwsh
         run: |
-          $archive = "build/package/MagicalGirlWorkshop.7z"
-          if (!(Test-Path $archive)) { throw "鉴定失败：未能在现世找到结晶 $archive" }
-          $sizeMB = [math]::Round((Get-Item $archive).Length / 1MB, 2)
-          Write-Host "✨ 结晶固化完毕：$archive"
-          Write-Host "✨ 蕴含魔力量 (结晶体积)：${sizeMB} MB"
+          $ErrorActionPreference = "Stop"
 
-      - name: Upload artifact # 步骤九：献上贡品！将最终的完美结晶跨越维度裂缝，奉献给至高的主人
+          $sourceDir = (Resolve-Path "build/package/MagicalGirlWorkshop").Path
+          $outputDir = (Resolve-Path "build/package").Path
+          $script = "installer/MagicalGirlWorkshop.iss"
+
+          & "$env:ISCC_PATH" `
+            "/DMyAppVersion=$env:MGW_VERSION" `
+            "/DSourceDir=$sourceDir" `
+            "/DOutputDir=$outputDir" `
+            $script
+
+          if ($LASTEXITCODE -ne 0) {
+            throw "Inno Setup 编译失败，错误码: $LASTEXITCODE"
+          }
+
+          $setup = Join-Path $outputDir "MagicalGirlWorkshop-v$($env:MGW_VERSION)-Setup.exe"
+          if (!(Test-Path $setup)) { throw "未生成安装版：$setup" }
+
+      - name: Show artifact info # 步骤十一：鉴定便携版与安装版
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+
+          $archive = "build/package/MagicalGirlWorkshop-v$($env:MGW_VERSION)-Portable.7z"
+          $setup = "build/package/MagicalGirlWorkshop-v$($env:MGW_VERSION)-Setup.exe"
+
+          foreach ($artifact in @($archive, $setup)) {
+            if (!(Test-Path $artifact)) { throw "鉴定失败：找不到 $artifact" }
+            $sizeMB = [math]::Round((Get-Item $artifact).Length / 1MB, 2)
+            Write-Host "✨ 产物：$artifact"
+            Write-Host "✨ 体积：${sizeMB} MB"
+          }
+
+      - name: Upload portable artifact # 步骤十二：上传免安装便携版
         uses: actions/upload-artifact@v7
         with:
-          name: MagicalGirlWorkshop-7z
-          path: build/package/MagicalGirlWorkshop.7z
+          name: MagicalGirlWorkshop-Portable
+          path: build/package/*-Portable.7z
+          if-no-files-found: error
+
+      - name: Upload installer artifact # 步骤十三：上传用户级安装版
+        uses: actions/upload-artifact@v7
+        with:
+          name: MagicalGirlWorkshop-Installer
+          path: build/package/*-Setup.exe
           if-no-files-found: error
