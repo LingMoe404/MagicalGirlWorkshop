@@ -134,21 +134,8 @@ translation = {
     # Credits Interface (view/credits_interface.py)
     # -------------------------------------------------------------------------
     "credits.title": "羁绊之证", # “羁绊之证”页面标题
-    "credits.card.contributor_role": "术式构筑协力", # “羁绊之证”页面贡献者角色
-    "credits.card.intro": "工坊升级改造贡献者，其伟绩如下：", # “羁绊之证”页面介绍
-    "credits.contributions.item1.title": "新魔力循环系统", # “羁绊之证”页面贡献项1标题
-    "credits.contributions.item1.desc": "优化魔力流动稳定性", # “羁绊之证”页面贡献项1描述
-    "credits.contributions.item2.title": "固化核心咏唱基盘", # “羁绊之证”页面贡献项2标题
-    "credits.contributions.item2.desc": "提升仪式稳定性", # “羁绊之证”页面贡献项2描述
-    "credits.contributions.item3.title": "圣遗物框架升级", # “羁绊之证”页面贡献项3标题
-    "credits.contributions.item3.desc": "拥抱开源与更强的力量", # “羁绊之证”页面贡献项3描述
-    "credits.contributions.item4.title": "炼成物便携化封装", # “羁绊之证”页面贡献项4标题
-    "credits.contributions.item4.desc": "灵体更小，召唤更快", # “羁绊之证”页面贡献项4描述
-    "credits.contributions.item5.title": "重构炼成工具链", # “羁绊之证”页面贡献项5标题
-    "credits.contributions.item5.desc": "支持更灵活的术式分发", # “羁绊之证”页面贡献项5描述
-    "credits.contributions.item6.title": "自动化炼金工坊", # “羁绊之证”页面贡献项6标题
-    "credits.contributions.item6.desc": "云端自动构筑与分发", # “羁绊之证”页面贡献项6描述
-    "credits.card.footer": "特别鸣谢: PySide6, QFluentWidgets, FFmpeg, ab-av1 | AI 协作: Codex, GPT, Antigravity, Gemini", # “羁绊之证”页面页脚
+    "credits.card.contributor_role": "启蒙协力", # “羁绊之证”页面贡献者角色
+    "credits.card.intro": "感谢在工坊早期分享开发经验与工具链思路。\n\n那些最初的指引，已经成为独立探索更强术式的起点。", # “羁绊之证”页面介绍
 
     # -------------------------------------------------------------------------
     # Welcome Wizard (view/welcome_wizard.py)

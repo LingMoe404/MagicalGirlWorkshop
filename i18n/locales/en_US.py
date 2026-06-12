@@ -134,21 +134,8 @@ translation = {
     # Credits Interface (view/credits_interface.py)
     # -------------------------------------------------------------------------
     "credits.title": "Proof of Bond", # "Proof of Bond" Page Title
-    "credits.card.contributor_role": "Spell Construction Co-op", # "Proof of Bond" Page Contributor Role
-    "credits.card.intro": "Workshop Upgrade Contributors, their feats are as follows:", # "Proof of Bond" Page Intro
-    "credits.contributions.item1.title": "New Mana Cycle System", # "Proof of Bond" Page Contribution Item 1 Title
-    "credits.contributions.item1.desc": "Optimized Mana Flow Stability", # "Proof of Bond" Page Contribution Item 1 Description
-    "credits.contributions.item2.title": "Solidified Core Chant Base", # "Proof of Bond" Page Contribution Item 2 Title
-    "credits.contributions.item2.desc": "Improved Ritual Stability", # "Proof of Bond" Page Contribution Item 2 Description
-    "credits.contributions.item3.title": "Relic Framework Upgrade", # "Proof of Bond" Page Contribution Item 3 Title
-    "credits.contributions.item3.desc": "Embracing Open Source & Greater Power", # "Proof of Bond" Page Contribution Item 3 Description
-    "credits.contributions.item4.title": "Portable Alchemy Encapsulation", # "Proof of Bond" Page Contribution Item 4 Title
-    "credits.contributions.item4.desc": "Smaller Spirits, Faster Summoning", # "Proof of Bond" Page Contribution Item 4 Description
-    "credits.contributions.item5.title": "Reforged Alchemy Toolchain", # "Proof of Bond" Page Contribution Item 5 Title
-    "credits.contributions.item5.desc": "Supporting Flexible Spell Distribution", # "Proof of Bond" Page Contribution Item 5 Description
-    "credits.contributions.item6.title": "Automated Alchemy Workshop", # "Proof of Bond" Page Contribution Item 6 Title
-    "credits.contributions.item6.desc": "Cloud Automated Construction & Distribution", # "Proof of Bond" Page Contribution Item 6 Description
-    "credits.card.footer": "Special Thanks: PySide6, QFluentWidgets, FFmpeg, ab-av1 | AI Collaboration: Codex, GPT, Antigravity, Gemini", # "Proof of Bond" Page Footer
+    "credits.card.contributor_role": "Early Guidance", # "Proof of Bond" Page Contributor Role
+    "credits.card.intro": "Thank you for sharing development experience and toolchain ideas during the workshop's early days.\n\nThose first lessons became the starting point for exploring stronger spells independently.", # "Proof of Bond" Page Intro
 
     # -------------------------------------------------------------------------
     # Welcome Wizard (view/welcome_wizard.py)

@@ -134,21 +134,8 @@ translation = {
     # Credits Interface (view/credits_interface.py)
     # -------------------------------------------------------------------------
     "credits.title": "羈絆之證", # 「羈絆之證」頁面標題
-    "credits.card.contributor_role": "術式構築協力", # 「羈絆之證」頁面貢獻者角色
-    "credits.card.intro": "工坊升級改造貢獻者，其偉績如下：", # 「羈絆之證」頁面介紹
-    "credits.contributions.item1.title": "新魔力循環系統", # 「羈絆之證」頁面貢獻項1標題
-    "credits.contributions.item1.desc": "最佳化魔力流動穩定性", # 「羈絆之證」頁面貢獻項1描述
-    "credits.contributions.item2.title": "固化核心詠唱基盤", # 「羈絆之證」頁面貢獻項2標題
-    "credits.contributions.item2.desc": "提升儀式穩定性", # 「羈絆之證」頁面貢獻項2描述
-    "credits.contributions.item3.title": "聖遺物框架升級", # 「羈絆之證」頁面貢獻項3標題
-    "credits.contributions.item3.desc": "擁抱開源與更強的力量", # 「羈絆之證」頁面貢獻項3描述
-    "credits.contributions.item4.title": "鍊成物可攜化封裝", # 「羈絆之證」頁面貢獻項4標題
-    "credits.contributions.item4.desc": "靈體更小，召喚更快", # 「羈絆之證」頁面貢獻項4描述
-    "credits.contributions.item5.title": "重構鍊成工具鏈", # 「羈絆之證」頁面貢獻項5標題
-    "credits.contributions.item5.desc": "支援更靈活的術式分發", # 「羈絆之證」頁面貢獻項5描述
-    "credits.contributions.item6.title": "自動化鍊金工坊", # 「羈絆之證」頁面貢獻項6標題
-    "credits.contributions.item6.desc": "雲端自動構築與分發", # 「羈絆之證」頁面貢獻項6描述
-    "credits.card.footer": "特別鳴謝: PySide6, QFluentWidgets, FFmpeg, ab-av1 | AI 協作: Codex, GPT, Antigravity, Gemini", # 「羈絆之證」頁面頁尾
+    "credits.card.contributor_role": "啟蒙協力", # 「羈絆之證」頁面貢獻者角色
+    "credits.card.intro": "感謝在工坊早期分享開發經驗與工具鏈思路。\n\n那些最初的指引，已經成為獨立探索更強術式的起點。", # 「羈絆之證」頁面介紹
 
     # -------------------------------------------------------------------------
     # Welcome Wizard (view/welcome_wizard.py)

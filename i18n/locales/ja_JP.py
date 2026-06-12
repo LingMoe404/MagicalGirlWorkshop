@@ -134,21 +134,8 @@ translation = {
     # Credits Interface (view/credits_interface.py)
     # -------------------------------------------------------------------------
     "credits.title": "絆の証", # 「絆の証」ページタイトル
-    "credits.card.contributor_role": "術式構築協力", # 「絆の証」ページ貢献者役割
-    "credits.card.intro": "工房アップグレード貢献者、その偉業は以下の通り：", # 「絆の証」ページ紹介
-    "credits.contributions.item1.title": "新魔力循環システム", # 「絆の証」ページ貢献項目1タイトル
-    "credits.contributions.item1.desc": "魔力流動の安定化", # 「絆の証」ページ貢献項目1説明
-    "credits.contributions.item2.title": "コア詠唱基盤の固定", # 「絆の証」ページ貢献項目2タイトル
-    "credits.contributions.item2.desc": "儀式安定性の向上", # 「絆の証」ページ貢献項目2説明
-    "credits.contributions.item3.title": "聖遺物フレームワーク昇華", # 「絆の証」ページ貢献項目3タイトル
-    "credits.contributions.item3.desc": "オープンソースとより強き力を", # 「絆の証」ページ貢献項目3説明
-    "credits.contributions.item4.title": "錬成物ポータブル封入", # 「絆の証」ページ貢献項目4タイトル
-    "credits.contributions.item4.desc": "霊体はより小さく、召喚はより速く", # 「絆の証」ページ貢献項目4説明
-    "credits.contributions.item5.title": "錬成ツールチェーン再構築", # 「絆の証」ページ貢献項目5タイトル
-    "credits.contributions.item5.desc": "より柔軟な術式配布をサポート", # 「絆の証」ページ貢献項目5説明
-    "credits.contributions.item6.title": "自動化錬金工房", # 「絆の証」ページ貢献項目6タイトル
-    "credits.contributions.item6.desc": "クラウドによる自動構築と配布", # 「絆の証」ページ貢献項目6説明
-    "credits.card.footer": "特別感謝: PySide6, QFluentWidgets, FFmpeg, ab-av1 | AI協力: Codex, GPT, Antigravity, Gemini", # 「絆の証」ページフッター
+    "credits.card.contributor_role": "啓蒙協力", # 「絆の証」ページ貢献者役割
+    "credits.card.intro": "工房の初期に、開発経験とツールチェーンの考え方を共有してくれたことに感謝します。\n\n最初の導きは、より強い術式を自ら探求するための出発点になりました。", # 「絆の証」ページ紹介
 
     # -------------------------------------------------------------------------
     # Welcome Wizard (view/welcome_wizard.py)

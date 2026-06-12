@@ -5,7 +5,7 @@ from PySide6.QtWidgets import (QApplication, QWidget, QVBoxLayout, QHBoxLayout,
                                QFrame, QGridLayout)
 from PySide6.QtGui import QIcon, QColor, QDesktopServices
 
-from qfluentwidgets import (SubtitleLabel, StrongBodyLabel, BodyLabel,
+from qfluentwidgets import (SubtitleLabel, BodyLabel,
                             PushButton, PrimaryPushButton, TextEdit, ComboBox, CardWidget, InfoBar,
                             InfoBarPosition, setTheme, Theme, FluentIcon, setThemeColor, isDarkTheme, ImageLabel,
                             IconWidget, SpinBox, SwitchButton)
@@ -637,23 +637,27 @@ class CreditsInterface(QWidget):
         v_text = QVBoxLayout()
         v_text.setSpacing(6)
 
-        name = SubtitleLabel("lose2me (REwaTLE)", card)
+        self.contributor_name = SubtitleLabel("lose2me (REwaTLE)", card)
         self.role = BodyLabel(card)
         self.role.setTextColor(QColor("#5f6368"), QColor("#a0a0a0"))
 
-        v_text.addWidget(name)
+        v_text.addWidget(self.contributor_name)
         v_text.addWidget(self.role)
         h_info.addLayout(v_text)
         h_info.addStretch(1)
 
-        btn_github = PushButton(FluentIcon.GITHUB, "GitHub", card)
-        btn_github.clicked.connect(lambda: QDesktopServices.openUrl(QUrl("https://github.com/lose2me")))
+        self.btn_github = PushButton(FluentIcon.GITHUB, "GitHub", card)
+        self.btn_github.clicked.connect(
+            lambda: QDesktopServices.openUrl(QUrl("https://github.com/lose2me"))
+        )
 
-        btn_bili = PushButton(FluentIcon.VIDEO, "Bilibili", card)
-        btn_bili.clicked.connect(lambda: QDesktopServices.openUrl(QUrl("https://space.bilibili.com/341660795")))
+        self.btn_bili = PushButton(FluentIcon.VIDEO, "Bilibili", card)
+        self.btn_bili.clicked.connect(
+            lambda: QDesktopServices.openUrl(QUrl("https://space.bilibili.com/341660795"))
+        )
 
-        h_info.addWidget(btn_github)
-        h_info.addWidget(btn_bili)
+        h_info.addWidget(self.btn_github)
+        h_info.addWidget(self.btn_bili)
 
         card_layout.addLayout(h_info)
 
@@ -663,66 +667,9 @@ class CreditsInterface(QWidget):
         card_layout.addWidget(line)
 
         self.intro = BodyLabel(card)
+        self.intro.setWordWrap(True)
         card_layout.addWidget(self.intro)
-
-        grid_contrib = QGridLayout()
-        grid_contrib.setSpacing(12)
-
-        self.contributions_data = [
-            ("📦", "credits.contributions.item1.title", "credits.contributions.item1.desc"),
-            ("🐍", "credits.contributions.item2.title", "credits.contributions.item2.desc"),
-            ("🎨", "credits.contributions.item3.title", "credits.contributions.item3.desc"),
-            ("🚀", "credits.contributions.item4.title", "credits.contributions.item4.desc"),
-            ("🛠️", "credits.contributions.item5.title", "credits.contributions.item5.desc"),
-            ("🤖", "credits.contributions.item6.title", "credits.contributions.item6.desc")
-        ]
-        
-        self.contribution_widgets = []
-        for i, (icon, title_key, desc_key) in enumerate(self.contributions_data):
-            item = QFrame(card)
-            item.setStyleSheet("""
-                QFrame {
-                    background-color: rgba(128, 128, 128, 0.04);
-                    border-radius: 8px;
-                    border: 1px solid rgba(128, 128, 128, 0.08);
-                }
-            """)
-            l_item = QHBoxLayout(item)
-            l_item.setContentsMargins(12, 12, 12, 12)
-
-            lbl_icon = BodyLabel(icon, item)
-            lbl_icon.setStyleSheet("font-size: 22px; background: transparent; border: none;")
-
-            v_desc = QVBoxLayout()
-            v_desc.setSpacing(2)
-            lbl_title = StrongBodyLabel(item)
-            lbl_title.setStyleSheet("background: transparent; border: none;")
-
-            lbl_desc = BodyLabel(item)
-            lbl_desc.setTextColor(QColor("#707070"), QColor("#808080"))
-            lbl_desc.setStyleSheet("font-size: 12px; background: transparent; border: none;")
-
-            v_desc.addWidget(lbl_title)
-            v_desc.addWidget(lbl_desc)
-
-            l_item.addWidget(lbl_icon)
-            l_item.addSpacing(10)
-            l_item.addLayout(v_desc)
-            l_item.addStretch(1)
-
-            row = i // 2
-            col = i % 2
-            grid_contrib.addWidget(item, row, col)
-            self.contribution_widgets.append((lbl_title, lbl_desc))
-
-
-        card_layout.addLayout(grid_contrib)
         card_layout.addStretch(1)
-
-        self.footer_lbl = BodyLabel(card)
-        self.footer_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.footer_lbl.setTextColor(QColor("#AAAAAA"), QColor("#666666"))
-        card_layout.addWidget(self.footer_lbl)
 
         layout.addWidget(card)
         layout.addStretch(1)
@@ -735,10 +682,3 @@ class CreditsInterface(QWidget):
         self.combo_theme.setItemText(2, tr("home.header.theme_combo.dark"))
         self.role.setText(tr("credits.card.contributor_role"))
         self.intro.setText(tr("credits.card.intro"))
-        
-        for i, (_, title_key, desc_key) in enumerate(self.contributions_data):
-            lbl_title, lbl_desc = self.contribution_widgets[i]
-            lbl_title.setText(tr(title_key))
-            lbl_desc.setText(tr(desc_key))
-            
-        self.footer_lbl.setText(tr("credits.card.footer"))
