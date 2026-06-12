@@ -2165,7 +2165,10 @@ class MainWindow(FluentWindow):
             self.lbl_concurrency_status.setText
         )
         
-        self.worker.start()
+        coordinator = self.worker
+        coordinator.start()
+        if self.worker is not coordinator or not coordinator.isRunning():
+            return
         
         self.btn_start.setEnabled(False)
         self.btn_clear_list.setEnabled(False)

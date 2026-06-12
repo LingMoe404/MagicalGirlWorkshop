@@ -379,6 +379,26 @@ class EncodingCoordinatorTests(unittest.TestCase):
 
         self.assertTrue(policy.calls[-1]["resource_error"])
 
+    def test_top_progress_uses_weighted_batch_progress(self):
+        files = self.make_files(["a.mp4", "b.mp4"])
+        coordinator = self.make_coordinator(
+            files,
+            mode="manual",
+            concurrency=2,
+        )
+        total_progress = []
+        current_progress = []
+        coordinator.progress_total_signal.connect(total_progress.append)
+        coordinator.progress_current_signal.connect(
+            current_progress.append
+        )
+        coordinator.start()
+
+        FakeWorker.instances[0].file_progress_signal.emit(files[0], 50)
+
+        self.assertEqual(total_progress[-1], 25)
+        self.assertEqual(current_progress[-1], 25)
+
     def test_pause_and_resume_propagate_to_workers(self):
         files = self.make_files(["a.mp4", "b.mp4"])
         coordinator = self.make_coordinator(
@@ -392,6 +412,41 @@ class EncodingCoordinatorTests(unittest.TestCase):
         self.assertTrue(all(w.paused for w in FakeWorker.instances))
         coordinator.set_paused(False)
         self.assertFalse(any(w.paused for w in FakeWorker.instances))
+
+    def test_worker_start_failure_marks_file_failed_and_continues(self):
+        files = self.make_files(["a.mp4", "b.mp4"])
+        calls = []
+
+        def worker_factory(config):
+            calls.append(config["selected_files"][0])
+            if len(calls) == 1:
+                raise RuntimeError("worker creation failed")
+            return FakeWorker(config)
+
+        coordinator = EncodingCoordinator(
+            batch_config(
+                self.root,
+                files,
+                mode="manual",
+                concurrency=1,
+            ),
+            worker_factory=worker_factory,
+            timer_factory=FakeTimer,
+            metrics_sampler=FakeMetrics(),
+            clock=lambda: 100.0,
+            awake_setter=lambda _: None,
+        )
+        statuses = []
+        coordinator.file_status_signal.connect(
+            lambda *args: statuses.append(args)
+        )
+
+        coordinator.start()
+
+        self.assertEqual(calls, files)
+        self.assertEqual(statuses[0], (files[0], "error"))
+        self.assertEqual(len(FakeWorker.instances), 1)
+        self.assertTrue(FakeWorker.instances[0].started)
 
 
 if __name__ == "__main__":

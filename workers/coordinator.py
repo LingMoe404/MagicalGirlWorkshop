@@ -153,6 +153,7 @@ class EncodingCoordinator(QObject):
         self._policy_timer.start(5000)
         self._emit_concurrency_status("批次开始")
         self._fill_slots()
+        self._maybe_finish()
 
     def stop(self):
         if not self._running or self._stopping:
@@ -260,12 +261,33 @@ class EncodingCoordinator(QObject):
     def _fill_slots(self):
         if self._paused or self._stopping or not self._running:
             return
-        started = self.schedule.fill_slots(
-            self.policy.target_concurrency
-        )
-        for path in started:
-            self._start_worker(path)
-        if started:
+        started_any = False
+        failed_any = False
+        while True:
+            started = self.schedule.fill_slots(
+                self.policy.target_concurrency
+            )
+            if not started:
+                break
+            for path in started:
+                try:
+                    self._start_worker(path)
+                    started_any = True
+                except Exception as error:
+                    failed_any = True
+                    self.schedule.mark_terminal(path, TaskState.FAILED)
+                    self.file_status_signal.emit(path, "error")
+                    self.log_signal.emit(
+                        f"[{os.path.basename(path)}] 无法启动任务：{error}",
+                        "error",
+                    )
+            if len(self.schedule.active_files) >= (
+                self.policy.target_concurrency
+            ):
+                break
+        if failed_any:
+            self._emit_batch_progress()
+        if started_any or failed_any:
             self._emit_concurrency_status("任务补位")
 
     def _start_worker(self, path):
@@ -304,9 +326,6 @@ class EncodingCoordinator(QObject):
                 f"[{os.path.basename(p)}] {message}",
                 level,
             )
-        )
-        worker.progress_current_signal.connect(
-            self.progress_current_signal.emit
         )
         worker.file_progress_signal.connect(self._on_file_progress)
         worker.file_stats_signal.connect(self.file_stats_signal.emit)
@@ -424,6 +443,7 @@ class EncodingCoordinator(QObject):
             self.schedule.terminal_files,
         )
         self.progress_total_signal.emit(progress)
+        self.progress_current_signal.emit(progress)
 
     def _emit_concurrency_status(self, reason):
         target = self.policy.target_concurrency
@@ -461,6 +481,7 @@ class EncodingCoordinator(QObject):
             self._session_root = None
         if self.schedule.is_finished:
             self.progress_total_signal.emit(100)
+            self.progress_current_signal.emit(100)
         self.finished_signal.emit()
 
 
