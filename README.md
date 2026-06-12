@@ -105,7 +105,7 @@
 
 3.  **准备工具链**
     请确保项目根目录下的 `tools/` 文件夹内包含以下可执行文件：
-    *   `ffmpeg.exe` & `ffprobe.exe`: **注意**：仓库源码中上传的是 `essentials` 版本，缺少部分编码支持。建议前往 gyan.dev 下载 `ffmpeg-release-full.7z` (Full 版本) 并替换。*(注：下载的正式版 Releases 压缩包已内置 Full 版本，无需额外操作)*
+    *   `ffmpeg.exe` & `ffprobe.exe`: **注意**：仓库源码中上传的是 `essentials` 版本，已经足够满足本项目的常规转码与探测需求。若你确实需要更丰富的编解码/滤镜库，再前往 gyan.dev 下载 `ffmpeg-release-full.7z` (Full 版本) 并替换。*(注：正式版 Releases 压缩包里也提供 Full 版本，按需使用即可)*
     *   `ab-av1.exe`
 
 4.  **启动**

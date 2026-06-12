@@ -105,7 +105,7 @@ If you are familiar with Python development, you can run from source:
 
 3.  **Prepare Toolchain**
     Ensure the `tools/` folder in the project root contains the following executables:
-    *   `ffmpeg.exe` & `ffprobe.exe`: **Note**: The source repo contains the `essentials` version which lacks some codec support. It is recommended to download `ffmpeg-release-full.7z` (Full Version) from gyan.dev and replace them. *(Note: The official Releases zip already includes the Full Version, no action needed)*
+    *   `ffmpeg.exe` & `ffprobe.exe`: **Note**: The source repo ships the `essentials` version, which is sufficient for this project’s normal transcoding and probing flow. If you specifically need extra codecs/filters, download `ffmpeg-release-full.7z` (Full Version) from gyan.dev and replace them. *(Note: the official Releases archive also provides the Full Version, so use it only when needed.)*
     *   `ab-av1.exe`
 
 4.  **Launch**
