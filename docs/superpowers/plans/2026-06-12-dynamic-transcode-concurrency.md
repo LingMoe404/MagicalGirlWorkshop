@@ -225,7 +225,7 @@ Expected: all schedule tests pass.
 - Create: `workers/concurrency_policy.py`
 - Create: `tests/test_concurrency_policy.py`
 
-- [ ] **Step 1: Write failing tests for manual and automatic limits**
+- [x] **Step 1: Write failing tests for manual and automatic limits**
 
 Add:
 
@@ -260,7 +260,7 @@ class DynamicConcurrencyPolicyTests(unittest.TestCase):
         self.assertEqual(policy.auto_max, 3)
 ```
 
-- [ ] **Step 2: Verify RED**
+- [x] **Step 2: Verify RED**
 
 Run:
 
@@ -270,11 +270,11 @@ uv run python -m unittest tests.test_concurrency_policy -v
 
 Expected: import failure.
 
-- [ ] **Step 3: Implement enums, snapshots, and fixed limits**
+- [x] **Step 3: Implement enums, snapshots, and fixed limits**
 
 Create immutable `ResourceSnapshot` and `ConcurrencyDecision` data classes. Validate manual limits to `1–4`, set auto maximum to `3`, and expose `target_concurrency`.
 
-- [ ] **Step 4: Add failing tests for stable-window upgrades**
+- [x] **Step 4: Add failing tests for stable-window upgrades**
 
 Use short injected windows:
 
@@ -305,7 +305,7 @@ def test_trial_is_accepted_when_total_throughput_improves_15_percent(self):
 
 The helper creates a policy whose one-way baseline is `1.0` and whose target has entered a two-way trial.
 
-- [ ] **Step 5: Implement stable observations**
+- [x] **Step 5: Implement stable observations**
 
 The implementation must:
 
@@ -316,7 +316,7 @@ The implementation must:
 - Accept a trial when total median throughput improves by at least `15%`.
 - Reject and blacklist the trial level when improvement is below `15%`.
 
-- [ ] **Step 6: Add failing overload tests**
+- [x] **Step 6: Add failing overload tests**
 
 Cover:
 
@@ -357,7 +357,7 @@ def test_paused_observation_does_not_advance_window():
 
 Also verify manual mode reduces from `4` to `3` after an explicit hardware resource error but does not react to ordinary speed changes. Implement high CPU, low memory, throughput regression, resource error, cooldown, and pause behavior.
 
-- [ ] **Step 7: Run and commit**
+- [x] **Step 7: Run and commit**
 
 Run:
 
