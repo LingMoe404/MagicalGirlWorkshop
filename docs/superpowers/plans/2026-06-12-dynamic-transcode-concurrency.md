@@ -470,7 +470,7 @@ git -c safe.directory=A:/Code/MagicalGirlWorkshop commit -m "feat: add transcode
 - Create: `workers/system_metrics.py`
 - Create: `tests/test_system_metrics.py`
 
-- [ ] **Step 1: Write failing calculation tests**
+- [x] **Step 1: Write failing calculation tests**
 
 Keep Windows calls behind injected readers:
 
@@ -490,11 +490,11 @@ def test_cpu_usage_uses_idle_and_total_deltas():
 
 The tuple is `(idle, kernel, user)` and CPU percentage is calculated from deltas while accounting for idle time being included in kernel time.
 
-- [ ] **Step 2: Verify RED and implement**
+- [x] **Step 2: Verify RED and implement**
 
 Implement `GetSystemTimes` and `GlobalMemoryStatusEx` with `ctypes`, returning the same `ResourceSnapshot` used by `concurrency_policy.py`.
 
-- [ ] **Step 3: Run Windows smoke test and commit**
+- [x] **Step 3: Run Windows smoke test and commit**
 
 Run:
 
