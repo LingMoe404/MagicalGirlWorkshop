@@ -1,7 +1,7 @@
 # config.py
 from PySide6.QtCore import QSize
 
-VERSION = "1.3.1"
+VERSION = "1.4.0"
 APP_TITLE = f"魔法少女工坊 v{VERSION}"
 APP_ID = f"LingMoe404.MagicalGirlWorkshop.Encoder.{VERSION}"
 
