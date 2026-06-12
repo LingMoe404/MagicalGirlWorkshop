@@ -270,7 +270,7 @@ translation = {
     "log.encoder.ab_av1_success_offset_corrected": " -> Spell Analysis Complete ({desc}): Raw CRF {cpu_crf} + Offset {offset} = {raw_icq} (Corrected to {reason} limit {best_icq}) [Time: {search_duration:.1f}s]", # ab-av1 Success Corrected Log
     "log.encoder.ab_av1_success_offset": " -> Spell Analysis Complete ({desc}): Raw CRF {cpu_crf} + Offset {offset} => Final Param {best_icq} [Time: {search_duration:.1f}s]", # ab-av1 Success Offset Log
     "log.encoder.ab_av1_success": " -> Spell Analysis Complete (ICQ): {best_icq} [Time: {search_duration:.1f}s] (๑•̀ㅂ•́)و✧", # ab-av1 Success Log
-    "log.encoder.ab_av1_failed": " -> Analysis failed, forcing basic spell ICQ: {best_icq} (T_T)", # ab-av1 Failed Log
+    "log.encoder.ab_av1_failed": " -> Analysis failed; encoding will not start without a trustworthy CRF. (T_T)", # ab-av1 Failed Log
     "log.encoder.ab_av1_error_log_header": "    [ab-av1 Error Traceback]:", # ab-av1 Error Header Log
     "log.encoder.icq_corrected": " -> Correction: Hardware encoder param limit ({icq} -> 51)", # ICQ Corrected Log
     "log.encoder.ffmpeg_exception": " -> Mana Backflow: {error} (×_×)", # FFmpeg Exception Log

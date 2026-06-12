@@ -270,7 +270,7 @@ translation = {
     "log.encoder.ab_av1_success_offset_corrected": " -> 术式解析完毕 ({desc}): 原始CRF {cpu_crf} + 偏移 {offset} = {raw_icq} (已修正为{reason}限制 {best_icq}) [耗时: {search_duration:.1f}s]", # ab-av1 成功(修正)日志
     "log.encoder.ab_av1_success_offset": " -> 术式解析完毕 ({desc}): 原始CRF {cpu_crf} + 偏移 {offset} => 最终参数 {best_icq} [耗时: {search_duration:.1f}s]", # ab-av1 成功(偏移)日志
     "log.encoder.ab_av1_success": " -> 术式解析完毕 (ICQ): {best_icq} [耗时: {search_duration:.1f}s] (๑•̀ㅂ•́)و✧", # ab-av1 成功日志
-    "log.encoder.ab_av1_failed": " -> 解析失败，强制使用基础术式 ICQ: {best_icq} (T_T)", # ab-av1 失败日志
+    "log.encoder.ab_av1_failed": " -> 解析失败，未找到可信的 CRF 参数；不会强制开始编码。 (T_T)", # ab-av1 失败日志
     "log.encoder.ab_av1_error_log_header": "    [ab-av1 错误回溯]:", # ab-av1 错误头日志
     "log.encoder.icq_corrected": " -> 修正: 硬件编码器参数限制 ({icq} -> 51)", # ICQ 修正日志
     "log.encoder.ffmpeg_exception": " -> 魔力逆流: {error} (×_×)", # FFmpeg 异常日志

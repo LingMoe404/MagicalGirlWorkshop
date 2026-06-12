@@ -20,6 +20,13 @@ from config import (
     GPU_COOLING_TIME
 )
 from .base import BaseWorker
+from .ab_av1_result import AbAv1ResultParser, SearchResultMode
+from .ffmpeg_retry import (
+    FailureKind,
+    RetryState,
+    build_hw_decode_args,
+    next_retry_state,
+)
 
 # --- 工作线程 (负责耗时的转码任务) ---
 class EncoderWorker(BaseWorker):
@@ -211,7 +218,7 @@ class EncoderWorker(BaseWorker):
                 search_strategies.append({"encoder": "libsvtav1", "preset": svt_preset, "desc": "CPU 探测 (SVT-AV1)"})
                 search_strategies.append({"encoder": "libaom-av1", "preset": "6", "desc": "CPU 探测 (AOM-AV1)"})
                 
-                best_icq = 24
+                best_icq = None
                 search_success = False
                 ab_av1_log = []
                 final_strategy = None
@@ -234,8 +241,7 @@ class EncoderWorker(BaseWorker):
                         cmd_search.extend(["--temp-dir", cache_dir])
                     
                     current_log = []
-                    last_vmaf_log = None
-                    attempt_success = False
+                    parser = AbAv1ResultParser()
                     
                     try:
                         with subprocess.Popen(cmd_search, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, bufsize=0, creationflags=get_subprocess_flags()) as proc:
@@ -259,64 +265,98 @@ class EncoderWorker(BaseWorker):
                                 if line:
                                     decoded = safe_decode(line)
                                     current_log.append(decoded)
-                                    match = re.search(r"(?:crf|cq|qp)\s+(\d+)", decoded, re.IGNORECASE)
-                                    vmaf_match = re.search(r"VMAF\s+([\d.]+)", decoded, re.IGNORECASE)
-                                    if match and vmaf_match:
-                                        vmaf_val = vmaf_match.group(1)
-                                        if vmaf_val != last_vmaf_log:
-                                            self.log_signal.emit(tr("log.encoder.ab_av1_probing", probe_crf=match.group(0).upper(), vmaf_val=vmaf_val), "info")
-                                            self.file_stats_signal.emit(filepath, "ab-av1 探测中", f"{match.group(0).upper()} => VMAF {vmaf_val}")
-                                            last_vmaf_log = vmaf_val
-                                        best_icq = int(match.group(1))
-                                        attempt_success = True
+                                    candidate = parser.feed(decoded)
+                                    if candidate is not None:
+                                        self.log_signal.emit(
+                                            tr(
+                                                "log.encoder.ab_av1_probing",
+                                                probe_crf=f"CRF {candidate.crf}",
+                                                vmaf_val=f"{candidate.vmaf:.2f}",
+                                            ),
+                                            "info",
+                                        )
+                                        self.file_stats_signal.emit(
+                                            filepath,
+                                            "ab-av1 探测中",
+                                            (
+                                                f"CRF {candidate.crf} => "
+                                                f"VMAF {candidate.vmaf:.2f} "
+                                                f"({candidate.encoded_percent:.0f}%)"
+                                            ),
+                                        )
                             
-                            if proc.returncode != 0:
-                                if attempt_success:
-                                    # [Fix] 如果已经成功探测到 VMAF 数据，即使进程异常退出（如驱动不稳定），也优先使用已获取的参数，避免回退到慢速 CPU 探测
-                                    self.log_signal.emit(f"⚠️ 探测术式异常中止 (Code {proc.returncode})，但已截获有效魔力参数 ({best_icq})，将强行采用。", "warning")
-                                else:
-                                    if current_log:
-                                        self.log_signal.emit(f"    -> 探测失败: {current_log[-1].strip()}", "error")
-                                    attempt_success = False
+                        search_result = parser.finish(proc.returncode, float(target_vmaf))
                     except Exception as e:
                         self.log_signal.emit(f"⚠️ 探测执行异常: {e}", "warning")
-                        attempt_success = False
+                        search_result = None
                     finally:
                         self.current_proc = None
                     
-                    if attempt_success:
+                    if search_result is not None:
+                        best_icq = search_result.crf
                         search_success = True
                         final_strategy = strategy
+                        if search_result.mode is SearchResultMode.QUALITY_FALLBACK:
+                            self.log_signal.emit(
+                                (
+                                    "⚠️ ab-av1 无法同时满足目标 VMAF 与默认 "
+                                    "80% 体积限制；已优先保证画质，采用 "
+                                    f"CRF {search_result.crf} "
+                                    f"(VMAF {search_result.vmaf:.2f}, "
+                                    f"预测体积 {search_result.encoded_percent:.0f}%)。"
+                                ),
+                                "warning",
+                            )
                         break
                     else:
                         ab_av1_log.extend(current_log)
+                        if current_log:
+                            self.log_signal.emit(
+                                f"    -> 探测失败: {current_log[-1].strip()}",
+                                "error",
+                            )
 
                 search_duration = time.time() - search_start_time - search_paused_time
                 if not self.is_running: break
 
-                if search_success:
-                    is_cpu_detect = (final_strategy["encoder"] in ["libsvtav1", "libaom-av1"])
-                    is_hw_target = (enc_name in ["av1_amf", "av1_nvenc", "av1_qsv"])
-                    
-                    if is_cpu_detect and is_hw_target:
-                        offset = int(self.config.get('amf_offset', 0))
-                        cpu_crf = best_icq
-                        raw_icq = cpu_crf + offset
-                        best_icq = max(1, min(51, raw_icq))
-
-                        if best_icq != raw_icq:
-                            reason = "最小" if raw_icq < 1 else "最大"
-                            self.log_signal.emit(tr("log.encoder.ab_av1_success_offset_corrected", desc=final_strategy['desc'], cpu_crf=cpu_crf, offset=offset, raw_icq=raw_icq, reason=reason, best_icq=best_icq, search_duration=search_duration), "warning")
-                        else:
-                            self.log_signal.emit(tr("log.encoder.ab_av1_success_offset", desc=final_strategy['desc'], cpu_crf=cpu_crf, offset=offset, best_icq=best_icq, search_duration=search_duration), "success")
-                    else:
-                        self.log_signal.emit(tr("log.encoder.ab_av1_success", best_icq=best_icq, search_duration=search_duration), "success")
-                else:
-                    self.log_signal.emit(tr("log.encoder.ab_av1_failed", best_icq=best_icq), "error")
+                if not search_success:
+                    self.log_signal.emit(tr("log.encoder.ab_av1_failed"), "error")
                     if ab_av1_log:
                         self.log_signal.emit(tr("log.encoder.ab_av1_error_log_header"), "error")
                         for log_line in ab_av1_log[-5:]:
                             self.log_signal.emit(f"    {log_line}", "error")
+                    self.file_status_signal.emit(filepath, "error")
+
+                    if self.is_running:
+                        self.waiting_decision = True
+                        self.decision = None
+                        self.ask_error_decision.emit(
+                            tr("dialog.encoder.crash_title"),
+                            tr("dialog.encoder.crash_content", fname=fname),
+                        )
+                        while self.waiting_decision and self.is_running:
+                            time.sleep(0.1)
+                        if self.decision == 'stop':
+                            break
+                    continue
+
+                is_cpu_detect = (final_strategy["encoder"] in ["libsvtav1", "libaom-av1"])
+                is_hw_target = (enc_name in ["av1_amf", "av1_nvenc", "av1_qsv"])
+                assert best_icq is not None
+
+                if is_cpu_detect and is_hw_target:
+                    offset = int(self.config.get('amf_offset', 0))
+                    cpu_crf = best_icq
+                    raw_icq = cpu_crf + offset
+                    best_icq = max(1, min(51, raw_icq))
+
+                    if best_icq != raw_icq:
+                        reason = "最小" if raw_icq < 1 else "最大"
+                        self.log_signal.emit(tr("log.encoder.ab_av1_success_offset_corrected", desc=final_strategy['desc'], cpu_crf=cpu_crf, offset=offset, raw_icq=raw_icq, reason=reason, best_icq=best_icq, search_duration=search_duration), "warning")
+                    else:
+                        self.log_signal.emit(tr("log.encoder.ab_av1_success_offset", desc=final_strategy['desc'], cpu_crf=cpu_crf, offset=offset, best_icq=best_icq, search_duration=search_duration), "success")
+                else:
+                    self.log_signal.emit(tr("log.encoder.ab_av1_success", best_icq=best_icq, search_duration=search_duration), "success")
 
                 if best_icq > 51:
                     self.log_signal.emit(tr("log.encoder.icq_corrected", icq=best_icq), "warning")
@@ -360,80 +400,30 @@ class EncoderWorker(BaseWorker):
                 if audio_filters:
                     audio_args.extend(["-af", ",".join(audio_filters)])
 
-                cmd = []
-                # 构建 FFmpeg 命令行
-                cmd = [ffmpeg, "-y", "-hide_banner"]
-                
-                # 硬件解码加速 (如果适用)
-                if self.config.get('hw_decoding', True):
-                    if enc_name == "av1_qsv":
-                        cmd.extend(["-init_hw_device", "qsv=hw", "-filter_hw_device", "hw", "-hwaccel", "qsv", "-v", "verbose"])
-                    elif enc_name == "av1_nvenc":
-                        cmd.extend(["-hwaccel", "auto", "-v", "verbose"])
-                    elif enc_name == "av1_amf":
-                        cmd.extend(["-hwaccel", "auto", "-v", "verbose"])
-                else:
-                    cmd.extend(["-v", "verbose"])
-
-                cmd.extend(["-i", std_filepath])
-                
-                # 视频色彩控制参数
-                color_mode = self.config.get('color_mode', 'Auto')
-                is_input_hdr = (color_transfer in ['smpte2084', 'arib-std-b67'] or 'bt2020' in color_space or 'bt2020' in color_primaries or has_dovi)
-                
-                color_args = []
-                if color_mode == "Auto" and is_input_hdr:
-                    self.log_signal.emit("🌈 [色彩同调] 检测到 HDR/杜比视界 源视频，已自动激活色彩无损保留术式。", "success")
-                    primaries = color_primaries if color_primaries else "bt2020"
-                    transfer = color_transfer if color_transfer else "smpte2084"
-                    space = color_space if color_space else "bt2020nc"
-                    color_args.extend(["-color_primaries", primaries, "-color_trc", transfer, "-colorspace", space])
-                elif color_mode == "ToneMap" and is_input_hdr:
-                    self.log_signal.emit("🔮 [色彩同调] 检测到 HDR/杜比视界 源视频，已施展高精度 32-bit 色调映射术式 (HDR to SDR)...", "success")
-                    color_args.extend(["-vf", "zscale=t=linear:npl=100,format=gbrpf32,zscale=p=bt709:t=bt709:m=bt709:r=limited,format=yuv420p10le"])
-                elif color_mode == "ToneMap" and not is_input_hdr:
-                    self.log_signal.emit("⚠️ [色彩同调] 虽启用了色调映射，但源视频并非 HDR/杜比视界，已跳过映射滤镜。", "warning")
-
-                # 视频编码参数
-                cmd.extend(["-c:v", enc_name])
-                if not (color_mode == "ToneMap" and is_input_hdr):
-                    cmd.extend(["-pix_fmt", PIX_FMT_10BIT])
-                
-                cmd.extend(color_args)
-                
-                if enc_name == "av1_qsv":
-                    cmd.extend(["-global_quality:v", str(best_icq), "-preset", enc_preset, "-look_ahead", "1"])
-                elif enc_name == "av1_nvenc":
-                    cmd.extend(["-cq", str(best_icq), "-preset", enc_preset, "-b:v", "0"])
-                    if self.config.get('nv_aq', True):
-                        cmd.extend(["-spatial-aq", "1", "-temporal-aq", "1"])
-                elif enc_name == "av1_amf":
-                    cmd.extend(["-usage", "transcoding", "-quality", enc_preset, "-rc", "vbr_latency", "-qvbr_quality_level", str(best_icq)])
-                    if self.config.get('nv_aq', True): # 复用 nv_aq 开关作为 AMD PreAnalysis
-                        cmd.extend(["-preanalysis", "true"])
-
                 # 音频和字幕
                 ffmpeg_success = False
-                retry_without_subtitles = False
                 return_code = -1
                 err_log = []
+                retry_state = RetryState(
+                    use_hw_decode=self.config.get('hw_decoding', True),
+                    include_subtitles=True,
+                )
+                attempted_states = set()
 
-                for attempt in range(2):
+                if retry_state.use_hw_decode and enc_name == "av1_nvenc":
+                    self.log_signal.emit(
+                        "💡 -> NVIDIA 硬件解码: CUDA "
+                        "(不依赖远程桌面图形会话)",
+                        "info",
+                    )
+
+                for attempt in range(3):
                     if not self.is_running:
                         break
 
+                    attempted_states.add(retry_state)
                     cmd = [ffmpeg, "-y", "-hide_banner"]
-                    
-                    # 硬件解码加速 (如果适用)
-                    if self.config.get('hw_decoding', True):
-                        if enc_name == "av1_qsv":
-                            cmd.extend(["-init_hw_device", "qsv=hw", "-filter_hw_device", "hw", "-hwaccel", "qsv", "-v", "verbose"])
-                        elif enc_name == "av1_nvenc":
-                            cmd.extend(["-hwaccel", "auto", "-v", "verbose"])
-                        elif enc_name == "av1_amf":
-                            cmd.extend(["-hwaccel", "auto", "-v", "verbose"])
-                    else:
-                        cmd.extend(["-v", "verbose"])
+                    cmd.extend(build_hw_decode_args(enc_name, retry_state.use_hw_decode))
 
                     cmd.extend(["-i", std_filepath])
                     
@@ -478,8 +468,8 @@ class EncoderWorker(BaseWorker):
                     # 音频
                     cmd.extend(audio_args)
                     
-                    # 字幕处理：若重试则丢弃字幕
-                    if retry_without_subtitles:
+                    # 只有确认字幕流错误后才丢弃字幕
+                    if not retry_state.include_subtitles:
                         cmd.extend(["-sn"])
                         cmd.extend(["-map", "0:v:0", "-map", "0:a"])
                     else:
@@ -552,7 +542,7 @@ class EncoderWorker(BaseWorker):
 
                                     if "frame=" not in d:
                                         err_log.append(d)
-                                        if len(err_log) > 20: err_log.pop(0)
+                                        if len(err_log) > 200: err_log.pop(0)
                             return_code = proc.returncode
                     except Exception as e:
                         self.log_signal.emit(tr("log.encoder.ffmpeg_exception", error=e), "error")
@@ -566,10 +556,28 @@ class EncoderWorker(BaseWorker):
                         break
 
                     if return_code != 0:
-                        if not retry_without_subtitles:
-                            self.log_signal.emit("⚠️ 转码术式异常中止，检测到可能由于字幕流损坏或不兼容（如空包等）导致。正在启动备用净化方案：丢弃所有字幕流进行二次炼成...", "warning")
-                            retry_without_subtitles = True
-                            # 清理本次失败的临时文件
+                        decision = next_retry_state(retry_state, err_log)
+                        can_retry = (
+                            decision is not None
+                            and decision.state not in attempted_states
+                            and attempt < 2
+                        )
+                        if can_retry:
+                            if decision.reason is FailureKind.HARDWARE_DEVICE:
+                                self.log_signal.emit(
+                                    "⚠️ 检测到硬件解码设备初始化失败，"
+                                    "将仅对当前文件切换为 CPU 软件解码后重试；"
+                                    "NVENC 编码与画质参数保持不变。",
+                                    "warning",
+                                )
+                            elif decision.reason is FailureKind.SUBTITLE:
+                                self.log_signal.emit(
+                                    "⚠️ 检测到字幕流损坏或不兼容，"
+                                    "将丢弃当前文件的字幕流后重试。",
+                                    "warning",
+                                )
+
+                            retry_state = decision.state
                             lp_temp = to_long_path(temp_file)
                             if os.path.exists(lp_temp):
                                 try: os.remove(lp_temp)

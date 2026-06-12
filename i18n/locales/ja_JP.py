@@ -270,7 +270,7 @@ translation = {
     "log.encoder.ab_av1_success_offset_corrected": " -> 術式解析完了 ({desc}): 原始CRF {cpu_crf} + オフセット {offset} = {raw_icq} ({reason}制限により {best_icq} に修正) [所要時間: {search_duration:.1f}s]", # ab-av1 成功(修正)ログ
     "log.encoder.ab_av1_success_offset": " -> 術式解析完了 ({desc}): 原始CRF {cpu_crf} + オフセット {offset} => 最終パラメータ {best_icq} [所要時間: {search_duration:.1f}s]", # ab-av1 成功(オフセット)ログ
     "log.encoder.ab_av1_success": " -> 術式解析完了 (ICQ): {best_icq} [所要時間: {search_duration:.1f}s] (๑•̀ㅂ•́)و✧", # ab-av1 成功ログ
-    "log.encoder.ab_av1_failed": " -> 解析失敗、基礎術式を強制使用 ICQ: {best_icq} (T_T)", # ab-av1 失敗ログ
+    "log.encoder.ab_av1_failed": " -> 解析失敗。信頼できる CRF がないため、エンコードは開始しません。 (T_T)", # ab-av1 失敗ログ
     "log.encoder.ab_av1_error_log_header": "    [ab-av1 エラー回想]:", # ab-av1 エラーヘッダーログ
     "log.encoder.icq_corrected": " -> 修正: ハードウェアエンコーダーパラメータ制限 ({icq} -> 51)", # ICQ 修正ログ
     "log.encoder.ffmpeg_exception": " -> 魔力逆流: {error} (×_×)", # FFmpeg 異常ログ
