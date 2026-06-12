@@ -346,9 +346,11 @@ class EncodingCoordinator(QObject):
                 content,
             )
         )
-        worker.finished_signal.connect(
+        worker.finished.connect(
             lambda: self._on_worker_finished(task_id, path)
         )
+        if hasattr(worker, "deleteLater"):
+            worker.finished.connect(worker.deleteLater)
 
     def _on_file_progress(self, path, percent):
         self._progresses[path] = max(0, min(100, int(percent)))

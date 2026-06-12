@@ -171,7 +171,7 @@ class EncodingCoordinatorTests(unittest.TestCase):
         self.assertEqual(len(FakeWorker.instances), 2)
         self.assertTrue(all(w.started for w in FakeWorker.instances))
 
-    def test_finished_worker_releases_slot_and_starts_next_file(self):
+    def test_worker_reference_is_held_until_qthread_finished(self):
         files = self.make_files(["a.mp4", "b.mp4"])
         coordinator = self.make_coordinator(
             files,
@@ -183,6 +183,11 @@ class EncodingCoordinatorTests(unittest.TestCase):
 
         first.file_status_signal.emit(files[0], "success")
         first.finished_signal.emit()
+
+        self.assertEqual(len(coordinator.active_workers), 1)
+        self.assertEqual(len(FakeWorker.instances), 1)
+
+        first.finished.emit()
 
         self.assertEqual(len(FakeWorker.instances), 2)
         self.assertTrue(FakeWorker.instances[1].started)
