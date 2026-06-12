@@ -79,9 +79,11 @@ For detailed hardware self-check methods, please refer to HARDWARE_CHECK.
 
 ### Method 1: Download Official Release (Recommended)
 
-1.  Go to the **Releases Page** and download the latest zip package.
-2.  Unzip to any directory.
-3.  Double-click `MagicalGirlWorkshop.exe` to use directly (FFmpeg, ab-av1, etc. are built-in, no extra configuration needed).
+1.  Go to the **Releases Page** and download the latest release assets.
+2.  Choose whichever suits you best:
+    *   `MagicalGirlWorkshop-v<version>-Portable.7z`: unzip it to any directory, then double-click `MagicalGirlWorkshop.exe`.
+    *   `MagicalGirlWorkshop-v<version>-Setup.exe`: run the installer and follow the wizard to install it for the current user.
+3.  Both official releases already include FFmpeg, ab-av1, and other core components, so no extra configuration is needed.
 
 ### Method 2: Run from Source (Dev)
 
