@@ -1,7 +1,7 @@
 # ✨ 魔法少女工坊 (Magical Girl Workshop) - Windows Edition
 
 ![Version](https://img.shields.io/badge/version-1.4.0-FB7299?style=for-the-badge&logo=bilibili&logoColor=white)
-![Built with Gemini](https://img.shields.io/badge/Built%20with-Gemini-8E75B2?style=for-the-badge&logo=googlegemini&logoColor=white)
+![AI Co-developed](https://img.shields.io/badge/AI_Co--developed-Codex_%7C_GPT_%7C_Antigravity_%7C_Gemini-8E75B2?style=for-the-badge)
 ![Platform](https://img.shields.io/badge/OS-Windows11-0078D6?style=for-the-badge&logo=windows&logoColor=white)
 ![License](https://img.shields.io/badge/License-GPLv3-green?style=for-the-badge)
 
@@ -11,7 +11,7 @@
 >
 > 一款运行在 Windows 终端上，专为 **NAS 用户** 和 **仓鼠党** 打造的智能 AV1 硬件转码工具。<br>
 > 核心基于 **VMAF 视界还原度** 智能测算最优码率，利用 Intel QSV、NVIDIA NVENC 或 AMD AMF 技术，在肉眼无损保留画质的前提下，将庞大的影视库体积缩小 **30% - 50%** ，拯救您的本地硬盘与 NAS 空间。<br>
-> *Powered by Python, PySide6, QFluentWidgets, FFmpeg, ab-av1, Gemini.*
+> *Built with Python, PySide6, QFluentWidgets, FFmpeg and ab-av1 · AI-assisted with Codex, GPT, Antigravity & Gemini.*
 
 ---
 
@@ -145,13 +145,13 @@
 *   [**ab-av1**](https://github.com/alexheretic/ab-av1): 自动寻找最佳 AV1 编码参数的工具。
 *   [**PySide6**](https://doc.qt.io/qtforpython/): Python 的 Qt 绑定。
 *   [**QFluentWidgets**](https://github.com/zhiyiYo/PyQt-Fluent-Widgets): 精美的 Fluent Design 风格组件库。
-*   [**Google Gemini**](https://deepmind.google/technologies/gemini/): 提供了强大的代码生成与辅助能力。
+*   **OpenAI Codex / GPT**: 参与代码实现、调试、测试与文档整理。
+*   **Google Antigravity / Gemini**: 参与方案探索、代码生成与开发辅助。
 
 ## 🤖 开发幕后
 
-本项目是一个纯粹的 **AI 辅助开发** 实验。
-**100% 的代码** 均由 **Google Gemini** 在我的 Prompt 引导下生成。
-我负责提供逻辑架构和需求，AI 负责编写 Python 代码和 UI 实现。
+本项目是一个由 **泠萌404 主导的 AI 辅助开发** 实验。
+泠萌404负责产品方向、逻辑架构、需求定义、评审与最终决策；**OpenAI Codex / GPT** 与 **Google Antigravity / Gemini** 协作参与代码实现、调试、测试和文档整理。
 
 ## 🤝 贡献指南 (Contributing)
 

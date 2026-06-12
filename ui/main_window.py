@@ -918,7 +918,7 @@ class MainWindow(FluentWindow):
 
     def _init_footer(self):
         """ 初始化窗口底部区域（版权信息）。 """
-        self.footer = BodyLabel("Designed by <a href='https://space.bilibili.com/136850' style='color: #FB7299; text-decoration: none; font-weight: bold;'>泠萌404</a> | Powered by Python, PySide6, QFluentWidgets, FFmpeg, ab-av1, Gemini", self)
+        self.footer = BodyLabel("Designed by <a href='https://space.bilibili.com/136850' style='color: #FB7299; text-decoration: none; font-weight: bold;'>泠萌404</a> | AI-assisted with Codex, GPT, Antigravity & Gemini", self)
         self.footer.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.footer.setTextColor(QColor("#AAAAAA"), QColor("#AAAAAA"))
         self.footer.setOpenExternalLinks(True)

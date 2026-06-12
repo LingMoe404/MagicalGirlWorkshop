@@ -9,7 +9,7 @@ translation = {
     "app.title": "魔法少女工坊", # 应用主标题
     "app.subtitle": "AV1 硬件加速魔力驱动 · 绝对领域 Edition", # 应用副标题
     "app.welcome": "欢迎来到魔法少女工坊 ✨", # 欢迎信息
-    "app.designed_by": "Designed by <a href='https://space.bilibili.com/136850' style='color: #FB7299; text-decoration: none; font-weight: bold;'>泠萌404</a> | Powered by Python, PySide6, QFluentWidgets, FFmpeg, ab-av1, Gemini", # 设计者和技术支持信息
+    "app.designed_by": "Designed by <a href='https://space.bilibili.com/136850' style='color: #FB7299; text-decoration: none; font-weight: bold;'>泠萌404</a> | AI-assisted with Codex, GPT, Antigravity & Gemini", # 设计者和技术支持信息
 
     # -------------------------------------------------------------------------
     # Home Interface (view/home_interface.py)
@@ -148,7 +148,7 @@ translation = {
     "credits.contributions.item5.desc": "支持更灵活的术式分发", # “羁绊之证”页面贡献项5描述
     "credits.contributions.item6.title": "自动化炼金工坊", # “羁绊之证”页面贡献项6标题
     "credits.contributions.item6.desc": "云端自动构筑与分发", # “羁绊之证”页面贡献项6描述
-    "credits.card.footer": "特别鸣谢: PySide6, QFluentWidgets, FFmpeg, ab-av1, Gemini", # “羁绊之证”页面页脚
+    "credits.card.footer": "特别鸣谢: PySide6, QFluentWidgets, FFmpeg, ab-av1 | AI 协作: Codex, GPT, Antigravity, Gemini", # “羁绊之证”页面页脚
 
     # -------------------------------------------------------------------------
     # Welcome Wizard (view/welcome_wizard.py)

@@ -9,7 +9,7 @@ translation = {
     "app.title": "Magical Girl Workshop", # Application Main Title
     "app.subtitle": "AV1 Hardware Acceleration Mana Drive · Absolute Territory Edition", # Application Subtitle
     "app.welcome": "Welcome to the Magical Girl Workshop ✨", # Welcome Message
-    "app.designed_by": "Designed by <a href='https://space.bilibili.com/136850' style='color: #FB7299; text-decoration: none; font-weight: bold;'>LingMoe404</a> | Powered by Python, PySide6, QFluentWidgets, FFmpeg, ab-av1, Gemini", # Designer and Tech Support Info
+    "app.designed_by": "Designed by <a href='https://space.bilibili.com/136850' style='color: #FB7299; text-decoration: none; font-weight: bold;'>LingMoe404</a> | AI-assisted with Codex, GPT, Antigravity & Gemini", # Designer and Tech Support Info
 
     # -------------------------------------------------------------------------
     # Home Interface (view/home_interface.py)
@@ -148,7 +148,7 @@ translation = {
     "credits.contributions.item5.desc": "Supporting Flexible Spell Distribution", # "Proof of Bond" Page Contribution Item 5 Description
     "credits.contributions.item6.title": "Automated Alchemy Workshop", # "Proof of Bond" Page Contribution Item 6 Title
     "credits.contributions.item6.desc": "Cloud Automated Construction & Distribution", # "Proof of Bond" Page Contribution Item 6 Description
-    "credits.card.footer": "Special Thanks: PySide6, QFluentWidgets, FFmpeg, ab-av1, Gemini", # "Proof of Bond" Page Footer
+    "credits.card.footer": "Special Thanks: PySide6, QFluentWidgets, FFmpeg, ab-av1 | AI Collaboration: Codex, GPT, Antigravity, Gemini", # "Proof of Bond" Page Footer
 
     # -------------------------------------------------------------------------
     # Welcome Wizard (view/welcome_wizard.py)

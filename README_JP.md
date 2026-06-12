@@ -1,7 +1,7 @@
 # ✨ 魔法少女工房 (Magical Girl Workshop) - Windows Edition
 
 ![Version](https://img.shields.io/badge/version-1.4.0-FB7299?style=for-the-badge&logo=bilibili&logoColor=white)
-![Built with Gemini](https://img.shields.io/badge/Built%20with-Gemini-8E75B2?style=for-the-badge&logo=googlegemini&logoColor=white)
+![AI Co-developed](https://img.shields.io/badge/AI_Co--developed-Codex_%7C_GPT_%7C_Antigravity_%7C_Gemini-8E75B2?style=for-the-badge)
 ![Platform](https://img.shields.io/badge/OS-Windows11-0078D6?style=for-the-badge&logo=windows&logoColor=white)
 ![License](https://img.shields.io/badge/License-GPLv3-green?style=for-the-badge)
 
@@ -11,7 +11,7 @@
 >
 > Windows 端末で動作し、**NASユーザー** と **デジタル収集癖のある人** のために特別に作られたスマートなAV1ハードウェアトランスコードツール。<br>
 > **VMAFスマート計算** によって最適なビットレートを自動検出し、Intel QSV、NVIDIA NVENC、または AMD AMF 技術を利用して、視覚的に無劣化の画質を維持しながら膨大な動画ライブラリのサイズを **30% - 50%** 縮小し、ローカルHDDやNASのスペースを節約します。<br>
-> *Powered by Python, PySide6, QFluentWidgets, FFmpeg, ab-av1, Gemini.*
+> *Built with Python, PySide6, QFluentWidgets, FFmpeg and ab-av1 · AI-assisted with Codex, GPT, Antigravity & Gemini.*
 
 ---
 
@@ -145,13 +145,13 @@ Python開発に慣れている場合は、ソースコードから実行でき�
 *   **ab-av1**: 最適なAV1エンコードパラメータを自動的に見つけるツール。
 *   **PySide6**: Qt の Python バインディング。
 *   **QFluentWidgets**: 美しい Fluent Design スタイルのコンポーネントライブラリ。
-*   **Google Gemini**: 強力なコード生成と支援機能を提供。
+*   **OpenAI Codex / GPT**: 実装、デバッグ、テスト、ドキュメント作成に協力。
+*   **Google Antigravity / Gemini**: 方針検討、コード生成、開発支援に協力。
 
 ## 🤖 開発の舞台裏
 
-このプロジェクトは純粋な **AI 支援開発** の実験です。
-**コードの100%** は、私のプロンプトの誘導の下、**Google Gemini** によって生成されました。
-私が論理アーキテクチャと要件を提供し、AIがPythonコードとUIの実装を担当しました。
+このプロジェクトは **泠萌404 が主導する AI 支援開発** の実験です。
+泠萌404が製品方針、アーキテクチャ、要件、レビュー、最終判断を担当し、**OpenAI Codex / GPT** と **Google Antigravity / Gemini** が実装、デバッグ、テスト、ドキュメント作成に協力しています。
 
 ## 🤝 貢献ガイド (Contributing)
 

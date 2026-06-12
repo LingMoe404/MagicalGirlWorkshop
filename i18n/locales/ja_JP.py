@@ -9,7 +9,7 @@ translation = {
     "app.title": "魔法少女工房", # アプリケーションのメインタイトル
     "app.subtitle": "AV1 ハードウェア加速魔力駆動 · 絶対領域 Edition", # アプリケーションのサブタイトル
     "app.welcome": "ようこそ、魔法少女工房へ ✨", # ウェルカムメッセージ
-    "app.designed_by": "Designed by <a href='https://space.bilibili.com/136850' style='color: #FB7299; text-decoration: none; font-weight: bold;'>泠萌404</a> | Powered by Python, PySide6, QFluentWidgets, FFmpeg, ab-av1, Gemini", # 設計者と技術サポート情報
+    "app.designed_by": "Designed by <a href='https://space.bilibili.com/136850' style='color: #FB7299; text-decoration: none; font-weight: bold;'>泠萌404</a> | AI-assisted with Codex, GPT, Antigravity & Gemini", # 設計者と技術サポート情報
 
     # -------------------------------------------------------------------------
     # Home Interface (view/home_interface.py)
@@ -148,7 +148,7 @@ translation = {
     "credits.contributions.item5.desc": "より柔軟な術式配布をサポート", # 「絆の証」ページ貢献項目5説明
     "credits.contributions.item6.title": "自動化錬金工房", # 「絆の証」ページ貢献項目6タイトル
     "credits.contributions.item6.desc": "クラウドによる自動構築と配布", # 「絆の証」ページ貢献項目6説明
-    "credits.card.footer": "特別感謝: PySide6, QFluentWidgets, FFmpeg, ab-av1, Gemini", # 「絆の証」ページフッター
+    "credits.card.footer": "特別感謝: PySide6, QFluentWidgets, FFmpeg, ab-av1 | AI協力: Codex, GPT, Antigravity, Gemini", # 「絆の証」ページフッター
 
     # -------------------------------------------------------------------------
     # Welcome Wizard (view/welcome_wizard.py)
