@@ -282,7 +282,7 @@ translation = {
     "log.encoder.info_loudnorm_skipped": " -> 声场调和 (Loudnorm): 跳过 ({mode})", # 响度均衡跳过日志
     
     # Settings Interface
-    "settings.title": "禁忌设定 (Settings)", # 系统设置标题
+    "settings.title": "禁忌设定", # 系统设置标题
     "settings.gpu_timeout_label": "核心探测超时 (秒)", # 硬件探测超时
     "settings.gpu_cooling_time_label": "核心冷却间隔 (秒)", # 核心冷却间隔
     "settings.hw_decoding_label": "硬件解码超载术式 (GPU Decoding)", # 硬件解码
