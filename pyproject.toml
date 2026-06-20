@@ -11,5 +11,5 @@ dependencies = [
 dev = [
     "nuitka>=4.1.2",
     "zstandard>=0.25.0",
-    "ruff>=0.15.17",
+    "ruff>=0.15.18",
 ]
