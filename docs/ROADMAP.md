@@ -55,11 +55,11 @@
 
 | 任务 | 当前状态 | 目标 | 优先级 |
 |------|---------|------|--------|
-| `EncoderWorker` 单元测试 | ❌ 无 | 覆盖 VMAF 探测、编码执行、输出处理、错误重试 | 🔴 最高 |
-| `AnalysisWorker` 单元测试 | ❌ 无 | 覆盖 HTML 报告生成、缩略图生成 | 🟡 高 |
+| `EncoderWorker` 单元测试 | ⚠️ 部分 | 已添加结构验证测试（17 个）；`run()` 直接运行测试因 `iter(bound_method, sentinel)` 兼容性问题暂未覆盖 | 🔴 最高 |
+| `AnalysisWorker` 单元测试 | ✅ 完成 | 已添加 18 个测试覆盖 HTML 报告生成、缩略图生成、时长解析 | 🟡 高 |
 | UI 组件测试 | ❌ 无 | 覆盖文件拖拽、文件列表交互、配置切换 | 🟡 高 |
-| 集成测试 | ❌ 无 | 使用合成视频测试完整转码流水线 | 🟢 中 |
-| 现有测试增强 | ⚠️ 部分 | 补齐 `test_coordinator.py` 和 `test_concurrency_policy.py` 的边界场景 | 🟢 中 |
+| 集成测试 | ✅ 完成 | 已添加 6 个测试，使用真实 ffmpeg 合成 5 秒视频验证完整转码流水线 | 🟢 中 |
+| 现有测试增强 | ⚠️ 部分 | 已新增测试；`test_coordinator.py` 和 `test_concurrency_policy.py` 边界场景待补齐 | 🟢 中 |
 
 **工具建议**：`pytest` + `pytest-qt` + `pytest-mock`
 
