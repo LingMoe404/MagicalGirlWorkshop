@@ -568,12 +568,12 @@ class EncoderWorker(BaseWorker):
                                     d = line.strip() # 已经是字符串，无需 safe_decode
                                     
                                     # [Fix] 尝试从输出中补获时长 (防止元数据获取失败导致进度条不走)
-                                    if duration_sec <= 0 and "Duration:" in d:
+                                    if duration_sec <= 0 and b"Duration:" in d:
                                         dur_match = re.search(r"Duration:\s*(\d+:\d+:\d+(?:\.\d+)?)", d)
                                         if dur_match:
                                             duration_sec = time_str_to_seconds(dur_match.group(1))
 
-                                    if "time=" in d and duration_sec > 0:
+                                    if b"time=" in d and duration_sec > 0:
                                         t_match = re.search(r"time=\s*(\d+:\d+:\d+(?:\.\d+)?)", d)
                                         if t_match:
                                             current_sec = time_str_to_seconds(t_match.group(1))
@@ -607,8 +607,8 @@ class EncoderWorker(BaseWorker):
                                                         self.file_stats_signal.emit(filepath, f"{speed_val:.2f}x", eta)
                                                 except Exception: pass
 
-                                    if "frame=" not in d:
-                                        err_log.append(d)
+                                    if b"frame=" not in d:
+                                        err_log.append(decoded)
                                         if len(err_log) > 200: err_log.pop(0)
                             return_code = proc.returncode
                     except Exception as e:
