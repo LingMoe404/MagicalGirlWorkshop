@@ -1,5 +1,5 @@
 from PySide6.QtCore import Qt, Signal
-from PySide6.QtWidgets import QStyleOptionViewItem, QStyle, QAbstractItemView
+from PySide6.QtWidgets import QAbstractItemView, QStyle, QStyleOptionViewItem
 from qfluentwidgets import BodyLabel, ListWidget
 from qfluentwidgets.components.widgets.list_view import ListItemDelegate
 
@@ -45,17 +45,16 @@ class DragDropMixin:
             e.accept()
             e.acceptProposedAction()
         else:
-            super().dragEnterEvent(e)
+            e.ignore()
 
     def dragMoveEvent(self, e):
         if e.mimeData().hasUrls():
             e.acceptProposedAction()
         else:
-            super().dragMoveEvent(e)
+            e.ignore()
 
     def dragLeaveEvent(self, e):
         self.dragActiveChanged.emit(False)
-        super().dragLeaveEvent(e)
 
     def dropEvent(self, e):
         paths = [u.toLocalFile() for u in e.mimeData().urls() if u.isLocalFile()]
