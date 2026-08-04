@@ -1,26 +1,40 @@
-import os
-import subprocess
-import time
-import re
 import ctypes
 import json
+import os
+import re
 import shutil
+import subprocess
+import time
+
 from PySide6.QtCore import Signal
 
+from config import (
+    AUDIO_CODEC,
+    ENC_AMF,
+    ENC_NVENC,
+    LOUDNORM_MODE_ALWAYS,
+    LOUDNORM_MODE_AUTO,
+    PIX_FMT_10BIT,
+    PIX_FMT_AB_AV1,
+    SAMPLE_RATE,
+    SAVE_MODE_OVERWRITE,
+    SAVE_MODE_REMAIN,
+    SUBTITLE_CODEC_SRT,
+    VIDEO_EXTS,
+)
 from i18n.translator import tr
 from utils import (
-    get_subprocess_flags, tool_path, safe_decode,
-    time_str_to_seconds, to_long_path, get_default_cache_dir
+    get_default_cache_dir,
+    get_subprocess_flags,
+    safe_decode,
+    time_str_to_seconds,
+    to_long_path,
+    tool_path,
 )
-from config import (
-    VIDEO_EXTS, SAVE_MODE_OVERWRITE, SAVE_MODE_REMAIN,
-    SUBTITLE_CODEC_SRT, AUDIO_CODEC, SAMPLE_RATE,
-    LOUDNORM_MODE_ALWAYS, LOUDNORM_MODE_AUTO,
-    ENC_NVENC, ENC_AMF, PIX_FMT_AB_AV1, PIX_FMT_10BIT, PIX_FMT_8BIT,
-    GPU_COOLING_TIME
-)
-from .base import BaseWorker
+
 from .ab_av1_result import AbAv1ResultParser, SearchResultMode
+from .base import BaseWorker
+from .batch_progress import map_encode_progress, map_probe_progress
 from .ffmpeg_retry import (
     FailureKind,
     RetryState,
@@ -28,8 +42,8 @@ from .ffmpeg_retry import (
     is_hardware_resource_error,
     next_retry_state,
 )
-from .batch_progress import map_encode_progress, map_probe_progress
 from .transcode_paths import TaskPaths, build_final_output
+
 
 # --- 工作线程 (负责耗时的转码任务) ---
 class EncoderWorker(BaseWorker):
@@ -472,6 +486,7 @@ class EncoderWorker(BaseWorker):
                         "info",
                     )
 
+                err_log = []
                 for attempt in range(3):
                     if not self.is_running:
                         break
@@ -546,7 +561,6 @@ class EncoderWorker(BaseWorker):
                                               startupinfo=startupinfo, creationflags=get_subprocess_flags(),
                                               text=True, encoding='utf-8', errors='replace') as proc:
                             self.current_proc = proc
-                            err_log = []
                             max_percent = 0
                             while True:
                                 if not self.is_running:
@@ -568,12 +582,12 @@ class EncoderWorker(BaseWorker):
                                     d = line.strip() # 已经是字符串，无需 safe_decode
                                     
                                     # [Fix] 尝试从输出中补获时长 (防止元数据获取失败导致进度条不走)
-                                    if duration_sec <= 0 and b"Duration:" in d:
+                                    if duration_sec <= 0 and "Duration:" in d:
                                         dur_match = re.search(r"Duration:\s*(\d+:\d+:\d+(?:\.\d+)?)", d)
                                         if dur_match:
                                             duration_sec = time_str_to_seconds(dur_match.group(1))
 
-                                    if b"time=" in d and duration_sec > 0:
+                                    if "time=" in d and duration_sec > 0:
                                         t_match = re.search(r"time=\s*(\d+:\d+:\d+(?:\.\d+)?)", d)
                                         if t_match:
                                             current_sec = time_str_to_seconds(t_match.group(1))
@@ -607,8 +621,8 @@ class EncoderWorker(BaseWorker):
                                                         self.file_stats_signal.emit(filepath, f"{speed_val:.2f}x", eta)
                                                 except Exception: pass
 
-                                    if b"frame=" not in d:
-                                        err_log.append(decoded)
+                                    if "frame=" not in d:
+                                        err_log.append(d)
                                         if len(err_log) > 200: err_log.pop(0)
                             return_code = proc.returncode
                     except Exception as e:
@@ -621,7 +635,6 @@ class EncoderWorker(BaseWorker):
 
                     if not self.is_running:
                         break
-
                     if return_code != 0:
                         decision = next_retry_state(retry_state, err_log)
                         can_retry = (
@@ -735,7 +748,8 @@ class EncoderWorker(BaseWorker):
                             time.sleep(0.1)
                         if self.decision == 'stop':
                             break
-                
+                    break  # non-retryable error: stop the retry loop
+            
                 if self.is_running:
                     self.log_signal.emit(tr("log.encoder.cooling_down"), "info")
                     cooling_time = int(self.config.get('gpu_cooling_time', 3))
