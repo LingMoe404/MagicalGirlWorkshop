@@ -29,7 +29,7 @@ jobs:
 
     steps:
       - name: Checkout # 步骤一：从虚空 (GitHub) 中具现化主人的源代码圣遗物
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Setup uv and Python 3.12 # 步骤二：铺设星光回路，注入纯度为 3.12 的 Python 魔力
         uses: astral-sh/setup-uv@v7
@@ -38,7 +38,7 @@ jobs:
           enable-cache: true # 开启基础魔力回路缓存
 
       - name: Cache Nuitka Compiler Cache # 步骤三：回收过往炼成产生的魔力残渣 (C++编译缓存)，极大加速下一次奇迹的降临！
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: ~\AppData\Local\Nuitka\Nuitka\Cache
           key: ${{ runner.os }}-nuitka-${{ hashFiles('**/*.py', 'uv.lock') }}
