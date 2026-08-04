@@ -35,8 +35,8 @@ requires-dist = [
 
 [package.metadata.requires-dev]
 dev = [
-    { name = "nuitka", specifier = ">=4.1.2" },
-    { name = "ruff", specifier = ">=0.15.17" },
+    { name = "nuitka", specifier = ">=4.1.3" },
+    { name = "ruff", specifier = ">=0.15.20" },
     { name = "zstandard", specifier = ">=0.25.0" },
 ]
 
