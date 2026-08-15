@@ -91,7 +91,7 @@ class EncoderWorker(BaseWorker):
                     stderr=subprocess.DEVNULL,
                     creationflags=get_subprocess_flags(),
                 )
-            except Exception:
+            except Exception:  # noqa: S110, BLE001
                 pass
         super().stop()
 
@@ -106,7 +106,7 @@ class EncoderWorker(BaseWorker):
                 ctypes.windll.kernel32.SetThreadExecutionState(0x80000003)
             else:
                 ctypes.windll.kernel32.SetThreadExecutionState(0x80000000)
-        except Exception:
+        except Exception:  # noqa: S110, BLE001
             pass
 
     def receive_decision(self, decision):
@@ -172,7 +172,7 @@ class EncoderWorker(BaseWorker):
                     duration_sec = float(
                         probe_data.get("format", {}).get("duration", 0)
                     )
-            except Exception:
+            except Exception:  # noqa: S110, BLE001
                 pass
 
         return (
@@ -200,7 +200,7 @@ class EncoderWorker(BaseWorker):
                 self.file_progress_signal.emit(filepath, 100)
                 self.file_status_signal.emit(filepath, "success")
                 return True
-        except Exception:
+        except Exception:  # noqa: S110, BLE001
             pass
         return False
 
@@ -300,7 +300,7 @@ class EncoderWorker(BaseWorker):
                         if not self.is_running:
                             try:
                                 proc.kill()
-                            except:
+                            except Exception:  # noqa: S110, BLE001
                                 pass
                             break
                         if self.is_paused:
@@ -340,7 +340,7 @@ class EncoderWorker(BaseWorker):
                                 )
 
                 search_result = parser.finish(proc.returncode, float(target_vmaf))
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001
                 self.log_signal.emit(f"⚠️ 探测执行异常: {e}", "warning")
                 search_result = None
             finally:
@@ -701,7 +701,7 @@ class EncoderWorker(BaseWorker):
                         if not self.is_running:
                             try:
                                 proc.kill()
-                            except:
+                            except Exception:  # noqa: S110, BLE001
                                 pass
                             return True, file_paused_time
                         if self.is_paused:
@@ -768,7 +768,7 @@ class EncoderWorker(BaseWorker):
                                                 self.file_stats_signal.emit(
                                                     filepath, f"{speed_val:.2f}x", eta
                                                 )
-                                        except Exception:
+                                        except Exception:  # noqa: S110, BLE001
                                             pass
 
                             if "frame=" not in d:
@@ -776,7 +776,7 @@ class EncoderWorker(BaseWorker):
                                 if len(err_log) > 200:
                                     err_log.pop(0)
                     return_code = proc.returncode
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001
                 self.log_signal.emit(
                     tr("log.encoder.ffmpeg_exception", error=e), "error"
                 )
@@ -815,7 +815,7 @@ class EncoderWorker(BaseWorker):
                     if os.path.exists(lp_temp):
                         try:
                             os.remove(lp_temp)
-                        except:
+                        except Exception:  # noqa: S110, BLE001
                             pass
                     continue
             else:
@@ -892,7 +892,7 @@ class EncoderWorker(BaseWorker):
                                     os.remove(lp_src)
                             success = True
                             break
-                        except Exception:
+                        except Exception:  # noqa: BLE001
                             time.sleep(1)
 
                     if success:
@@ -914,7 +914,7 @@ class EncoderWorker(BaseWorker):
                         )
                         self.file_status_signal.emit(filepath, "success")
                     else:
-                        raise Exception(tr("log.encoder.error_move_overwrite"))
+                        raise OSError(tr("log.encoder.error_move_overwrite"))
                 else:
                     for _ in range(3):
                         try:
@@ -922,7 +922,7 @@ class EncoderWorker(BaseWorker):
                                 os.remove(lp_dest)
                             shutil.move(lp_temp, lp_dest)
                             break
-                        except Exception:
+                        except Exception:  # noqa: BLE001
                             time.sleep(1)
 
                     if save_mode == SAVE_MODE_REMAIN:
@@ -951,7 +951,7 @@ class EncoderWorker(BaseWorker):
                         ),
                     )
                     self.file_status_signal.emit(filepath, "success")
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001
                 self.log_signal.emit(tr("log.encoder.error_move", error=e), "error")
                 self.file_status_signal.emit(filepath, "error")
             return False, file_paused_time
@@ -1007,7 +1007,7 @@ class EncoderWorker(BaseWorker):
         save_mode = self.config.get("save_mode", SAVE_MODE_OVERWRITE)
         try:
             os.makedirs(cache_dir, exist_ok=True)
-        except Exception:
+        except Exception:  # noqa: BLE001
             cache_dir = ""
         preset = self.config["preset"]
         target_vmaf = self.config["vmaf"]
@@ -1174,7 +1174,7 @@ class EncoderWorker(BaseWorker):
             else:
                 self.log_signal.emit(tr("log.encoder.stopped"), "error")
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             self.log_signal.emit(tr("log.encoder.fatal_error", error=e), "error")
         finally:
             self._cleanup()

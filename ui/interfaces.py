@@ -544,9 +544,9 @@ class SettingsInterface(QWidget):
         self.lbl_hw_decoding = BodyLabel(
             "硬件解码超载术式 (GPU Decoding Acceleration)", self
         )
-        self.sw_hw_decoding = SwitchButton("开启", self.card)
-        self.sw_hw_decoding.setOnText("开启")
-        self.sw_hw_decoding.setOffText("关闭")
+        self.sw_hw_decoding = SwitchButton(tr("settings.switch.on"), self.card)
+        self.sw_hw_decoding.setOnText(tr("settings.switch.on"))
+        self.sw_hw_decoding.setOffText(tr("settings.switch.off"))
         decoding_row.addWidget(self.lbl_hw_decoding)
         decoding_row.addStretch(1)
         decoding_row.addWidget(self.sw_hw_decoding)
@@ -557,9 +557,9 @@ class SettingsInterface(QWidget):
         self.lbl_auto_clean = BodyLabel(
             "法阵开启时自动肃清残渣 (Auto Clean on Startup)", self
         )
-        self.sw_auto_clean = SwitchButton("开启", self.card)
-        self.sw_auto_clean.setOnText("开启")
-        self.sw_auto_clean.setOffText("关闭")
+        self.sw_auto_clean = SwitchButton(tr("settings.switch.on"), self.card)
+        self.sw_auto_clean.setOnText(tr("settings.switch.on"))
+        self.sw_auto_clean.setOffText(tr("settings.switch.off"))
         clean_row.addWidget(self.lbl_auto_clean)
         clean_row.addStretch(1)
         clean_row.addWidget(self.sw_auto_clean)
@@ -580,10 +580,7 @@ class SettingsInterface(QWidget):
         logcap_row = QHBoxLayout()
         self.lbl_log_cap = BodyLabel("虚空日志保存上限 (Log Cap)", self)
         self.combo_log_cap = ComboBox(self.card)
-        self.combo_log_cap.addItem("1000 行", userData="1000")
-        self.combo_log_cap.addItem("2000 行 (默认)", userData="2000")
-        self.combo_log_cap.addItem("5000 行", userData="5000")
-        self.combo_log_cap.addItem("10000 行", userData="10000")
+        self._rebuild_log_cap_items()
         self.combo_log_cap.setMinimumHeight(36)
         self.combo_log_cap.setMinimumWidth(160)
         logcap_row.addWidget(self.lbl_log_cap)
@@ -598,6 +595,26 @@ class SettingsInterface(QWidget):
         self.btn_save.setMinimumHeight(40)
         self.btn_save.clicked.connect(self.on_save_clicked)
         layout.addWidget(self.btn_save)
+
+    def _rebuild_log_cap_items(self):
+        """重建日志上限下拉项，语言切换时保留当前选中值。"""
+        current = self.combo_log_cap.currentData()
+        self.combo_log_cap.clear()
+        self.combo_log_cap.addItem(
+            tr("settings.log_cap.rows", count="1000"), userData="1000"
+        )
+        self.combo_log_cap.addItem(
+            tr("settings.log_cap.rows_default", count="2000"), userData="2000"
+        )
+        self.combo_log_cap.addItem(
+            tr("settings.log_cap.rows", count="5000"), userData="5000"
+        )
+        self.combo_log_cap.addItem(
+            tr("settings.log_cap.rows", count="10000"), userData="10000"
+        )
+        idx = self.combo_log_cap.findData(current)
+        if idx >= 0:
+            self.combo_log_cap.setCurrentIndex(idx)
 
     def retranslate_ui(self):
         """根据当前语言重新翻译界面文本。"""
@@ -619,6 +636,11 @@ class SettingsInterface(QWidget):
             tr("settings.log_cap_label") or "虚空日志保存上限 (Log Cap)"
         )
         self.btn_save.setText(tr("settings.save_button"))
+        self.sw_hw_decoding.setOnText(tr("settings.switch.on"))
+        self.sw_hw_decoding.setOffText(tr("settings.switch.off"))
+        self.sw_auto_clean.setOnText(tr("settings.switch.on"))
+        self.sw_auto_clean.setOffText(tr("settings.switch.off"))
+        self._rebuild_log_cap_items()
         self.combo_theme.setItemText(0, tr("home.header.theme_combo.auto"))
         self.combo_theme.setItemText(1, tr("home.header.theme_combo.light"))
         self.combo_theme.setItemText(2, tr("home.header.theme_combo.dark"))

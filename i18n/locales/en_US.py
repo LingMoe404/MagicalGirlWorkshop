@@ -271,6 +271,10 @@ translation = {
     "settings.auto_clean_label": "Auto Clean Cache on Startup",
     "settings.thread_limit_label": "Metadata Concurrency Limit",
     "settings.log_cap_label": "Log Buffer Retention Cap",
+    "settings.switch.on": "On",  # Switch ON text
+    "settings.switch.off": "Off",  # Switch OFF text
+    "settings.log_cap.rows": "{count} lines",  # Log row option
+    "settings.log_cap.rows_default": "{count} lines (default)",  # Default log row option
     "settings.save_button": "💾 Save Settings",  # Save settings button
     # Quick Presets Row
     "home.settings_card.presets_title": "Grimoire Templates:",

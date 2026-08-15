@@ -271,6 +271,10 @@ translation = {
     "settings.auto_clean_label": "法阵开启时自动肃清残渣 (Auto Clean)",  # 自动清理
     "settings.thread_limit_label": "视界元数据读取并发限制 (Thread Limit)",  # 线程限制
     "settings.log_cap_label": "虚空日志保存上限 (Log Cap)",  # 日志上限
+    "settings.switch.on": "开启",  # 开关开启文本
+    "settings.switch.off": "关闭",  # 开关关闭文本
+    "settings.log_cap.rows": "{count} 行",  # 日志行数选项
+    "settings.log_cap.rows_default": "{count} 行 (默认)",  # 默认日志行数选项
     "settings.save_button": "💾 刻印设定 (Save)",  # 保存设置按钮
     # Quick Presets Row
     "home.settings_card.presets_title": "魔导书快捷模版 (Templates):",

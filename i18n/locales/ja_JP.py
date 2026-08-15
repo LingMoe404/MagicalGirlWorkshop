@@ -271,6 +271,10 @@ translation = {
     "settings.auto_clean_label": "起動時に自動で残渣を粛清する (Auto Clean)",
     "settings.thread_limit_label": "メタデータ読み込み同時実行制限",
     "settings.log_cap_label": "ログ保存上限 (Log Cap)",
+    "settings.switch.on": "オン",  # スイッチON表示
+    "settings.switch.off": "オフ",  # スイッチOFF表示
+    "settings.log_cap.rows": "{count} 行",  # ログ行数オプション
+    "settings.log_cap.rows_default": "{count} 行 (デフォルト)",  # デフォルトのログ行数オプション
     "settings.save_button": "💾 設定を保存",  # 設定保存ボタン
     # Quick Presets Row
     "home.settings_card.presets_title": "魔導書テンプレート:",

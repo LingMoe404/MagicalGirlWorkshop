@@ -271,6 +271,10 @@ translation = {
     "settings.auto_clean_label": "法陣開啟時自動肅清殘渣 (Auto Clean)",  # 自動清理
     "settings.thread_limit_label": "視界元數據讀取併發限制 (Thread Limit)",  # 綫程限制
     "settings.log_cap_label": "虛空日誌保存上限 (Log Cap)",  # 日誌上限
+    "settings.switch.on": "開啟",  # 開關開啟文字
+    "settings.switch.off": "關閉",  # 開關關閉文字
+    "settings.log_cap.rows": "{count} 行",  # 日誌行數選項
+    "settings.log_cap.rows_default": "{count} 行 (預設)",  # 預設日誌行數選項
     "settings.save_button": "💾 刻印設定 (Save)",  # 保存設置按鈕
     # Quick Presets Row
     "home.settings_card.presets_title": "魔導書快捷模版 (Templates):",
