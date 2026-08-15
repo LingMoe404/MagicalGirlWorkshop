@@ -114,6 +114,96 @@ class EncoderWorker(BaseWorker):
         self.decision = decision
         self.waiting_decision = False
 
+    def _probe_metadata(self, filepath, std_filepath, ffprobe):
+        """探测或补全媒体元数据：codec/duration/声道/色彩/HDR。"""
+        meta = self.config.get("metadata", {}).get(filepath) or {}
+        codec = meta.get("codec", "")
+        duration_sec = meta.get("duration", 0.0)
+        source_audio_channels = meta.get("channels")
+        pix_fmt = meta.get("pix_fmt", "")
+        color_space = meta.get("color_space", "")
+        color_transfer = meta.get("color_transfer", "")
+        color_primaries = meta.get("color_primaries", "")
+        has_dovi = meta.get("has_dovi", False)
+
+        if not codec or duration_sec <= 0:
+            try:
+                cmd_probe = [
+                    ffprobe,
+                    "-v",
+                    "quiet",
+                    "-print_format",
+                    "json",
+                    "-show_format",
+                    "-show_streams",
+                    std_filepath,
+                ]
+                raw_out = subprocess.check_output(
+                    cmd_probe, creationflags=get_subprocess_flags()
+                )
+                probe_data = json.loads(raw_out)
+                for s in probe_data.get("streams", []):
+                    if s.get("codec_type") == "video":
+                        if s.get("codec_name", "").lower() not in [
+                            "mjpeg",
+                            "png",
+                            "bmp",
+                        ]:
+                            if not codec:
+                                codec = s.get("codec_name", "").lower()
+                            pix_fmt = s.get("pix_fmt", "")
+                            color_space = s.get("color_space", "")
+                            color_transfer = s.get("color_transfer", "")
+                            color_primaries = s.get("color_primaries", "")
+
+                            side_data_list = s.get("side_data_list", [])
+                            for sd in side_data_list:
+                                sd_type = sd.get("side_data_type", "")
+                                if (
+                                    "Dolby Vision" in sd_type
+                                    or "dolby vision" in sd_type.lower()
+                                ):
+                                    has_dovi = True
+                    elif (
+                        s.get("codec_type") == "audio" and source_audio_channels is None
+                    ):
+                        source_audio_channels = int(s.get("channels", 2))
+                if duration_sec <= 0:
+                    duration_sec = float(
+                        probe_data.get("format", {}).get("duration", 0)
+                    )
+            except Exception:
+                pass
+
+        return (
+            codec,
+            duration_sec,
+            source_audio_channels,
+            pix_fmt,
+            color_space,
+            color_transfer,
+            color_primaries,
+            has_dovi,
+        )
+
+    def _skip_av1(self, filepath, codec, task_start_time):
+        """若已是 AV1 则跳过并发出状态信号，返回是否跳过。"""
+        try:
+            if "av1" in codec:
+                self.log_signal.emit(tr("log.encoder.skip_av1"), "success")
+                total_duration = time.time() - task_start_time
+                self.file_stats_signal.emit(
+                    filepath,
+                    tr("log.encoder.status_skipped"),
+                    tr("log.encoder.status_duration", total_duration=total_duration),
+                )
+                self.file_progress_signal.emit(filepath, 100)
+                self.file_status_signal.emit(filepath, "success")
+                return True
+        except Exception:
+            pass
+        return False
+
     def _probe_vmaf(
         self,
         std_filepath,
@@ -1005,85 +1095,19 @@ class EncoderWorker(BaseWorker):
                 self.progress_current_signal.emit(0)
 
                 # --- 3.1 获取或补测媒体元数据 ---
-                meta = self.config.get("metadata", {}).get(filepath) or {}
-                codec = meta.get("codec", "")
-                duration_sec = meta.get("duration", 0.0)
-                source_audio_channels = meta.get("channels")
-                pix_fmt = meta.get("pix_fmt", "")
-                color_space = meta.get("color_space", "")
-                color_transfer = meta.get("color_transfer", "")
-                color_primaries = meta.get("color_primaries", "")
-                has_dovi = meta.get("has_dovi", False)
-
-                if not codec or duration_sec <= 0:
-                    try:
-                        cmd_probe = [
-                            ffprobe,
-                            "-v",
-                            "quiet",
-                            "-print_format",
-                            "json",
-                            "-show_format",
-                            "-show_streams",
-                            std_filepath,
-                        ]
-                        raw_out = subprocess.check_output(
-                            cmd_probe, creationflags=get_subprocess_flags()
-                        )
-                        probe_data = json.loads(raw_out)
-                        for s in probe_data.get("streams", []):
-                            if s.get("codec_type") == "video":
-                                if s.get("codec_name", "").lower() not in [
-                                    "mjpeg",
-                                    "png",
-                                    "bmp",
-                                ]:
-                                    if not codec:
-                                        codec = s.get("codec_name", "").lower()
-                                    pix_fmt = s.get("pix_fmt", "")
-                                    color_space = s.get("color_space", "")
-                                    color_transfer = s.get("color_transfer", "")
-                                    color_primaries = s.get("color_primaries", "")
-
-                                    side_data_list = s.get("side_data_list", [])
-                                    for sd in side_data_list:
-                                        sd_type = sd.get("side_data_type", "")
-                                        if (
-                                            "Dolby Vision" in sd_type
-                                            or "dolby vision" in sd_type.lower()
-                                        ):
-                                            has_dovi = True
-                            elif (
-                                s.get("codec_type") == "audio"
-                                and source_audio_channels is None
-                            ):
-                                source_audio_channels = int(s.get("channels", 2))
-                        if duration_sec <= 0:
-                            duration_sec = float(
-                                probe_data.get("format", {}).get("duration", 0)
-                            )
-                    except Exception:
-                        pass
-
+                (
+                    codec,
+                    duration_sec,
+                    source_audio_channels,
+                    _pix_fmt,
+                    color_space,
+                    color_transfer,
+                    color_primaries,
+                    has_dovi,
+                ) = self._probe_metadata(filepath, std_filepath, ffprobe)
                 # --- 3.2 如果已是AV1则跳过 ---
-                try:
-                    if "av1" in codec:
-                        self.log_signal.emit(tr("log.encoder.skip_av1"), "success")
-                        total_duration = time.time() - task_start_time
-                        self.file_stats_signal.emit(
-                            filepath,
-                            tr("log.encoder.status_skipped"),
-                            tr(
-                                "log.encoder.status_duration",
-                                total_duration=total_duration,
-                            ),
-                        )
-                        self.file_progress_signal.emit(filepath, 100)
-                        self.file_status_signal.emit(filepath, "success")
-                        continue
-                except Exception:
-                    pass
-
+                if self._skip_av1(filepath, codec, task_start_time):
+                    continue
                 # --- 3.3 ab-av1 VMAF 探测 ---
                 (
                     best_icq,
