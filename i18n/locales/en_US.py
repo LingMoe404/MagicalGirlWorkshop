@@ -1,3 +1,4 @@
+# ruff: noqa: N999
 language_name = "English"
 
 # This is a language file full of "Chunibyo" style (Anime/Magic settings).

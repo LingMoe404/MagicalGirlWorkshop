@@ -344,7 +344,7 @@ def run_auto_screenshot():
             print(
                 "❌ 错误: 未检测到 pillow 库，无法自动融合成 GIF。请先运行: pip install pillow"
             )
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             print(f"❌ 融合成 GIF 失败: {e}")
         finally:
             app.quit()

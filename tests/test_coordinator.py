@@ -22,7 +22,7 @@ class FakeSignal:
 
 
 class FakeWorker:
-    instances = []
+    instances = []  # noqa: RUF012
 
     def __init__(self, config):
         self.config = config

@@ -25,7 +25,7 @@ def resource_path(relative_path):
             if hasattr(sys, "_MEIPASS")
             else os.path.dirname(os.path.abspath(__file__))
         )
-    except Exception:
+    except Exception:  # noqa: BLE001
         base_path = os.path.abspath(".")
 
     internal_path = os.path.join(base_path, relative_path)
@@ -57,7 +57,7 @@ def time_str_to_seconds(time_str):
     try:
         h, m, s = time_str.split(":")
         return int(h) * 3600 + int(m) * 60 + float(s)
-    except Exception:
+    except Exception:  # noqa: BLE001
         return 0.0
 
 

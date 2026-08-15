@@ -32,7 +32,7 @@ class DurationWorker(BaseWorker):
             try:
                 self.proc.terminate()
                 self.proc.kill()
-            except Exception:
+            except Exception:  # noqa: S110, BLE001
                 pass
         super().stop()
 
@@ -115,7 +115,7 @@ class DurationWorker(BaseWorker):
                     "has_dovi": has_dovi,
                 },
             )
-        except Exception:
+        except Exception:  # noqa: BLE001
             self.result.emit(self.filepath, "N/A", 0.0, {})
 
 
@@ -140,7 +140,7 @@ class ThumbnailWorker(BaseWorker):
             try:
                 self.proc.terminate()
                 self.proc.kill()
-            except Exception:
+            except Exception:  # noqa: S110, BLE001
                 pass
         super().stop()
 
@@ -190,7 +190,7 @@ class ThumbnailWorker(BaseWorker):
                         return
 
             self.result.emit(self.filepath, QImage())  # 失败返回空图像
-        except Exception:
+        except Exception:  # noqa: BLE001
             self.result.emit(self.filepath, QImage())
 
 
@@ -214,7 +214,7 @@ class AnalysisWorker(BaseWorker):
             try:
                 self.proc.terminate()
                 self.proc.kill()
-            except Exception:
+            except Exception:  # noqa: S110, BLE001
                 pass
         super().stop()
 
@@ -249,7 +249,7 @@ class AnalysisWorker(BaseWorker):
                 if not self.is_running:
                     return
                 if proc.returncode != 0:
-                    raise Exception(safe_decode(stderr))
+                    raise RuntimeError(safe_decode(stderr))
 
             data = json.loads(output)
 
@@ -418,6 +418,6 @@ class AnalysisWorker(BaseWorker):
             should_hide = is_mkv and is_av1
             self.report_signal.emit("".join(html), should_hide)
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             err_html = f'<div style="color: #FF4E6A; font-weight: bold;">{tr("info.report.parse_error")}</div><div style="color: #999999;">{e!s}</div>'
             self.report_signal.emit(err_html, True)

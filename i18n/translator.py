@@ -33,7 +33,7 @@ class Translator:
                 if hasattr(module, "translation") and hasattr(module, "language_name"):
                     self.languages[locale_name] = module.translation
                     self.language_map[locale_name] = module.language_name
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001
                 print(f"Could not import {locale_name} translations: {e}")
 
     def set_language(self, lang):
@@ -69,7 +69,7 @@ class Translator:
                     lang = config["Settings"].get("language", self.current_lang)
                     if lang in self.languages:
                         self.current_lang = lang
-            except Exception:
+            except Exception:  # noqa: S110, BLE001
                 pass
 
     def save_language_setting(self, lang):
@@ -86,7 +86,7 @@ class Translator:
 
             with open(cfg_path, "w", encoding="utf-8") as f:
                 config.write(f)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             print(f"Error saving language setting: {e}")
 
 

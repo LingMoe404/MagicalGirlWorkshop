@@ -33,7 +33,7 @@ class DependencyWorker(BaseWorker):
                 cfg.read(cfg_path, encoding="utf-8")
                 if "Settings" in cfg:
                     gpu_timeout = int(cfg["Settings"].get("gpu_check_timeout", 5))
-            except Exception:
+            except Exception:  # noqa: S110, BLE001
                 pass
 
         missing = []
@@ -114,7 +114,7 @@ class DependencyWorker(BaseWorker):
                                     ),
                                     "error",
                                 )
-                except Exception as e:
+                except Exception as e:  # noqa: BLE001
                     self.log_signal.emit(
                         tr("log.dependency.qsv_exception", error=e), "error"
                     )
@@ -200,7 +200,7 @@ class DependencyWorker(BaseWorker):
                                             tr("log.dependency.nvenc_unsupported_gpu"),
                                             "warning",
                                         )
-                except Exception as e:
+                except Exception as e:  # noqa: BLE001
                     self.log_signal.emit(
                         tr("log.dependency.nvenc_exception", error=e), "error"
                     )
@@ -257,7 +257,7 @@ class DependencyWorker(BaseWorker):
                                     tr("log.dependency.amf_failed", error=short_err),
                                     "error",
                                 )
-                except Exception as e:
+                except Exception as e:  # noqa: BLE001
                     self.log_signal.emit(
                         tr("log.dependency.amf_exception", error=e), "error"
                     )
@@ -265,5 +265,5 @@ class DependencyWorker(BaseWorker):
             # 6. 发送最终探测结果
             self.result_signal.emit(has_qsv, has_nvenc, has_amf)
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             self.log_signal.emit(tr("log.dependency.check_exception", error=e), "error")

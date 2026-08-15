@@ -14,7 +14,7 @@ if __name__ == "__main__":
     # 设置 AppUserModelID，将程序与 Python 解释器区分开，确保任务栏图标清晰且独立
     try:
         ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(APP_ID)
-    except Exception:
+    except Exception:  # noqa: S110, BLE001
         pass
 
     # 启用高分屏支持

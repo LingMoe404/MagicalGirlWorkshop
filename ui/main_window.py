@@ -214,7 +214,7 @@ class WelcomeWizard(MessageBoxBase):
 class MainWindow(FluentWindow):
     """应用程序的主窗口，集成了所有UI组件和核心逻辑。"""
 
-    OLD_VALUE_MAP = {
+    OLD_VALUE_MAP = {  # noqa: RUF012
         "开辟新世界 (Save As)": SAVE_MODE_SAVE_AS,
         "元素覆写 (Overwrite)": SAVE_MODE_OVERWRITE,
         "元素保留 (Remain)": SAVE_MODE_REMAIN,
@@ -1154,7 +1154,7 @@ class MainWindow(FluentWindow):
         available = max(0, right_h - gap)
 
         pref_sum = max(1, settings_pref + action_pref)
-        action_h = int(round(available * (action_pref / pref_sum)))
+        action_h = round(available * (action_pref / pref_sum))
         settings_h = available - action_h
 
         if settings_h < settings_min:
@@ -1238,7 +1238,7 @@ class MainWindow(FluentWindow):
                                 "amf_offset", defaults.get("amf_offset", "0")
                             ),
                         }
-            except Exception:
+            except Exception:  # noqa: S110, BLE001
                 pass
         else:
             self.is_first_run = True
@@ -1748,11 +1748,14 @@ class MainWindow(FluentWindow):
                             self.selected_files.append(fp)
                             existing.add(fp)
                             added += 1
-            elif os.path.isfile(p):
-                if p.lower().endswith(VIDEO_EXTS) and p not in existing:
-                    self.selected_files.append(p)
-                    existing.add(p)
-                    added += 1
+            elif (
+                os.path.isfile(p)
+                and p.lower().endswith(VIDEO_EXTS)
+                and p not in existing
+            ):
+                self.selected_files.append(p)
+                existing.add(p)
+                added += 1
 
         if added > 0:
             self.update_selected_count()
@@ -1894,7 +1897,7 @@ class MainWindow(FluentWindow):
             path = self.selected_files[row]
             try:
                 subprocess.Popen(f'explorer /select,"{os.path.normpath(path)}"')
-            except Exception:
+            except Exception:  # noqa: S110, BLE001
                 pass
 
     def process_duration_queue(self):
@@ -2151,7 +2154,7 @@ class MainWindow(FluentWindow):
             try:
                 f_size = os.path.getsize(p)
                 size_str = self.format_file_size(f_size)
-            except Exception:
+            except Exception:  # noqa: BLE001
                 size_str = "Unknown"
 
             name_label = BodyLabel(os.path.basename(p) or p, row)
@@ -2335,7 +2338,7 @@ class MainWindow(FluentWindow):
                     self.log_queue = self.log_queue[-(limit_blocks // 2) :]
                 batch = self.log_queue[:]
                 self.log_queue.clear()
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             print(f"Log queue error: {e}")
         finally:
             self.log_mutex.unlock()
@@ -2403,7 +2406,7 @@ class MainWindow(FluentWindow):
                 )
 
             self.text_log.setUpdatesEnabled(True)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             print(f"Log UI update error: {e}")
 
     def auto_clean_cache_startup(self):
@@ -2434,7 +2437,7 @@ class MainWindow(FluentWindow):
                     f"🧹 [自动肃清] 成功清除缓存目录下的 {count} 个临时残渣文件/文件夹。",
                     "info",
                 )
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             self.log(f"⚠️ [自动肃清] 清理缓存文件失败: {e!s}", "warning")
 
     def clear_cache_files(self):
@@ -2470,7 +2473,7 @@ class MainWindow(FluentWindow):
                 parent=self,
                 position=InfoBarPosition.TOP,
             )
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             InfoBar.error(
                 tr("infobar.error.cache_clear_failed.title"),
                 str(e),
@@ -2778,7 +2781,7 @@ class MainWindow(FluentWindow):
             try:
                 self.dep_worker.stop()
                 self.dep_worker.wait(500)
-            except Exception:
+            except Exception:  # noqa: S110, BLE001
                 pass
 
         self.pending_dur_tasks.clear()

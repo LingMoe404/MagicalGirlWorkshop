@@ -17,7 +17,7 @@ def load_module(path):
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
         return module
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         print(f"❌ [语法错误] 无法加载 {os.path.basename(path)}: {e}")
         return None
 
@@ -104,7 +104,7 @@ def append_missing_keys(file_path, missing_items):
             f"  ✨ 已自动追加 {len(missing_items)} 个缺失 Key 到文件末尾 (标记为 TODO)。"
         )
 
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         print(f"  ❌ 自动修复失败: {e}")
 
 

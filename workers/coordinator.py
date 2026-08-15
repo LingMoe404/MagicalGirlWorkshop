@@ -270,7 +270,7 @@ class EncodingCoordinator(QObject):
                 try:
                     self._start_worker(path)
                     started_any = True
-                except Exception as error:
+                except Exception as error:  # noqa: BLE001
                     failed_any = True
                     self.schedule.mark_terminal(path, TaskState.FAILED)
                     self.file_status_signal.emit(path, "error")
