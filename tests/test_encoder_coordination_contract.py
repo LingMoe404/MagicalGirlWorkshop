@@ -38,12 +38,17 @@ class EncoderCoordinationContractTests(unittest.TestCase):
         self.assertEqual(worker.task_paths, paths)
 
     def test_run_uses_isolated_paths_and_does_not_scan_cache_root(self):
-        source = inspect.getsource(EncoderWorker.run)
+        run_src = inspect.getsource(EncoderWorker.run)
 
-        self.assertIn("self.task_paths", source)
-        self.assertIn("self.stage_signal.emit", source)
-        self.assertIn("self.encoding_speed_signal.emit", source)
-        self.assertNotIn("os.listdir(cache_dir)", source)
+        self.assertIn("self.task_paths", run_src)
+        self.assertIn(
+            "self.stage_signal.emit", inspect.getsource(EncoderWorker._execute_ffmpeg)
+        )
+        self.assertIn(
+            "self.encoding_speed_signal.emit",
+            inspect.getsource(EncoderWorker._execute_ffmpeg),
+        )
+        self.assertNotIn("os.listdir(cache_dir)", run_src)
 
 
 if __name__ == "__main__":

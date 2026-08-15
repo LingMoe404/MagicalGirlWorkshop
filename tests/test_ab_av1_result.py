@@ -149,24 +149,27 @@ class AbAv1ResultParserTests(unittest.TestCase):
 
 class EncoderIntegrationTests(unittest.TestCase):
     def test_encoder_uses_structured_ab_av1_parser(self):
-        source = inspect.getsource(EncoderWorker.run)
+        probe_source = inspect.getsource(EncoderWorker._probe_vmaf)
+        run_source = inspect.getsource(EncoderWorker.run)
 
-        self.assertIn("parser = AbAv1ResultParser()", source)
-        self.assertIn("candidate = parser.feed(decoded)", source)
+        self.assertIn("parser = AbAv1ResultParser()", probe_source)
+        self.assertIn("candidate = parser.feed(decoded)", probe_source)
         self.assertIn(
             "parser.finish(proc.returncode, float(target_vmaf))",
-            source,
+            probe_source,
         )
-        self.assertNotIn("attempt_success", source)
-        self.assertNotIn("将强行采用", source)
+        self.assertIn("self._probe_vmaf(", run_source)
+        self.assertNotIn("attempt_success", probe_source)
 
     def test_encoder_never_uses_default_crf_after_all_searches_fail(self):
-        source = inspect.getsource(EncoderWorker.run)
+        probe_source = inspect.getsource(EncoderWorker._probe_vmaf)
+        run_source = inspect.getsource(EncoderWorker.run)
 
-        self.assertIn("best_icq = None", source)
-        self.assertNotIn("best_icq = 24", source)
-        self.assertIn("if not search_success:", source)
-        self.assertIn("self.file_status_signal.emit(filepath, \"error\")", source)
+        self.assertIn("best_icq = None", probe_source)
+        self.assertNotIn("best_icq = 24", probe_source)
+        self.assertIn("if not search_success:", probe_source)
+        self.assertIn('self.file_status_signal.emit(filepath, "error")', probe_source)
+        self.assertIn("self._probe_vmaf(", run_source)
 
 
 if __name__ == "__main__":

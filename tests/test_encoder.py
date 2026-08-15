@@ -47,10 +47,16 @@ class FakeProcess:
         pass
 
     def communicate(self, input=None, timeout=None):
-        data = "".join(self._lines) if self._text else "".join(
-            l.encode("utf-8") if isinstance(l, str) else l.decode("utf-8", errors="replace")
-            for l in self._lines
-        ).encode("utf-8")
+        data = (
+            "".join(self._lines)
+            if self._text
+            else "".join(
+                l.encode("utf-8")
+                if isinstance(l, str)
+                else l.decode("utf-8", errors="replace")
+                for l in self._lines
+            ).encode("utf-8")
+        )
         return data, b""
 
     def kill(self):
@@ -87,8 +93,9 @@ def make_ab_av1_process(crf_tuples):
 
 
 def make_ffmpeg_process(returncode=0, text=True):
-    return FakeProcess(["frame=  100 fps=30.0 speed=2.5x"],
-                       returncode=returncode, text=text)
+    return FakeProcess(
+        ["frame=  100 fps=30.0 speed=2.5x"], returncode=returncode, text=text
+    )
 
 
 class PopenReplacer:
@@ -117,12 +124,14 @@ class PopenReplacer:
 
     def __enter__(self):
         import subprocess as sp_mod
+
         self._original = sp_mod.Popen
         sp_mod.Popen = self._handler
         return self
 
     def __exit__(self, *args):
         import subprocess as sp_mod
+
         sp_mod.Popen = self._original
 
 
@@ -163,9 +172,13 @@ class EncoderWorkerTests(unittest.TestCase):
             "loudnorm_mode": "Disable",
             "metadata": {
                 self.test_file: {
-                    "codec": "h264", "duration": 5.0, "channels": 2,
-                    "pix_fmt": "yuv420p", "color_space": "bt709",
-                    "color_transfer": "bt709", "color_primaries": "bt709",
+                    "codec": "h264",
+                    "duration": 5.0,
+                    "channels": 2,
+                    "pix_fmt": "yuv420p",
+                    "color_space": "bt709",
+                    "color_transfer": "bt709",
+                    "color_primaries": "bt709",
                     "has_dovi": False,
                 }
             },
@@ -184,15 +197,20 @@ class EncoderWorkerTests(unittest.TestCase):
         config = {**self.base_config, **overrides}
         w = EncoderWorker(config)
         for attr in (
-            "log_signal", "progress_total_signal", "progress_current_signal",
-            "file_progress_signal", "file_stats_signal", "file_status_signal",
-            "finished_signal", "ask_error_decision", "stage_signal",
-            "encoding_speed_signal", "resource_error_signal",
+            "log_signal",
+            "progress_total_signal",
+            "progress_current_signal",
+            "file_progress_signal",
+            "file_stats_signal",
+            "file_status_signal",
+            "finished_signal",
+            "ask_error_decision",
+            "stage_signal",
+            "encoding_speed_signal",
+            "resource_error_signal",
         ):
             setattr(w, attr, FakeSignal())
-        w.ask_error_decision.connect(
-            lambda title, content: w.receive_decision("skip")
-        )
+        w.ask_error_decision.connect(lambda title, content: w.receive_decision("skip"))
         return w
 
     def run_worker(self, worker, *processes):
@@ -202,27 +220,34 @@ class EncoderWorkerTests(unittest.TestCase):
         # Patch os.path.exists/getsize so temp file is always "valid"
         orig_exists = os.path.exists
         orig_getsize = os.path.getsize
+
         def fake_exists(path):
             if "temp" in str(path) or "output.temp" in str(path):
                 return True
             return orig_exists(path)
+
         def fake_getsize(path):
             if "temp" in str(path) or "output.temp" in str(path):
                 return 2048
             return orig_getsize(path)
+
         with PopenReplacer() as replacer:
             for p in processes:
                 replacer.add_process(p)
-            with patch("time.sleep"), patch("shutil.move"), \
-                 patch("os.path.exists", side_effect=fake_exists), \
-                 patch("os.path.getsize", side_effect=fake_getsize):
+            with (
+                patch("time.sleep"),
+                patch("shutil.move"),
+                patch("os.path.exists", side_effect=fake_exists),
+                patch("os.path.getsize", side_effect=fake_getsize),
+            ):
                 worker.run()
 
     # ---- VMAF probe ----
 
     def test_probe_success_qsv(self):
         worker = self.make_worker()
-        self.run_worker(worker,
+        self.run_worker(
+            worker,
             make_ab_av1_process([(30, 93.69, 84)]),
             make_ffmpeg_process(),
         )
@@ -233,7 +258,8 @@ class EncoderWorkerTests(unittest.TestCase):
 
     def test_probe_success_nvenc(self):
         worker = self.make_worker(encoder="NVIDIA NVENC")
-        self.run_worker(worker,
+        self.run_worker(
+            worker,
             make_ab_av1_process([(30, 93.69, 84)]),
             make_ffmpeg_process(),
         )
@@ -244,7 +270,8 @@ class EncoderWorkerTests(unittest.TestCase):
 
     def test_probe_skips_hardware_for_amf(self):
         worker = self.make_worker(encoder="AMD AMF")
-        self.run_worker(worker,
+        self.run_worker(
+            worker,
             make_ab_av1_process([(30, 93.69, 84)]),
             make_ffmpeg_process(),
         )
@@ -256,7 +283,8 @@ class EncoderWorkerTests(unittest.TestCase):
     def test_probe_fallback_to_next_strategy(self):
         fail_proc = FakeProcess(["Error: encoder not available"], returncode=1)
         worker = self.make_worker()
-        self.run_worker(worker,
+        self.run_worker(
+            worker,
             fail_proc,
             make_ab_av1_process([(28, 93.50, 82)]),
             make_ffmpeg_process(),
@@ -273,7 +301,8 @@ class EncoderWorkerTests(unittest.TestCase):
             "Error: Failed to find a suitable crf",
         ]
         worker = self.make_worker(vmaf="93.0")
-        self.run_worker(worker,
+        self.run_worker(
+            worker,
             FakeProcess(lines, returncode=1),
             make_ffmpeg_process(),
         )
@@ -348,14 +377,19 @@ class EncoderWorkerTests(unittest.TestCase):
         worker = self.make_worker()
         with PopenReplacer() as replacer:
             replacer.add_process(make_ab_av1_process([(30, 93.69, 84)]))
-            replacer.add_process(FakeProcess(
-                ["Device setup failed for decoder on input stream #0:0"],
-                returncode=1,
-            ))
+            replacer.add_process(
+                FakeProcess(
+                    ["Device setup failed for decoder on input stream #0:0"],
+                    returncode=1,
+                )
+            )
             replacer.add_process(make_ffmpeg_process())
-            with patch("time.sleep"), patch("shutil.move"), \
-                 patch("os.path.exists", return_value=True), \
-                 patch("os.path.getsize", return_value=2048):
+            with (
+                patch("time.sleep"),
+                patch("shutil.move"),
+                patch("os.path.exists", return_value=True),
+                patch("os.path.getsize", return_value=2048),
+            ):
                 worker.run()
         self.assertEqual(
             worker.file_status_signal.emissions[-1],
@@ -366,14 +400,18 @@ class EncoderWorkerTests(unittest.TestCase):
         worker = self.make_worker()
         with PopenReplacer() as replacer:
             replacer.add_process(make_ab_av1_process([(30, 93.69, 84)]))
-            replacer.add_process(FakeProcess(
-                ["Error while decoding subtitle stream #0:2"],
-                returncode=1,
-            ))
+            replacer.add_process(
+                FakeProcess(
+                    ["Error while decoding subtitle stream #0:2"],
+                    returncode=1,
+                )
+            )
             replacer.add_process(make_ffmpeg_process())
-            with patch("time.sleep"), \
-                 patch("os.path.exists", return_value=True), \
-                 patch("os.path.getsize", return_value=2048):
+            with (
+                patch("time.sleep"),
+                patch("os.path.exists", return_value=True),
+                patch("os.path.getsize", return_value=2048),
+            ):
                 worker.run()
         self.assertEqual(
             worker.file_status_signal.emissions[-1],
@@ -384,18 +422,24 @@ class EncoderWorkerTests(unittest.TestCase):
         worker = self.make_worker()
         with PopenReplacer() as replacer:
             replacer.add_process(make_ab_av1_process([(30, 93.69, 84)]))
-            replacer.add_process(FakeProcess(
-                ["Device setup failed for decoder on input stream #0:0"],
-                returncode=1,
-            ))
-            replacer.add_process(FakeProcess(
-                ["Error while decoding subtitle stream #0:2"],
-                returncode=1,
-            ))
-            replacer.add_process(FakeProcess(
-                ["Error while decoding subtitle stream #0:2"],
-                returncode=1,
-            ))
+            replacer.add_process(
+                FakeProcess(
+                    ["Device setup failed for decoder on input stream #0:0"],
+                    returncode=1,
+                )
+            )
+            replacer.add_process(
+                FakeProcess(
+                    ["Error while decoding subtitle stream #0:2"],
+                    returncode=1,
+                )
+            )
+            replacer.add_process(
+                FakeProcess(
+                    ["Error while decoding subtitle stream #0:2"],
+                    returncode=1,
+                )
+            )
             with patch("time.sleep"):
                 worker.run()
         self.assertEqual(
@@ -414,9 +458,11 @@ class EncoderWorkerTests(unittest.TestCase):
             replacer.add_process(oom_proc)
             replacer.add_process(oom_proc)
             replacer.add_process(oom_proc)
-            with patch("time.sleep"), \
-                 patch("os.path.exists", return_value=True), \
-                 patch("os.path.getsize", return_value=2048):
+            with (
+                patch("time.sleep"),
+                patch("os.path.exists", return_value=True),
+                patch("os.path.getsize", return_value=2048),
+            ):
                 worker.run()
         self.assertGreaterEqual(len(worker.resource_error_signal.emissions), 1)
 
@@ -491,7 +537,11 @@ class EncoderWorkerTests(unittest.TestCase):
         with PopenReplacer() as replacer:
             replacer.add_process(make_ab_av1_process([(30, 93.69, 84)]))
             replacer.add_process(make_ffmpeg_process())
-            with patch("time.sleep"), patch("shutil.move"),                  patch("shutil.rmtree") as mock_rmtree:
+            with (
+                patch("time.sleep"),
+                patch("shutil.move"),
+                patch("shutil.rmtree") as mock_rmtree,
+            ):
                 worker.run()
         mock_rmtree.assert_called_once_with(
             self.task_paths.task_dir, ignore_errors=True

@@ -55,9 +55,7 @@ class TranscodePathTests(unittest.TestCase):
 
         self.assertEqual(len(conflicts), 1)
         self.assertEqual(len(conflicts[0].input_paths), 2)
-        self.assertTrue(
-            conflicts[0].output_path.lower().endswith("movie.mkv")
-        )
+        self.assertTrue(conflicts[0].output_path.lower().endswith("movie.mkv"))
 
     def test_overwrite_detects_output_crossing_another_input(self):
         with tempfile.TemporaryDirectory() as root:

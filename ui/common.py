@@ -39,6 +39,7 @@ class NoHighlightItemDelegate(ListItemDelegate):
 
 class DragDropMixin:
     """提取通用的拖拽逻辑"""
+
     def dragEnterEvent(self, e):
         if e.mimeData().hasUrls():
             self.dragActiveChanged.emit(True)
@@ -74,6 +75,7 @@ class DroppableBodyLabel(DragDropMixin, BodyLabel):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.setAcceptDrops(True)
+
 
 class DroppableListWidget(DragDropMixin, ListWidget):
     filesDropped = Signal(list)

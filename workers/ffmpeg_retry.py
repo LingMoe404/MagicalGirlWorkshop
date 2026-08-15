@@ -107,17 +107,12 @@ def classify_ffmpeg_failure(log_lines):
     }
 
     for line in normalized_lines:
-        has_error_detail = any(
-            detail in line for detail in _SUBTITLE_ERROR_DETAILS
-        )
+        has_error_detail = any(detail in line for detail in _SUBTITLE_ERROR_DETAILS)
         if not has_error_detail:
             continue
         if "subtitle" in line or "[sost#" in line:
             return FailureKind.SUBTITLE
-        if any(
-            f"stream #{stream_id}" in line
-            for stream_id in subtitle_stream_ids
-        ):
+        if any(f"stream #{stream_id}" in line for stream_id in subtitle_stream_ids):
             return FailureKind.SUBTITLE
 
     return None

@@ -32,18 +32,33 @@ class IntegrationTests(unittest.TestCase):
     def tearDownClass(cls):
         cls.temp_dir.cleanup()
 
-    def _create_synthetic_video(self, duration=5, codec="libx264", pix_fmt="yuv420p",
-                                 size="192x108", filename="test_synthetic.mp4"):
+    def _create_synthetic_video(
+        self,
+        duration=5,
+        codec="libx264",
+        pix_fmt="yuv420p",
+        size="192x108",
+        filename="test_synthetic.mp4",
+    ):
         """Use ffmpeg to create a synthetic test video."""
         output = self.root / filename
         cmd = [
-            self.ffmpeg, "-y", "-f", "lavfi",
-            "-i", f"testsrc=duration={duration}:size={size}:rate=30",
-            "-f", "lavfi",
-            "-i", "anullsrc=r=44100:cl=stereo",
-            "-c:v", codec,
-            "-pix_fmt", pix_fmt,
-            "-c:a", "aac",
+            self.ffmpeg,
+            "-y",
+            "-f",
+            "lavfi",
+            "-i",
+            f"testsrc=duration={duration}:size={size}:rate=30",
+            "-f",
+            "lavfi",
+            "-i",
+            "anullsrc=r=44100:cl=stereo",
+            "-c:v",
+            codec,
+            "-pix_fmt",
+            pix_fmt,
+            "-c:a",
+            "aac",
             "-shortest",
             str(output),
         ]
@@ -51,7 +66,8 @@ class IntegrationTests(unittest.TestCase):
             cmd, capture_output=True, text=True, timeout=30, check=False
         )
         self.assertEqual(
-            result.returncode, 0,
+            result.returncode,
+            0,
             f"ffmpeg failed: {result.stderr[:200]}",
         )
         self.assertTrue(output.exists(), "Output file was not created")
@@ -66,32 +82,51 @@ class IntegrationTests(unittest.TestCase):
         """ffprobe can read metadata from synthetic video."""
         video = self._create_synthetic_video(duration=5)
         cmd = [
-            self.ffprobe, "-v", "quiet", "-print_format", "json",
-            "-show_format", "-show_streams", str(video),
+            self.ffprobe,
+            "-v",
+            "quiet",
+            "-print_format",
+            "json",
+            "-show_format",
+            "-show_streams",
+            str(video),
         ]
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=10, check=False)
+        result = subprocess.run(
+            cmd, capture_output=True, text=True, timeout=10, check=False
+        )
         self.assertEqual(result.returncode, 0)
         import json
+
         data = json.loads(result.stdout)
         fmt = data.get("format", {})
         duration = float(fmt.get("duration", 0))
-        self.assertAlmostEqual(duration, 5.0, delta=1.0,
-                                msg="Duration should be ~5 seconds")
+        self.assertAlmostEqual(
+            duration, 5.0, delta=1.0, msg="Duration should be ~5 seconds"
+        )
         streams = data.get("streams", [])
         video_streams = [s for s in streams if s.get("codec_type") == "video"]
-        self.assertGreaterEqual(len(video_streams), 1,
-                                 msg="Should have at least one video stream")
+        self.assertGreaterEqual(
+            len(video_streams), 1, msg="Should have at least one video stream"
+        )
 
     def test_ffprobe_detects_codec(self):
         """ffprobe detects the correct video codec."""
         video = self._create_synthetic_video(duration=2, codec="libx264")
         cmd = [
-            self.ffprobe, "-v", "quiet", "-print_format", "json",
-            "-show_streams", str(video),
+            self.ffprobe,
+            "-v",
+            "quiet",
+            "-print_format",
+            "json",
+            "-show_streams",
+            str(video),
         ]
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=10, check=False)
+        result = subprocess.run(
+            cmd, capture_output=True, text=True, timeout=10, check=False
+        )
         self.assertEqual(result.returncode, 0)
         import json
+
         data = json.loads(result.stdout)
         streams = data.get("streams", [])
         for s in streams:
@@ -105,12 +140,20 @@ class IntegrationTests(unittest.TestCase):
         """ffprobe detects the correct resolution."""
         video = self._create_synthetic_video(duration=2, size="320x240")
         cmd = [
-            self.ffprobe, "-v", "quiet", "-print_format", "json",
-            "-show_streams", str(video),
+            self.ffprobe,
+            "-v",
+            "quiet",
+            "-print_format",
+            "json",
+            "-show_streams",
+            str(video),
         ]
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=10, check=False)
+        result = subprocess.run(
+            cmd, capture_output=True, text=True, timeout=10, check=False
+        )
         self.assertEqual(result.returncode, 0)
         import json
+
         data = json.loads(result.stdout)
         streams = data.get("streams", [])
         for s in streams:
@@ -125,28 +168,45 @@ class IntegrationTests(unittest.TestCase):
         """ffprobe detects audio stream in synthetic video."""
         video = self._create_synthetic_video(duration=2)
         cmd = [
-            self.ffprobe, "-v", "quiet", "-print_format", "json",
-            "-show_streams", str(video),
+            self.ffprobe,
+            "-v",
+            "quiet",
+            "-print_format",
+            "json",
+            "-show_streams",
+            str(video),
         ]
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=10, check=False)
+        result = subprocess.run(
+            cmd, capture_output=True, text=True, timeout=10, check=False
+        )
         self.assertEqual(result.returncode, 0)
         import json
+
         data = json.loads(result.stdout)
         streams = data.get("streams", [])
         audio_streams = [s for s in streams if s.get("codec_type") == "audio"]
-        self.assertGreaterEqual(len(audio_streams), 1,
-                                 msg="Should have at least one audio stream")
+        self.assertGreaterEqual(
+            len(audio_streams), 1, msg="Should have at least one audio stream"
+        )
 
     def test_thumbnail_can_be_extracted(self):
         """A thumbnail frame can be extracted from synthetic video."""
         video = self._create_synthetic_video(duration=5)
         thumb = self.root / "thumb.png"
         cmd = [
-            self.ffmpeg, "-y", "-i", str(video),
-            "-vframes", "1", "-vf", "scale=64:64",
+            self.ffmpeg,
+            "-y",
+            "-i",
+            str(video),
+            "-vframes",
+            "1",
+            "-vf",
+            "scale=64:64",
             str(thumb),
         ]
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=10, check=False)
+        result = subprocess.run(
+            cmd, capture_output=True, text=True, timeout=10, check=False
+        )
         self.assertEqual(result.returncode, 0)
         self.assertTrue(thumb.exists())
         self.assertGreater(thumb.stat().st_size, 50)

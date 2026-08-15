@@ -110,10 +110,7 @@ class FakeMetrics:
 def batch_config(root, files, mode="manual", concurrency=2):
     return {
         "selected_files": files,
-        "metadata": {
-            path: {"duration": 100.0}
-            for path in files
-        },
+        "metadata": {path: {"duration": 100.0} for path in files},
         "save_mode": SAVE_MODE_SAVE_AS,
         "export_dir": str(Path(root) / "out"),
         "cache_dir": str(Path(root) / "cache"),
@@ -200,9 +197,7 @@ class EncodingCoordinatorTests(unittest.TestCase):
             concurrency=2,
         )
         dialogs = []
-        coordinator.ask_error_decision.connect(
-            lambda *args: dialogs.append(args)
-        )
+        coordinator.ask_error_decision.connect(lambda *args: dialogs.append(args))
         coordinator.start()
         first, second = FakeWorker.instances
 
@@ -240,9 +235,7 @@ class EncodingCoordinatorTests(unittest.TestCase):
             concurrency=2,
         )
         dialogs = []
-        coordinator.ask_error_decision.connect(
-            lambda *args: dialogs.append(args)
-        )
+        coordinator.ask_error_decision.connect(lambda *args: dialogs.append(args))
         coordinator.start()
         FakeWorker.instances[0].ask_error_decision.emit(
             "error",
@@ -261,9 +254,7 @@ class EncodingCoordinatorTests(unittest.TestCase):
             concurrency=1,
         )
         dialogs = []
-        coordinator.ask_error_decision.connect(
-            lambda *args: dialogs.append(args)
-        )
+        coordinator.ask_error_decision.connect(lambda *args: dialogs.append(args))
         coordinator.start()
         worker = FakeWorker.instances[0]
 
@@ -394,9 +385,7 @@ class EncodingCoordinatorTests(unittest.TestCase):
         total_progress = []
         current_progress = []
         coordinator.progress_total_signal.connect(total_progress.append)
-        coordinator.progress_current_signal.connect(
-            current_progress.append
-        )
+        coordinator.progress_current_signal.connect(current_progress.append)
         coordinator.start()
 
         FakeWorker.instances[0].file_progress_signal.emit(files[0], 50)
@@ -442,9 +431,7 @@ class EncodingCoordinatorTests(unittest.TestCase):
             awake_setter=lambda _: None,
         )
         statuses = []
-        coordinator.file_status_signal.connect(
-            lambda *args: statuses.append(args)
-        )
+        coordinator.file_status_signal.connect(lambda *args: statuses.append(args))
 
         coordinator.start()
 

@@ -1,12 +1,12 @@
-import sys
 import os
+import sys
 import time
 
 # 确保 Windows 终端下能够正确输出 UTF-8 字符 (避免 Emoji 导致的 GBK 编码报错)
-if sys.platform.startswith('win'):
+if sys.platform.startswith("win"):
     try:
-        sys.stdout.reconfigure(encoding='utf-8')
-        sys.stderr.reconfigure(encoding='utf-8')
+        sys.stdout.reconfigure(encoding="utf-8")
+        sys.stderr.reconfigure(encoding="utf-8")
     except AttributeError:
         pass
 
@@ -15,16 +15,18 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 os.environ["QT_API"] = "pyside6"
 
-from PySide6.QtCore import Qt, QTimer, QCoreApplication
-from PySide6.QtWidgets import QApplication
+from PySide6.QtCore import QCoreApplication, QTimer
 from PySide6.QtGui import QFont
+from PySide6.QtWidgets import QApplication
 
 # --- 【黑魔法防御】全局 Mock 阻断所有模态弹窗的阻塞行为 ---
-from qfluentwidgets import MessageDialog, MessageBoxBase
+from qfluentwidgets import MessageBoxBase, MessageDialog
+
 MessageDialog.exec = lambda self: 1  # 彻底让“世界线变动确认”等弹窗静默并立即返回
 MessageBoxBase.exec = lambda self: 1
 
 from ui.main_window import MainWindow
+
 
 # --- 【三语 & 亮暗自适应】真理之眼鉴定书模拟数据生成器 ---
 def get_mock_report(lang_code, is_dark):
@@ -33,7 +35,7 @@ def get_mock_report(lang_code, is_dark):
     video_color = "#2ECC71" if not is_dark else "#82E0AA"
     key_color = "#7F8C8D" if not is_dark else "#BDC3C7"
     val_color = "#2C3E50" if not is_dark else "#ECF0F1"
-    
+
     if lang_code == "en_US":
         return f"""
 <div style="font-family: 'Cascadia Code', 'Consolas', 'Microsoft YaHei UI', monospace; font-size: 13px; line-height: 1.6;">
@@ -86,7 +88,7 @@ def get_mock_report(lang_code, is_dark):
 </div>
 </div>
 """
-    else: # zh_CN / zh_TW
+    else:  # zh_CN / zh_TW
         return f"""
 <div style="font-family: 'Cascadia Code', 'Consolas', 'Microsoft YaHei UI', monospace; font-size: 13px; line-height: 1.6;">
 <div style="text-align: center; margin-bottom: 15px;">
@@ -113,13 +115,14 @@ def get_mock_report(lang_code, is_dark):
 </div>
 """
 
+
 # --- 【三语 & 亮暗自适应】日志框高保真模拟数据生成器 ---
 def get_mock_logs(lang_code, is_dark):
     text_color = "#2C3E50" if not is_dark else "#ECF0F1"
     time_color = "#7F8C8D" if not is_dark else "#BDC3C7"
     info_color = "#2ECC71" if not is_dark else "#82E0AA"
     warn_color = "#E67E22" if not is_dark else "#F5CBA7"
-    
+
     if lang_code == "en_US":
         return f"""
 <div style="font-family: 'Cascadia Code', 'Consolas', monospace; font-size: 12px; color: {text_color}; line-height: 1.4;">
@@ -136,7 +139,7 @@ def get_mock_logs(lang_code, is_dark):
 <span style="color: {time_color};">[03:19:07]</span> <span style="color: {warn_color};">[WARN]</span> QSV遅延補正が適用されました (-2 オフセット)。
 </div>
 """
-    else: # zh_CN / zh_TW
+    else:  # zh_CN / zh_TW
         return f"""
 <div style="font-family: 'Cascadia Code', 'Consolas', monospace; font-size: 12px; color: {text_color}; line-height: 1.4;">
 <span style="color: {time_color};">[03:19:05]</span> <span style="color: {info_color};">[INFO]</span> 🔮 魔法少女工坊 v1.3.0 环境初始化完成。 (｡•̀ᴗ-)✧<br/>
@@ -155,22 +158,22 @@ def run_auto_screenshot():
 
     # 2. 创建主窗口
     w = MainWindow()
-    
+
     # 强制绕过欢迎向导与依赖检查弹窗干扰
     w.is_first_run = False
-    if hasattr(w, 'show_welcome_wizard'):
+    if hasattr(w, "show_welcome_wizard"):
         w.show_welcome_wizard = lambda: None
-    
+
     # 【核心注入】阻断后台线程的 ffprobe/ffmpeg 物理探测，直接在内存中建立高逼真度预览列表，解决“次元空间没有预览”的问题
     w.get_file_duration = lambda path: None
     w.get_file_thumbnail = lambda path, dur: None
-    
+
     mock_files = [
         "G:/Anime/[LingMoe] Magical Girl AV1 HDR test.mkv",
-        "G:/Anime/Magical_Girl_Workshop_v1.3.0_Promo.mp4"
+        "G:/Anime/Magical_Girl_Workshop_v1.3.0_Promo.mp4",
     ]
     w.selected_files = mock_files.copy()
-    
+
     # 显示窗口，以便获取完美的 QWidget 像素渲染
     w.show()
     w.resize(1200, 800)  # 强制固定理想截图分辨率
@@ -185,11 +188,7 @@ def run_auto_screenshot():
     os.makedirs(temp_dir, exist_ok=True)
 
     # 记录语言特定截图的临时文件
-    lang_screenshots = {
-        "zh_CN": [],
-        "en_US": [],
-        "ja_JP": []
-    }
+    lang_screenshots = {"zh_CN": [], "en_US": [], "ja_JP": []}
 
     # 封装安全的事件刷新与等待逻辑
     def safe_wait(ms=1000):
@@ -202,18 +201,21 @@ def run_auto_screenshot():
 
     # 截图的内部函数
     def capture_state(lang_code, name):
-        safe_wait(1200) # 给足过渡动画和样式重绘的渲染时间
+        safe_wait(1200)  # 给足过渡动画和样式重绘的渲染时间
 
         # 【核心修复】暂时禁用 Mica 效果
         # Mica 是 Windows 11 DWM 层渲染的，QWidget::grab() 截不到它。
         # 暗色模式下透明区域会被填充为黑色，导致截图一半黑一半白。
         # 临时改用实心背景色代替，截完后再恢复。
         from qfluentwidgets import isDarkTheme
+
         is_dark_now = isDarkTheme()
         solid_bg = "#1c1c1c" if is_dark_now else "#f3f3f3"
         original_stylesheet = w.styleSheet()
         w.windowEffect.setMicaEffect(w.winId(), False)  # 关闭 Mica
-        w.setStyleSheet(original_stylesheet + f" MainWindow {{ background-color: {solid_bg}; }}")
+        w.setStyleSheet(
+            original_stylesheet + f" MainWindow {{ background-color: {solid_bg}; }}"
+        )
         w.repaint()
         QApplication.processEvents()
         safe_wait(300)  # 等待背景切换渲染完成
@@ -243,56 +245,56 @@ def run_auto_screenshot():
 
     # 切换主题并自适应刷新文本色系逻辑
     def switch_theme(theme_idx, lang_code):
-        is_dark = (theme_idx == 2)
-        
+        is_dark = theme_idx == 2
+
         # A. 切换核心主题
         w.combo_theme.setCurrentIndex(theme_idx)
         w.on_theme_changed(theme_idx)
-        safe_wait(3000) # 【增大】暗色模式调色板广播需要更多时间传播至所有子控件 (3s)
-        
+        safe_wait(3000)  # 【增大】暗色模式调色板广播需要更多时间传播至所有子控件 (3s)
+
         # B. 【核心修复】自适应更新“真理之眼鉴定报告”的 HTML 文本颜色
         w.info_interface.info_text.setHtml(get_mock_report(lang_code, is_dark))
         w.info_interface.btn_add_list.show()
-        
+
         # C. 【核心修复】自适应更新“虚空日志框”的 HTML 文本颜色
-        if hasattr(w, 'text_log') and w.text_log:
+        if hasattr(w, "text_log") and w.text_log:
             w.text_log.setHtml(get_mock_logs(lang_code, is_dark))
-        
+
         safe_wait(200)
 
     # 4. 精细控制多语言截图流
     def execute_flow(lang_code, next_callback):
         print(f"\n🔮 开始截取语言 [{lang_code}] 的全套流程...")
-        
+
         # A. 切换到对应的语言
         switch_language(lang_code)
-        
+
         # B. 浅色模式 - 压制面板
-        switch_theme(1, lang_code) # Light Mode + Refresh text colors
+        switch_theme(1, lang_code)  # Light Mode + Refresh text colors
         w.switchTo(w.home_interface)
         capture_state(lang_code, "01_light_home")
-        
+
         # C. 浅色模式 - 媒体信息检测面板 (真理之眼预览)
         w.switchTo(w.info_interface)
         capture_state(lang_code, "02_light_info")
-        
+
         # D. 浅色模式 - 系统设定面板
         w.switchTo(w.settings_interface)
         capture_state(lang_code, "03_light_settings")
-        
+
         # E. 深色模式 - 压制面板 (色域觉醒)
-        switch_theme(2, lang_code) # Dark Mode + Refresh text colors
+        switch_theme(2, lang_code)  # Dark Mode + Refresh text colors
         w.switchTo(w.home_interface)
         capture_state(lang_code, "04_dark_home")
-        
+
         # F. 深色模式 - 媒体信息检测面板 (真理之眼预览)
         w.switchTo(w.info_interface)
         capture_state(lang_code, "05_dark_info")
-        
+
         # G. 深色模式 - 系统设定面板
         w.switchTo(w.settings_interface)
         capture_state(lang_code, "06_dark_settings")
-        
+
         next_callback()
 
     # 串联串行执行
@@ -310,32 +312,38 @@ def run_auto_screenshot():
         print("\n🎉 自动化截图圆满完成，正在将各个语言的图集编译为对应的 GIF 动图...")
         try:
             from PIL import Image
-            
+
             # 配置目标文件
             gif_configs = [
                 ("zh_CN", os.path.join(output_dir, "screenshot.gif")),
                 ("en_US", os.path.join(output_dir, "screenshot_en.gif")),
-                ("ja_JP", os.path.join(output_dir, "screenshot_jp.gif"))
+                ("ja_JP", os.path.join(output_dir, "screenshot_jp.gif")),
             ]
-            
+
             for lang, target_path in gif_configs:
                 files = lang_screenshots[lang]
                 if not files:
                     continue
-                
+
                 images = [Image.open(fn) for fn in files]
                 images[0].save(
                     target_path,
                     save_all=True,
                     append_images=images[1:],
                     duration=2000,  # 帧间隔 2 秒
-                    loop=0
+                    loop=0,
                 )
-                print(f"✨ 成功编译 [{lang}] 并覆盖 GIF: {os.path.basename(target_path)}")
-                
-            print("\n🌟 所有多语言动态截图完美构建！暗色 Bug 已修复，真理之眼数据已注入，且三语版已完全切分！")
+                print(
+                    f"✨ 成功编译 [{lang}] 并覆盖 GIF: {os.path.basename(target_path)}"
+                )
+
+            print(
+                "\n🌟 所有多语言动态截图完美构建！暗色 Bug 已修复，真理之眼数据已注入，且三语版已完全切分！"
+            )
         except ImportError:
-            print("❌ 错误: 未检测到 pillow 库，无法自动融合成 GIF。请先运行: pip install pillow")
+            print(
+                "❌ 错误: 未检测到 pillow 库，无法自动融合成 GIF。请先运行: pip install pillow"
+            )
         except Exception as e:
             print(f"❌ 融合成 GIF 失败: {e}")
         finally:
@@ -343,14 +351,17 @@ def run_auto_screenshot():
 
     # 启动首个延迟任务序列
     QTimer.singleShot(1500, run_zh)
-    
+
     sys.exit(app.exec())
+
 
 if __name__ == "__main__":
     print("🔮 魔法少女工坊 - 自动化多语言高保真截图开始...")
     print("👉 脚本将依次切换 简体中文、英文、日文，并在浅色/深色主题间无缝切换截取。")
     print("👉 已深度优化：注入真理之眼高科技 HDR 分析报告，修复暗色重绘时延 Bug！")
     print("👉 已完美拦截：全局 Mock 并阻断了所有阻塞弹窗（包括“世界线变动确认”弹窗）！")
-    print("👉 终极体自适应：亮暗切换时，自动同调重新生成日志框和鉴定报告的字体颜色，完美贴合亮暗背景！")
+    print(
+        "👉 终极体自适应：亮暗切换时，自动同调重新生成日志框和鉴定报告的字体颜色，完美贴合亮暗背景！"
+    )
     print("👉 请不要在运行期间手动调整或最小化弹出的窗口以确保画面完美。")
     run_auto_screenshot()

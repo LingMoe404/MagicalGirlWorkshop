@@ -42,7 +42,7 @@ MIN_WINDOW_SIZE = QSize(1180, 780)
 NAV_EXPAND_WIDTH = 180
 THEMES = ["Auto", "Light", "Dark"]
 
-VIDEO_EXTS = ('.mkv', '.mp4', '.avi', '.mov', '.wmv', '.flv', '.webm', '.m4v', '.ts')
+VIDEO_EXTS = (".mkv", ".mp4", ".avi", ".mov", ".wmv", ".flv", ".webm", ".m4v", ".ts")
 SAVE_MODE_SAVE_AS = "Save As"
 SAVE_MODE_OVERWRITE = "Overwrite"
 SAVE_MODE_REMAIN = "Remain"
@@ -68,7 +68,7 @@ DEFAULT_SETTINGS = {
     "auto_clean_on_launch": "True",
     "thread_limit": "4",
     "log_cap": "2000",
-    "color_mode": COLOR_MODE_AUTO
+    "color_mode": COLOR_MODE_AUTO,
 }
 
 ENCODER_CONFIGS = {
@@ -79,7 +79,7 @@ ENCODER_CONFIGS = {
         "loudnorm": DEFAULT_LOUDNORM_FILTER,
         "loudnorm_mode": LOUDNORM_MODE_AUTO,
         "nv_aq": "True",
-        "amf_offset": "-2"
+        "amf_offset": "-2",
     },
     ENC_NVENC: {
         "vmaf": "93.0",
@@ -88,7 +88,7 @@ ENCODER_CONFIGS = {
         "loudnorm": DEFAULT_LOUDNORM_FILTER,
         "loudnorm_mode": LOUDNORM_MODE_AUTO,
         "nv_aq": "True",
-        "amf_offset": "-4"
+        "amf_offset": "-4",
     },
     ENC_AMF: {
         "vmaf": "93.0",
@@ -97,6 +97,6 @@ ENCODER_CONFIGS = {
         "loudnorm": DEFAULT_LOUDNORM_FILTER,
         "loudnorm_mode": LOUDNORM_MODE_AUTO,
         "nv_aq": "True",
-        "amf_offset": "-6"
-    }
+        "amf_offset": "-6",
+    },
 }
