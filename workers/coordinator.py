@@ -8,6 +8,7 @@ from collections import deque
 from PySide6.QtCore import QObject, QTimer, Signal
 
 from config import SAVE_MODE_SAVE_AS
+
 from .batch_progress import calculate_batch_progress
 from .concurrency_policy import DynamicConcurrencyPolicy
 from .encoder import EncoderWorker
@@ -246,9 +247,7 @@ class EncodingCoordinator(QObject):
         self._maybe_finish()
 
     def _prepare_session(self):
-        cache_root = os.path.abspath(
-            os.fspath(self.config.get("cache_dir") or ".")
-        )
+        cache_root = os.path.abspath(os.fspath(self.config.get("cache_dir") or "."))
         os.makedirs(cache_root, exist_ok=True)
         if self.config.get("save_mode") == SAVE_MODE_SAVE_AS:
             os.makedirs(self.config.get("export_dir") or ".", exist_ok=True)
@@ -264,16 +263,14 @@ class EncodingCoordinator(QObject):
         started_any = False
         failed_any = False
         while True:
-            started = self.schedule.fill_slots(
-                self.policy.target_concurrency
-            )
+            started = self.schedule.fill_slots(self.policy.target_concurrency)
             if not started:
                 break
             for path in started:
                 try:
                     self._start_worker(path)
                     started_any = True
-                except Exception as error:
+                except Exception as error:  # noqa: BLE001
                     failed_any = True
                     self.schedule.mark_terminal(path, TaskState.FAILED)
                     self.file_status_signal.emit(path, "error")
@@ -281,9 +278,7 @@ class EncodingCoordinator(QObject):
                         f"[{os.path.basename(path)}] 无法启动任务：{error}",
                         "error",
                     )
-            if len(self.schedule.active_files) >= (
-                self.policy.target_concurrency
-            ):
+            if len(self.schedule.active_files) >= (self.policy.target_concurrency):
                 break
         if failed_any:
             self._emit_batch_progress()
@@ -306,9 +301,7 @@ class EncodingCoordinator(QObject):
         worker_config.update(
             {
                 "selected_files": [path],
-                "metadata": {
-                    path: (self.config.get("metadata", {}).get(path) or {})
-                },
+                "metadata": {path: (self.config.get("metadata", {}).get(path) or {})},
                 "manage_system_awake": False,
                 "task_paths": task_paths,
             }
@@ -346,9 +339,7 @@ class EncodingCoordinator(QObject):
                 content,
             )
         )
-        worker.finished.connect(
-            lambda: self._on_worker_finished(task_id, path)
-        )
+        worker.finished.connect(lambda: self._on_worker_finished(task_id, path))
         if hasattr(worker, "deleteLater"):
             worker.finished.connect(worker.deleteLater)
 
@@ -407,9 +398,7 @@ class EncodingCoordinator(QObject):
         if state in ACTIVE_STATES:
             status = self._last_status.get(path)
             terminal_state = (
-                TaskState.SUCCESS
-                if status == "success"
-                else TaskState.FAILED
+                TaskState.SUCCESS if status == "success" else TaskState.FAILED
             )
             self.schedule.mark_terminal(path, terminal_state)
             if terminal_state is TaskState.SUCCESS:
@@ -427,14 +416,9 @@ class EncodingCoordinator(QObject):
     def _remove_error_task(self, task_id):
         self._error_tasks.discard(task_id)
         self._error_queue = deque(
-            error
-            for error in self._error_queue
-            if error[0] != task_id
+            error for error in self._error_queue if error[0] != task_id
         )
-        if (
-            self._current_error is not None
-            and self._current_error[0] == task_id
-        ):
+        if self._current_error is not None and self._current_error[0] == task_id:
             self._current_error = None
             self._show_next_error()
 

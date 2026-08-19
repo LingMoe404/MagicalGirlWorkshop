@@ -26,47 +26,33 @@ class BatchSchedule:
     def __init__(self, files):
         self._files = tuple(files)
         self._queue = deque(self._files)
-        self._states = {
-            path: TaskState.QUEUED
-            for path in self._files
-        }
+        self._states = {path: TaskState.QUEUED for path in self._files}
 
     @property
     def active_files(self):
         return tuple(
-            path
-            for path in self._files
-            if self._states[path] in ACTIVE_STATES
+            path for path in self._files if self._states[path] in ACTIVE_STATES
         )
 
     @property
     def terminal_files(self):
         return tuple(
-            path
-            for path in self._files
-            if self._states[path] in TERMINAL_STATES
+            path for path in self._files if self._states[path] in TERMINAL_STATES
         )
 
     @property
     def queued_count(self):
-        return sum(
-            state is TaskState.QUEUED
-            for state in self._states.values()
-        )
+        return sum(state is TaskState.QUEUED for state in self._states.values())
 
     @property
     def waiting_count(self):
         return sum(
-            state is TaskState.WAITING_DECISION
-            for state in self._states.values()
+            state is TaskState.WAITING_DECISION for state in self._states.values()
         )
 
     @property
     def is_finished(self):
-        return all(
-            state in TERMINAL_STATES
-            for state in self._states.values()
-        )
+        return all(state in TERMINAL_STATES for state in self._states.values())
 
     def state_of(self, path):
         return self._states[path]

@@ -104,8 +104,10 @@ class RetryStateTests(unittest.TestCase):
         result = next_retry_state(
             state,
             [
-                "Subtitle encoding currently only possible from text "
-                "to text or bitmap to bitmap"
+                (
+                    "Subtitle encoding currently only possible from text "
+                    "to text or bitmap to bitmap"
+                ),
             ],
         )
 
@@ -190,9 +192,7 @@ class RetryStateTests(unittest.TestCase):
     def test_no_fallback_repeats_an_already_disabled_state(self):
         state = RetryState(use_hw_decode=False, include_subtitles=False)
 
-        self.assertIsNone(
-            next_retry_state(state, ["Device creation failed"])
-        )
+        self.assertIsNone(next_retry_state(state, ["Device creation failed"]))
         self.assertIsNone(
             next_retry_state(
                 state,
@@ -210,9 +210,7 @@ class HardwareResourceErrorTests(unittest.TestCase):
         )
 
     def test_qsv_device_busy_is_resource_error(self):
-        self.assertTrue(
-            is_hardware_resource_error(["MFX_ERR_DEVICE_BUSY"])
-        )
+        self.assertTrue(is_hardware_resource_error(["MFX_ERR_DEVICE_BUSY"]))
 
     def test_decode_device_reinitialization_is_not_resource_error(self):
         self.assertFalse(
@@ -224,17 +222,14 @@ class HardwareResourceErrorTests(unittest.TestCase):
 
 class EncoderIntegrationTests(unittest.TestCase):
     def test_encoder_run_uses_retry_policy_for_three_attempts(self):
-        source = inspect.getsource(EncoderWorker.run)
-
+        src = inspect.getsource(EncoderWorker._execute_ffmpeg)
         self.assertIn(
             "build_hw_decode_args(enc_name, retry_state.use_hw_decode)",
-            source,
+            src,
         )
-        self.assertIn("for attempt in range(3):", source)
-        self.assertIn(
-            "next_retry_state(retry_state, err_log)",
-            source,
-        )
+        self.assertIn("for attempt in range(3):", src)
+        self.assertIn("next_retry_state(retry_state, err_log)", src)
+        self.assertIn("self._execute_ffmpeg(", inspect.getsource(EncoderWorker.run))
 
 
 if __name__ == "__main__":

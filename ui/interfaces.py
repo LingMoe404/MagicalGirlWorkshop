@@ -1,14 +1,32 @@
 import os
-import subprocess
-from PySide6.QtCore import Qt, Signal, QUrl
-from PySide6.QtWidgets import (QApplication, QWidget, QVBoxLayout, QHBoxLayout,
-                               QFrame, QGridLayout)
-from PySide6.QtGui import QIcon, QColor, QDesktopServices
 
-from qfluentwidgets import (SubtitleLabel, BodyLabel,
-                            PushButton, PrimaryPushButton, TextEdit, ComboBox, CardWidget, InfoBar,
-                            InfoBarPosition, setTheme, Theme, FluentIcon, setThemeColor, isDarkTheme, ImageLabel,
-                            IconWidget, SpinBox, SwitchButton)
+from PySide6.QtCore import Qt, QUrl, Signal
+from PySide6.QtGui import QColor, QDesktopServices, QIcon
+from PySide6.QtWidgets import (
+    QApplication,
+    QFrame,
+    QGridLayout,
+    QHBoxLayout,
+    QVBoxLayout,
+    QWidget,
+)
+from qfluentwidgets import (
+    BodyLabel,
+    CardWidget,
+    ComboBox,
+    FluentIcon,
+    IconWidget,
+    ImageLabel,
+    InfoBar,
+    InfoBarPosition,
+    PrimaryPushButton,
+    PushButton,
+    SpinBox,
+    SubtitleLabel,
+    SwitchButton,
+    TextEdit,
+    isDarkTheme,
+)
 
 from config import VERSION, VIDEO_EXTS
 from i18n.translator import tr, translator
@@ -17,7 +35,8 @@ from workers.analyzer import AnalysisWorker
 
 
 class MediaInfoInterface(QWidget):
-    """ “真理之眼”界面，用于分析媒体文件并显示其详细信息。 """
+    """“真理之眼”界面，用于分析媒体文件并显示其详细信息。"""
+
     addFileRequested = Signal(str)
 
     def __init__(self, parent=None):
@@ -28,9 +47,9 @@ class MediaInfoInterface(QWidget):
         self.worker = None
         self.init_ui()
         self.retranslate_ui()
-        
+
     def init_ui(self):
-        """ 初始化界面布局和组件。 """
+        """初始化界面布局和组件。"""
         layout = QVBoxLayout(self)
         layout.setContentsMargins(30, 30, 30, 30)
         layout.setSpacing(20)
@@ -49,11 +68,17 @@ class MediaInfoInterface(QWidget):
 
         self.combo_theme = ComboBox(self)
         self.combo_theme.setMinimumWidth(140)
-        self.combo_theme.addItem(tr("home.header.theme_combo.auto"), icon=FluentIcon.SYNC)
-        self.combo_theme.addItem(tr("home.header.theme_combo.light"), icon=FluentIcon.BRIGHTNESS)
-        self.combo_theme.addItem(tr("home.header.theme_combo.dark"), icon=FluentIcon.QUIET_HOURS)
+        self.combo_theme.addItem(
+            tr("home.header.theme_combo.auto"), icon=FluentIcon.SYNC
+        )
+        self.combo_theme.addItem(
+            tr("home.header.theme_combo.light"), icon=FluentIcon.BRIGHTNESS
+        )
+        self.combo_theme.addItem(
+            tr("home.header.theme_combo.dark"), icon=FluentIcon.QUIET_HOURS
+        )
         header_layout.addWidget(self.combo_theme)
-        
+
         layout.addLayout(header_layout)
 
         self.drop_card = CardWidget(self)
@@ -114,7 +139,7 @@ class MediaInfoInterface(QWidget):
         layout.addLayout(bottom_layout)
 
     def retranslate_ui(self):
-        """ 根据当前语言重新翻译界面文本。 """
+        """根据当前语言重新翻译界面文本。"""
         self.title.setText(tr("info.title"))
         self.combo_theme.setItemText(0, tr("home.header.theme_combo.auto"))
         self.combo_theme.setItemText(1, tr("home.header.theme_combo.light"))
@@ -127,7 +152,7 @@ class MediaInfoInterface(QWidget):
         self.btn_copy.setText(tr("info.buttons.copy"))
 
     def stop_worker(self):
-        """ 如果分析线程正在运行，则停止它。 """
+        """如果分析线程正在运行，则停止它。"""
         if self.worker:
             try:
                 if self.worker.isRunning():
@@ -139,28 +164,38 @@ class MediaInfoInterface(QWidget):
             self.worker = None
 
     def copy_report(self):
-        """ 复制分析报告到剪贴板。 """
+        """复制分析报告到剪贴板。"""
         text = self.info_text.toPlainText()
         if text:
             QApplication.clipboard().setText(text)
-            InfoBar.success(tr("info.infobar.copy_success.title"), tr("info.infobar.copy_success.content"), parent=self, position=InfoBarPosition.TOP)
+            InfoBar.success(
+                tr("info.infobar.copy_success.title"),
+                tr("info.infobar.copy_success.content"),
+                parent=self,
+                position=InfoBarPosition.TOP,
+            )
         else:
-            InfoBar.warning(tr("info.infobar.copy_warning.title"), tr("info.infobar.copy_warning.content"), parent=self, position=InfoBarPosition.TOP)
+            InfoBar.warning(
+                tr("info.infobar.copy_warning.title"),
+                tr("info.infobar.copy_warning.content"),
+                parent=self,
+                position=InfoBarPosition.TOP,
+            )
 
     def clear_report(self):
-        """ 清空当前的分析报告。 """
+        """清空当前的分析报告。"""
         self.current_path = None
         self.info_text.clear()
         self.btn_add_list.hide()
         self.stop_worker()
 
     def add_to_main_list(self):
-        """ 请求将当前文件添加到主界面的文件列表中。 """
+        """请求将当前文件添加到主界面的文件列表中。"""
         if self.current_path:
             self.addFileRequested.emit(self.current_path)
 
     def dragEnterEvent(self, event):
-        """ 处理文件拖入事件，过滤并高亮视频拖放区域。 """
+        """处理文件拖入事件，过滤并高亮视频拖放区域。"""
         if event.mimeData().hasUrls():
             urls = event.mimeData().urls()
             # 至少包含一个可识别的视频文件
@@ -168,28 +203,36 @@ class MediaInfoInterface(QWidget):
             if has_video:
                 event.accept()
                 bg_color = "#2D2023" if isDarkTheme() else "#FFF0F3"
-                self.drop_card.setStyleSheet(f"CardWidget {{ border: 2px dashed #FB7299; background-color: {bg_color}; }}")
+                self.drop_card.setStyleSheet(
+                    f"CardWidget {{ border: 2px dashed #FB7299; background-color: {bg_color}; }}"
+                )
                 self.eye_icon.setIcon(FluentIcon.ZOOM_IN)
                 return
         event.ignore()
 
     def dragLeaveEvent(self, event):
-        """ 处理文件拖出事件，恢复拖放区域样式。 """
+        """处理文件拖出事件，恢复拖放区域样式。"""
         self.drop_card.setStyleSheet("")
         self.eye_icon.setIcon(FluentIcon.SEARCH)
 
     def dropEvent(self, event):
-        """ 处理文件放下事件，只开始分析视频文件。 """
+        """处理文件放下事件，只开始分析视频文件。"""
         self.drop_card.setStyleSheet("")
-        files = [u.toLocalFile() for u in event.mimeData().urls() if u.toLocalFile().lower().endswith(VIDEO_EXTS)]
+        files = [
+            u.toLocalFile()
+            for u in event.mimeData().urls()
+            if u.toLocalFile().lower().endswith(VIDEO_EXTS)
+        ]
         if files:
             self.analyze_file(files[0])
 
     def analyze_file(self, filepath):
-        """ 使用后台线程分析给定的文件。 """
+        """使用后台线程分析给定的文件。"""
         self.current_path = filepath
         self.stop_worker()
-        self.info_text.setHtml(f'<div style="color: #FB7299; font-size: 14px; font-family: \'Microsoft YaHei UI\';">{tr("info.analysis.in_progress")}</div>')
+        self.info_text.setHtml(
+            f"<div style=\"color: #FB7299; font-size: 14px; font-family: 'Microsoft YaHei UI';\">{tr('info.analysis.in_progress')}</div>"
+        )
         self.btn_add_list.hide()
 
         self.worker = AnalysisWorker(filepath)
@@ -199,11 +242,11 @@ class MediaInfoInterface(QWidget):
         self.worker.start()
 
     def _on_worker_finished(self):
-        """ 分析线程完成后的清理工作。 """
+        """分析线程完成后的清理工作。"""
         self.worker = None
 
     def on_report_ready(self, html, should_hide):
-        """ 当分析报告准备好时，在界面上显示报告。 """
+        """当分析报告准备好时，在界面上显示报告。"""
         self.info_text.setHtml(html)
         if should_hide:
             self.btn_add_list.hide()
@@ -212,16 +255,16 @@ class MediaInfoInterface(QWidget):
 
 
 class ProfileInterface(QWidget):
-    """ “观测者档案”界面，显示作者的个人信息和社交链接。 """
+    """“观测者档案”界面，显示作者的个人信息和社交链接。"""
+
     def __init__(self, parent=None):
         super().__init__(parent=parent)
         self.setObjectName("profileInterface")
         self.init_ui()
         self.retranslate_ui()
 
-
     def init_ui(self):
-        """ 初始化界面布局和组件。 """
+        """初始化界面布局和组件。"""
         layout = QVBoxLayout(self)
         layout.setContentsMargins(30, 30, 30, 30)
         layout.setSpacing(20)
@@ -240,9 +283,15 @@ class ProfileInterface(QWidget):
 
         self.combo_theme = ComboBox(self)
         self.combo_theme.setMinimumWidth(140)
-        self.combo_theme.addItem(tr("home.header.theme_combo.auto"), icon=FluentIcon.SYNC)
-        self.combo_theme.addItem(tr("home.header.theme_combo.light"), icon=FluentIcon.BRIGHTNESS)
-        self.combo_theme.addItem(tr("home.header.theme_combo.dark"), icon=FluentIcon.QUIET_HOURS)
+        self.combo_theme.addItem(
+            tr("home.header.theme_combo.auto"), icon=FluentIcon.SYNC
+        )
+        self.combo_theme.addItem(
+            tr("home.header.theme_combo.light"), icon=FluentIcon.BRIGHTNESS
+        )
+        self.combo_theme.addItem(
+            tr("home.header.theme_combo.dark"), icon=FluentIcon.QUIET_HOURS
+        )
         header_layout.addWidget(self.combo_theme)
 
         layout.addLayout(header_layout)
@@ -275,7 +324,9 @@ class ProfileInterface(QWidget):
             avatar = ImageLabel(pixmap, content_widget)
             avatar.setFixedSize(192, 192)
             avatar.setBorderRadius(96, 96, 96, 96)
-            avatar.setStyleSheet("border: 6px solid white; background: white; border-radius: 96px;")
+            avatar.setStyleSheet(
+                "border: 6px solid white; background: white; border-radius: 96px;"
+            )
 
             h_avatar = QHBoxLayout()
             h_avatar.addStretch(1)
@@ -284,7 +335,9 @@ class ProfileInterface(QWidget):
             content_layout.addLayout(h_avatar)
 
         name = SubtitleLabel("泠萌404", content_widget)
-        name.setStyleSheet("font-family: 'Segoe UI Variable Display', 'Segoe UI Variable Text', 'Microsoft YaHei UI'; font-size: 36px; font-weight: bold; color: #FB7299;")
+        name.setStyleSheet(
+            "font-family: 'Segoe UI Variable Display', 'Segoe UI Variable Text', 'Microsoft YaHei UI'; font-size: 36px; font-weight: bold; color: #FB7299;"
+        )
         name.setAlignment(Qt.AlignmentFlag.AlignCenter)
         content_layout.addWidget(name)
 
@@ -327,9 +380,16 @@ class ProfileInterface(QWidget):
             """)
             return btn
 
-        self.btn_bilibili = create_social_btn("#FB7299", "https://space.bilibili.com/136850")
-        self.btn_youtube = create_social_btn("#FF0000", "https://www.youtube.com/@LingMoe404")
-        self.btn_douyin = create_social_btn("#1C0B1A", "https://www.douyin.com/user/MS4wLjABAAAA8fYebaVF2xlczanlTvT-bVoRxLqNjp5Tr01pV8wM88Q")
+        self.btn_bilibili = create_social_btn(
+            "#FB7299", "https://space.bilibili.com/136850"
+        )
+        self.btn_youtube = create_social_btn(
+            "#FF0000", "https://www.youtube.com/@LingMoe404"
+        )
+        self.btn_douyin = create_social_btn(
+            "#1C0B1A",
+            "https://www.douyin.com/user/MS4wLjABAAAA8fYebaVF2xlczanlTvT-bVoRxLqNjp5Tr01pV8wM88Q",
+        )
         self.btn_github = create_social_btn("#24292e", "https://github.com/LingMoe404")
 
         v_btns.addWidget(self.btn_bilibili, 0, Qt.AlignmentFlag.AlignCenter)
@@ -383,7 +443,7 @@ class ProfileInterface(QWidget):
         layout.addStretch(1)
 
     def retranslate_ui(self):
-        """ 根据当前语言重新翻译界面文本。 """
+        """根据当前语言重新翻译界面文本。"""
         self.title.setText(tr("profile.title"))
         self.combo_theme.setItemText(0, tr("home.header.theme_combo.auto"))
         self.combo_theme.setItemText(1, tr("home.header.theme_combo.light"))
@@ -398,14 +458,15 @@ class ProfileInterface(QWidget):
         self.btn_wizard.setText(tr("profile.buttons.show_wizard"))
 
     def show_wizard(self):
-        """ 显示欢迎向导。 """
+        """显示欢迎向导。"""
         win = self.window()
-        if hasattr(win, 'show_welcome_wizard'):
+        if hasattr(win, "show_welcome_wizard"):
             win.show_welcome_wizard()
 
 
 class SettingsInterface(QWidget):
-    """ “系统设置”界面，用于配置全局行为参数。 """
+    """“系统设置”界面，用于配置全局行为参数。"""
+
     saveRequested = Signal(dict)
 
     def __init__(self, parent=None):
@@ -415,7 +476,7 @@ class SettingsInterface(QWidget):
         self.retranslate_ui()
 
     def init_ui(self):
-        """ 初始化界面布局和组件。 """
+        """初始化界面布局和组件。"""
         layout = QVBoxLayout(self)
         layout.setContentsMargins(30, 30, 30, 30)
         layout.setSpacing(20)
@@ -434,9 +495,19 @@ class SettingsInterface(QWidget):
 
         self.combo_theme = ComboBox(self)
         self.combo_theme.setMinimumWidth(140)
-        self.combo_theme.addItem(tr("home.header.theme_combo.auto"), icon=FluentIcon.SYNC, userData="Auto")
-        self.combo_theme.addItem(tr("home.header.theme_combo.light"), icon=FluentIcon.BRIGHTNESS, userData="Light")
-        self.combo_theme.addItem(tr("home.header.theme_combo.dark"), icon=FluentIcon.QUIET_HOURS, userData="Dark")
+        self.combo_theme.addItem(
+            tr("home.header.theme_combo.auto"), icon=FluentIcon.SYNC, userData="Auto"
+        )
+        self.combo_theme.addItem(
+            tr("home.header.theme_combo.light"),
+            icon=FluentIcon.BRIGHTNESS,
+            userData="Light",
+        )
+        self.combo_theme.addItem(
+            tr("home.header.theme_combo.dark"),
+            icon=FluentIcon.QUIET_HOURS,
+            userData="Dark",
+        )
         header_layout.addWidget(self.combo_theme)
 
         layout.addLayout(header_layout)
@@ -470,10 +541,12 @@ class SettingsInterface(QWidget):
 
         # 硬件解码加速开关
         decoding_row = QHBoxLayout()
-        self.lbl_hw_decoding = BodyLabel("硬件解码超载术式 (GPU Decoding Acceleration)", self)
-        self.sw_hw_decoding = SwitchButton("开启", self.card)
-        self.sw_hw_decoding.setOnText("开启")
-        self.sw_hw_decoding.setOffText("关闭")
+        self.lbl_hw_decoding = BodyLabel(
+            "硬件解码超载术式 (GPU Decoding Acceleration)", self
+        )
+        self.sw_hw_decoding = SwitchButton(tr("settings.switch.on"), self.card)
+        self.sw_hw_decoding.setOnText(tr("settings.switch.on"))
+        self.sw_hw_decoding.setOffText(tr("settings.switch.off"))
         decoding_row.addWidget(self.lbl_hw_decoding)
         decoding_row.addStretch(1)
         decoding_row.addWidget(self.sw_hw_decoding)
@@ -481,10 +554,12 @@ class SettingsInterface(QWidget):
 
         # 启动时自动肃清缓存
         clean_row = QHBoxLayout()
-        self.lbl_auto_clean = BodyLabel("法阵开启时自动肃清残渣 (Auto Clean on Startup)", self)
-        self.sw_auto_clean = SwitchButton("开启", self.card)
-        self.sw_auto_clean.setOnText("开启")
-        self.sw_auto_clean.setOffText("关闭")
+        self.lbl_auto_clean = BodyLabel(
+            "法阵开启时自动肃清残渣 (Auto Clean on Startup)", self
+        )
+        self.sw_auto_clean = SwitchButton(tr("settings.switch.on"), self.card)
+        self.sw_auto_clean.setOnText(tr("settings.switch.on"))
+        self.sw_auto_clean.setOffText(tr("settings.switch.off"))
         clean_row.addWidget(self.lbl_auto_clean)
         clean_row.addStretch(1)
         clean_row.addWidget(self.sw_auto_clean)
@@ -505,10 +580,7 @@ class SettingsInterface(QWidget):
         logcap_row = QHBoxLayout()
         self.lbl_log_cap = BodyLabel("虚空日志保存上限 (Log Cap)", self)
         self.combo_log_cap = ComboBox(self.card)
-        self.combo_log_cap.addItem("1000 行", userData="1000")
-        self.combo_log_cap.addItem("2000 行 (默认)", userData="2000")
-        self.combo_log_cap.addItem("5000 行", userData="5000")
-        self.combo_log_cap.addItem("10000 行", userData="10000")
+        self._rebuild_log_cap_items()
         self.combo_log_cap.setMinimumHeight(36)
         self.combo_log_cap.setMinimumWidth(160)
         logcap_row.addWidget(self.lbl_log_cap)
@@ -524,22 +596,57 @@ class SettingsInterface(QWidget):
         self.btn_save.clicked.connect(self.on_save_clicked)
         layout.addWidget(self.btn_save)
 
+    def _rebuild_log_cap_items(self):
+        """重建日志上限下拉项，语言切换时保留当前选中值。"""
+        current = self.combo_log_cap.currentData()
+        self.combo_log_cap.clear()
+        self.combo_log_cap.addItem(
+            tr("settings.log_cap.rows", count="1000"), userData="1000"
+        )
+        self.combo_log_cap.addItem(
+            tr("settings.log_cap.rows_default", count="2000"), userData="2000"
+        )
+        self.combo_log_cap.addItem(
+            tr("settings.log_cap.rows", count="5000"), userData="5000"
+        )
+        self.combo_log_cap.addItem(
+            tr("settings.log_cap.rows", count="10000"), userData="10000"
+        )
+        idx = self.combo_log_cap.findData(current)
+        if idx >= 0:
+            self.combo_log_cap.setCurrentIndex(idx)
+
     def retranslate_ui(self):
-        """ 根据当前语言重新翻译界面文本。 """
+        """根据当前语言重新翻译界面文本。"""
         self.title.setText(tr("settings.title"))
         self.lbl_gpu_timeout.setText(tr("settings.gpu_timeout_label"))
-        self.lbl_cooling_time.setText(tr("settings.gpu_cooling_time_label") or "核心冷却间隔 (秒)")
-        self.lbl_hw_decoding.setText(tr("settings.hw_decoding_label") or "硬件解码超载术式 (GPU Decoding)")
-        self.lbl_auto_clean.setText(tr("settings.auto_clean_label") or "法阵开启时自动肃清残渣 (Auto Clean)")
-        self.lbl_thread_limit.setText(tr("settings.thread_limit_label") or "视界元数据读取并发限制 (Thread Limit)")
-        self.lbl_log_cap.setText(tr("settings.log_cap_label") or "虚空日志保存上限 (Log Cap)")
+        self.lbl_cooling_time.setText(
+            tr("settings.gpu_cooling_time_label") or "核心冷却间隔 (秒)"
+        )
+        self.lbl_hw_decoding.setText(
+            tr("settings.hw_decoding_label") or "硬件解码超载术式 (GPU Decoding)"
+        )
+        self.lbl_auto_clean.setText(
+            tr("settings.auto_clean_label") or "法阵开启时自动肃清残渣 (Auto Clean)"
+        )
+        self.lbl_thread_limit.setText(
+            tr("settings.thread_limit_label") or "视界元数据读取并发限制 (Thread Limit)"
+        )
+        self.lbl_log_cap.setText(
+            tr("settings.log_cap_label") or "虚空日志保存上限 (Log Cap)"
+        )
         self.btn_save.setText(tr("settings.save_button"))
+        self.sw_hw_decoding.setOnText(tr("settings.switch.on"))
+        self.sw_hw_decoding.setOffText(tr("settings.switch.off"))
+        self.sw_auto_clean.setOnText(tr("settings.switch.on"))
+        self.sw_auto_clean.setOffText(tr("settings.switch.off"))
+        self._rebuild_log_cap_items()
         self.combo_theme.setItemText(0, tr("home.header.theme_combo.auto"))
         self.combo_theme.setItemText(1, tr("home.header.theme_combo.light"))
         self.combo_theme.setItemText(2, tr("home.header.theme_combo.dark"))
 
     def on_save_clicked(self):
-        """ 发送请求保存设置。 """
+        """发送请求保存设置。"""
         settings = {
             "gpu_check_timeout": str(self.spin_gpu_timeout.value()),
             "gpu_cooling_time": str(self.spin_cooling_time.value()),
@@ -548,19 +655,20 @@ class SettingsInterface(QWidget):
             "thread_limit": str(self.spin_thread_limit.value()),
             "log_cap": self.combo_log_cap.currentData(),
             "theme": self.combo_theme.currentData(),
-            "language": self.combo_lang.currentData()
+            "language": self.combo_lang.currentData(),
         }
         self.saveRequested.emit(settings)
 
     def load_settings(self, settings_dict):
-        """ 加载设置到界面控件。 """
+        """加载设置到界面控件。"""
         self.spin_gpu_timeout.setValue(int(settings_dict.get("gpu_check_timeout", 20)))
-        
+
         # 语言
         lang = settings_dict.get("language", "zh_CN")
         idx = self.combo_lang.findData(lang)
-        if idx >= 0: self.combo_lang.setCurrentIndex(idx)
-        
+        if idx >= 0:
+            self.combo_lang.setCurrentIndex(idx)
+
         # 主题
         theme = settings_dict.get("theme", "Auto")
         theme_map = {"Auto": 0, "Light": 1, "Dark": 2}
@@ -591,16 +699,16 @@ class SettingsInterface(QWidget):
 
 
 class CreditsInterface(QWidget):
-    """ “羁绊之证”界面，显示项目贡献者名单。 """
+    """“羁绊之证”界面，显示项目贡献者名单。"""
+
     def __init__(self, parent=None):
         super().__init__(parent=parent)
         self.setObjectName("creditsInterface")
         self.init_ui()
         self.retranslate_ui()
 
-
     def init_ui(self):
-        """ 初始化界面布局和组件。 """
+        """初始化界面布局和组件。"""
         layout = QVBoxLayout(self)
         layout.setContentsMargins(30, 30, 30, 30)
         layout.setSpacing(20)
@@ -619,9 +727,15 @@ class CreditsInterface(QWidget):
 
         self.combo_theme = ComboBox(self)
         self.combo_theme.setMinimumWidth(140)
-        self.combo_theme.addItem(tr("home.header.theme_combo.auto"), icon=FluentIcon.SYNC)
-        self.combo_theme.addItem(tr("home.header.theme_combo.light"), icon=FluentIcon.BRIGHTNESS)
-        self.combo_theme.addItem(tr("home.header.theme_combo.dark"), icon=FluentIcon.QUIET_HOURS)
+        self.combo_theme.addItem(
+            tr("home.header.theme_combo.auto"), icon=FluentIcon.SYNC
+        )
+        self.combo_theme.addItem(
+            tr("home.header.theme_combo.light"), icon=FluentIcon.BRIGHTNESS
+        )
+        self.combo_theme.addItem(
+            tr("home.header.theme_combo.dark"), icon=FluentIcon.QUIET_HOURS
+        )
         header_layout.addWidget(self.combo_theme)
 
         layout.addLayout(header_layout)
@@ -653,7 +767,9 @@ class CreditsInterface(QWidget):
 
         self.btn_bili = PushButton(FluentIcon.VIDEO, "Bilibili", card)
         self.btn_bili.clicked.connect(
-            lambda: QDesktopServices.openUrl(QUrl("https://space.bilibili.com/341660795"))
+            lambda: QDesktopServices.openUrl(
+                QUrl("https://space.bilibili.com/341660795")
+            )
         )
 
         h_info.addWidget(self.btn_github)
@@ -675,7 +791,7 @@ class CreditsInterface(QWidget):
         layout.addStretch(1)
 
     def retranslate_ui(self):
-        """ 根据当前语言重新翻译界面文本。 """
+        """根据当前语言重新翻译界面文本。"""
         self.title.setText(tr("credits.title"))
         self.combo_theme.setItemText(0, tr("home.header.theme_combo.auto"))
         self.combo_theme.setItemText(1, tr("home.header.theme_combo.light"))

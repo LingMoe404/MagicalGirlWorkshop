@@ -27,11 +27,7 @@ def calculate_batch_progress(
         for path, duration in durations.items()
         if path in progresses and float(duration) > 0
     ]
-    fallback_duration = (
-        statistics.median(known_durations)
-        if known_durations
-        else 1.0
-    )
+    fallback_duration = statistics.median(known_durations) if known_durations else 1.0
 
     weighted_progress = 0.0
     total_weight = 0.0
@@ -39,9 +35,7 @@ def calculate_batch_progress(
         duration = float(durations.get(path, 0) or 0)
         weight = duration if duration > 0 else fallback_duration
         effective_progress = (
-            100.0
-            if path in terminal_files
-            else max(0.0, min(100.0, float(progress)))
+            100.0 if path in terminal_files else max(0.0, min(100.0, float(progress)))
         )
         weighted_progress += weight * effective_progress
         total_weight += weight

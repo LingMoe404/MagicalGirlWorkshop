@@ -1,6 +1,5 @@
-from pathlib import Path
 import unittest
-
+from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -23,7 +22,9 @@ class PackagingConfigTests(unittest.TestCase):
             encoding="utf-8"
         )
 
-        self.assertIn(r"DefaultDirName={localappdata}\Programs\MagicalGirlWorkshop", installer)
+        self.assertIn(
+            r"DefaultDirName={localappdata}\Programs\MagicalGirlWorkshop", installer
+        )
         self.assertIn("PrivilegesRequired=lowest", installer)
         self.assertIn(r'Source: "{#SourceDir}\*"', installer)
         self.assertIn(r'Name: "{autoprograms}\MagicalGirlWorkshop"', installer)

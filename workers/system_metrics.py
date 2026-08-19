@@ -78,9 +78,7 @@ def _read_system_times():
 def _read_memory_status():
     status = _MemoryStatusEx()
     status.length = ctypes.sizeof(_MemoryStatusEx)
-    success = ctypes.windll.kernel32.GlobalMemoryStatusEx(
-        ctypes.byref(status)
-    )
+    success = ctypes.windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(status))
     if not success:
         raise ctypes.WinError()
     return status.available_physical, status.total_physical

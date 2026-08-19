@@ -2,7 +2,6 @@ import statistics
 from dataclasses import dataclass
 from enum import Enum
 
-
 GIB = 1024**3
 
 
@@ -122,17 +121,12 @@ class DynamicConcurrencyPolicy:
 
         throughput = statistics.median(self._throughput_samples)
         average_cpu = statistics.fmean(
-            sample.cpu_percent
-            for sample in self._resource_samples
+            sample.cpu_percent for sample in self._resource_samples
         )
         minimum_available_memory = min(
-            sample.available_memory
-            for sample in self._resource_samples
+            sample.available_memory for sample in self._resource_samples
         )
-        total_memory = max(
-            sample.total_memory
-            for sample in self._resource_samples
-        )
+        total_memory = max(sample.total_memory for sample in self._resource_samples)
 
         if self._trial_from_level is not None:
             return self._finish_trial(now, throughput)
@@ -163,10 +157,7 @@ class DynamicConcurrencyPolicy:
             and self.target_concurrency + 1 not in self._blacklisted_levels
             and average_cpu < 85.0
             and minimum_available_memory >= 2 * GIB
-            and (
-                total_memory <= 0
-                or minimum_available_memory >= total_memory * 0.1
-            )
+            and (total_memory <= 0 or minimum_available_memory >= total_memory * 0.1)
         )
         if can_upgrade:
             previous_level = self.target_concurrency
@@ -201,9 +192,7 @@ class DynamicConcurrencyPolicy:
                 accepted=True,
             )
 
-        self._blacklisted_levels.update(
-            range(trial_level, self.auto_max + 1)
-        )
+        self._blacklisted_levels.update(range(trial_level, self.auto_max + 1))
         self.target_concurrency = previous_level
         return ConcurrencyDecision(
             target_concurrency=previous_level,
@@ -223,9 +212,7 @@ class DynamicConcurrencyPolicy:
         previous_level = self.target_concurrency
         self.target_concurrency -= 1
         if blacklist_current:
-            self._blacklisted_levels.update(
-                range(previous_level, self.auto_max + 1)
-            )
+            self._blacklisted_levels.update(range(previous_level, self.auto_max + 1))
         self._trial_from_level = None
         self._cooldown_until = now + self.cooldown_seconds
         self._high_cpu_windows = 0

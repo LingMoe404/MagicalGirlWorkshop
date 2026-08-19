@@ -107,10 +107,12 @@ class UIComponentTests(unittest.TestCase):
         widget = DroppableBodyLabel("test")
         dropped = []
         widget.filesDropped.connect(dropped.append)
-        mime = FakeMimeData([
-            QUrl.fromLocalFile("C:/test.mp4"),
-            QUrl.fromLocalFile("D:/test2.mkv"),
-        ])
+        mime = FakeMimeData(
+            [
+                QUrl.fromLocalFile("C:/test.mp4"),
+                QUrl.fromLocalFile("D:/test2.mkv"),
+            ]
+        )
         event = FakeDropEvent(mime)
         widget.dropEvent(event)
         self.assertEqual(len(dropped), 1)

@@ -26,16 +26,16 @@
 
 ### 1.1 巨型文件拆分
 
-| 任务 | 文件 | 当前大小 | 拆分方案 | 优先级 |
-|------|------|---------|---------|--------|
-| `MainWindow` 分解 | `ui/main_window.py` | ~3000 行 / 110KB | 拆分为 `FileListManager`、`ConfigManager`、`LogManager`、`TranscodeController` 等 Mixin/Controller | 🔴 最高 |
-| `EncoderWorker.run()` 拆分 | `workers/encoder.py` | ~760 行 / 40KB | 拆分为 `_probe_vmaf()`、`_execute_ffmpeg()`、`_handle_output()`、`_cleanup()` | 🔴 最高 |
-| 配置逻辑抽取 | `ui/main_window.py` 中的配置部分 | ~500 行 | 抽取独立 `ConfigManager` 类，管理 config.ini 读写、迁移、缓存 | 🟡 高 |
-| 日志系统抽取 | `ui/main_window.py` 中的日志部分 | ~200 行 | 抽取独立 `LogManager` 类，线程安全队列 + 定时刷新 | 🟡 高 |
+| 任务 | 文件 | 当前大小 | 拆分方案 | 优先级 | 状态 |
+|------|------|---------|---------|--------|------|
+| `MainWindow` 分解 | `ui/main_window.py` | ~3000 行 / 110KB | 拆分为 `FileListManager`、`ConfigManager`、`LogManager`、`TranscodeController` 等 Mixin/Controller | 🔴 最高 | ⏳ 进行中 |
+| `EncoderWorker.run()` 拆分 | `workers/encoder.py` | ~760 行 / 40KB | 拆分为 `_probe_vmaf()`、`_execute_ffmpeg()`、`_handle_output()`、`_cleanup()` | 🔴 最高 | ✅ 已完成 |
+| 配置逻辑抽取 | `ui/main_window.py` 中的配置部分 | ~500 行 | 抽取独立 `ConfigManager` 类，管理 config.ini 读写、迁移、缓存 | 🟡 高 | ⏳ 未开始 |
+| 日志系统抽取 | `ui/main_window.py` 中的日志部分 | ~200 行 | 抽取独立 `LogManager` 类，线程安全队列 + 定时刷新 | 🟡 高 | ⏳ 未开始 |
 
 **验收标准**：
 - [ ] `main_window.py` 缩减至 1500 行以内
-- [ ] `encoder.py` 的 `run()` 方法缩减至 200 行以内
+- [x] `encoder.py` 的 `run()` 方法缩减至 200 行以内
 - [ ] 每个拆分模块有独立的 `__init__.py` 导出
 
 ### 1.2 类型注解补全

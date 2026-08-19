@@ -6,7 +6,6 @@ from workers.concurrency_policy import (
     ResourceSnapshot,
 )
 
-
 GIB = 1024**3
 HEALTHY = ResourceSnapshot(
     cpu_percent=35.0,

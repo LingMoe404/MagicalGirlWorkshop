@@ -9,7 +9,6 @@ from config import (
     SAVE_MODE_SAVE_AS,
 )
 
-
 SESSION_PREFIX = "mgw-session-"
 
 
@@ -48,14 +47,8 @@ def build_final_output(input_path, save_mode, export_dir):
 
 
 def find_output_conflicts(inputs, save_mode, export_dir):
-    absolute_inputs = [
-        os.path.abspath(os.fspath(path))
-        for path in inputs
-    ]
-    normalized_inputs = {
-        _normalize(path): path
-        for path in absolute_inputs
-    }
+    absolute_inputs = [os.path.abspath(os.fspath(path)) for path in inputs]
+    normalized_inputs = {_normalize(path): path for path in absolute_inputs}
     outputs = {}
 
     for input_path in absolute_inputs:
@@ -79,14 +72,8 @@ def find_output_conflicts(inputs, save_mode, export_dir):
         involved = list(entry["producers"])
         matched_input = normalized_inputs.get(normalized_output)
         if matched_input is not None:
-            producer_norms = {
-                _normalize(path)
-                for path in entry["producers"]
-            }
-            if (
-                len(entry["producers"]) > 1
-                or producer_norms != {normalized_output}
-            ):
+            producer_norms = {_normalize(path) for path in entry["producers"]}
+            if len(entry["producers"]) > 1 or producer_norms != {normalized_output}:
                 involved.append(matched_input)
 
         unique_inputs = tuple(dict.fromkeys(involved))
@@ -140,8 +127,7 @@ def cleanup_stale_sessions(
         return ()
 
     active_names = {
-        f"{SESSION_PREFIX}{session_id}"
-        for session_id in active_session_ids
+        f"{SESSION_PREFIX}{session_id}" for session_id in active_session_ids
     }
     current_time = time.time() if now is None else float(now)
     removed = []
@@ -163,8 +149,4 @@ def cleanup_stale_sessions(
 
 
 def _normalize(path):
-    return os.path.normcase(
-        os.path.normpath(
-            os.path.abspath(path)
-        )
-    )
+    return os.path.normcase(os.path.normpath(os.path.abspath(path)))
