@@ -9,4 +9,5 @@ from .interfaces import (  # noqa: F401
     MediaInfoInterface,
     ProfileInterface,
 )
+from .log_manager import LogManager  # noqa: F401
 from .main_window import MainWindow  # noqa: F401

@@ -222,6 +222,7 @@ translation = {
     "log.autoselect_encoder": ">>> 已自动切换至 {encoder} 术式。",  # 自动选择编码器日志
     "log.recalibrating": ">>> 正在重新校准魔力核心可用性 (Re-calibrating)...",  # 重新校准日志
     "log.list_cleared": ">>> 祭坛已清空，所有因果律已重置。 (Voided)",  # 列表已清空日志
+    "log.reset": ">>> 历史因果已抹除，日志重新开始记录。",  # 日志重写重置消息
     "log.task_pause": ">>> 固有结界已冻结 (Paused)...",  # 任务暂停日志
     "log.task_resume": ">>> 时空流动已恢复...",  # 任务恢复日志
     "log.task_stop_request": ">>> 正在请求中止...",  # 请求停止任务日志

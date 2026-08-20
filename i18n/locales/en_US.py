@@ -222,6 +222,7 @@ translation = {
     "log.autoselect_encoder": ">>> Automatically switched to {encoder} spell.",  # Auto Select Encoder Log
     "log.recalibrating": ">>> Re-calibrating Mana Core availability...",  # Recalibrating Log
     "log.list_cleared": ">>> Altar emptied, all causality reset. (Voided)",  # List Cleared Log
+    "log.reset": ">>> History erased, logging restarts.",  # Log Reset Message
     "log.task_pause": ">>> Reality Marble Frozen (Paused)...",  # Task Pause Log
     "log.task_resume": ">>> Time Flow Resumed...",  # Task Resume Log
     "log.task_stop_request": ">>> Requesting Abort...",  # Task Stop Request Log

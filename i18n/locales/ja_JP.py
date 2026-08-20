@@ -222,6 +222,7 @@ translation = {
     "log.autoselect_encoder": ">>> 自動的に {encoder} 術式へ切り替えました。",  # エンコーダー自動選択ログ
     "log.recalibrating": ">>> 魔力コアの可用性を再校正中 (Re-calibrating)...",  # 再校正ログ
     "log.list_cleared": ">>> 祭壇は空になりました。全ての因果律はリセットされました。(Voided)",  # リストクリアログ
+    "log.reset": ">>> 履歴は抹消されました。ログを再開します。",  # ログリセットメッセージ
     "log.task_pause": ">>> 固有結界凍結 (Paused)...",  # タスク一時停止ログ
     "log.task_resume": ">>> 時空流動再開...",  # タスク再開ログ
     "log.task_stop_request": ">>> 中止要請中...",  # タスク停止要求ログ
