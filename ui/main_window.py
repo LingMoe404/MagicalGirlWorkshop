@@ -11,40 +11,28 @@ from PySide6.QtGui import (
     QIcon,
 )
 from PySide6.QtWidgets import (
-    QApplication,
     QFileDialog,
     QGraphicsDropShadowEffect,
-    QStackedWidget,
-    QVBoxLayout,
-    QWidget,
 )
 
 # 引入 Fluent Widgets (Win11 风格组件)
 from qfluentwidgets import (
-    BodyLabel,
     CardWidget,
     ComboBox,
     FluentWindow,
     InfoBar,
     InfoBarPosition,
-    MessageBoxBase,
     MessageDialog,
-    StrongBodyLabel,
-    SubtitleLabel,
-    Theme,
     isDarkTheme,
-    setTheme,
     setThemeColor,
 )
 
 from config import (
-    DEFAULT_SETTINGS,
     DEPENDENCY_CHECK_DELAY,
     ENC_AMF,
     ENC_NVENC,
     ENC_QSV,
     ENCODER_CONFIGS,
-    LOG_MAX_BLOCKS,
     LOG_UPDATE_INTERVAL,
     LOUDNORM_MODE_ALWAYS,
     LOUDNORM_MODE_AUTO,
@@ -54,130 +42,17 @@ from config import (
     SAVE_MODE_OVERWRITE,
     SAVE_MODE_REMAIN,
     SAVE_MODE_SAVE_AS,
-    THEMES,
 )
 from i18n.translator import tr, translator
 from ui.config_manager import ConfigManager
+from ui.settings_controller import SettingsController
+from ui.welcome_wizard import WelcomeWizard
 from utils import get_default_cache_dir, resource_path
 from workers import (
     DependencyWorker,
     TranscodeController,
 )
 from workers.transcode_paths import cleanup_stale_sessions
-
-
-# --- 初次运行欢迎向导 ---
-class WelcomeWizard(MessageBoxBase):
-    """初次运行时显示的欢迎和设置向导。"""
-
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        # 使用 Key 而非直接翻译，以便后续动态切换语言
-        self.pages_config = [
-            ("welcome.wizard.page1.title", "welcome.wizard.page1.content"),
-            ("welcome.wizard.page2.title", "welcome.wizard.page2.content"),
-            ("welcome.wizard.page3.title", "welcome.wizard.page3.content"),
-            ("welcome.wizard.page4.title", "welcome.wizard.page4.content"),
-            ("welcome.wizard.page5.title", "welcome.wizard.page5.content"),
-        ]
-
-        self.titleLabel = SubtitleLabel("", self)
-
-        # 创建语言切换下拉框，放在 viewLayout 中使其在所有页面可见
-        self.lang_combo = ComboBox(self)
-        self.lang_combo.setMinimumWidth(200)
-        lang_map = translator.get_language_map()
-        for lang_code, lang_name in lang_map.items():
-            self.lang_combo.addItem(lang_name, userData=lang_code)
-
-        # 设置当前语言
-        curr = translator.current_lang
-        idx = self.lang_combo.findData(curr)
-        if idx >= 0:
-            self.lang_combo.setCurrentIndex(idx)
-        self.lang_combo.currentIndexChanged.connect(self.on_wizard_language_changed)
-
-        self.view = QStackedWidget(self)
-        self.page_labels = []  # 存储 Label 引用用于重翻译
-
-        self.init_pages()
-
-        # 调整布局和尺寸
-        self.viewLayout.addWidget(self.titleLabel)
-        self.viewLayout.addWidget(self.lang_combo)
-        self.viewLayout.addWidget(self.view)
-        self.widget.setFixedSize(480, 400)  # 稍微调高一点给下拉框留空间
-
-        self.current_idx = 0
-        self.view.setCurrentIndex(0)
-        self.retranslate_wizard()
-
-        # 重新绑定信号 (接管默认的 accept/reject 行为)
-        self.yesButton.clicked.disconnect()
-        self.yesButton.clicked.connect(self.next_page)
-        self.cancelButton.clicked.disconnect()
-        self.cancelButton.clicked.connect(self.reject)
-
-    def init_pages(self):
-        """初始化所有向导页面。"""
-        for i, (t_key, c_key) in enumerate(self.pages_config):
-            page = QWidget()
-            vbox = QVBoxLayout(page)
-            vbox.setContentsMargins(0, 10, 0, 0)
-            vbox.setSpacing(10)
-
-            lbl_title = StrongBodyLabel("", page)
-            lbl_content = BodyLabel("", page)
-            lbl_content.setWordWrap(True)
-            text_color = "#666666" if not isDarkTheme() else "#CCCCCC"
-            lbl_content.setStyleSheet(
-                f"color: {text_color}; font-size: 13px; line-height: 1.5;"
-            )
-
-            vbox.addWidget(lbl_title)
-            vbox.addWidget(lbl_content)
-
-            vbox.addStretch(1)
-            self.view.addWidget(page)
-            self.page_labels.append((lbl_title, lbl_content))
-
-    def on_wizard_language_changed(self, index):
-        """当向导中的语言下拉框改变时。"""
-        lang_code = self.lang_combo.itemData(index)
-        if lang_code == translator.current_lang:
-            return
-
-        translator.set_language(lang_code)
-        self.retranslate_wizard()
-
-        # 同步更新主界面 (如果父窗口是 MainWindow)
-        main_win = self.parent()
-        if main_win and hasattr(main_win, "retranslate_ui"):
-            main_win.retranslate_ui()
-            # 同步主界面的下拉框索引
-            if hasattr(main_win, "combo_lang"):
-                main_win.combo_lang.blockSignals(True)
-                main_win.combo_lang.setCurrentIndex(index)
-                main_win.combo_lang.blockSignals(False)
-
-    def retranslate_wizard(self):
-        """刷新向导界面的所有文本。"""
-        self.titleLabel.setText(tr("welcome.wizard.title"))
-
-        # 既然是无限循环，确认按钮始终显示“翻阅魔导书”
-        self.yesButton.setText(tr("welcome.wizard.next_button"))
-        self.cancelButton.setText(tr("welcome.wizard.skip_button"))
-
-        # 更新每一页的文本
-        for i, (t_key, c_key) in enumerate(self.pages_config):
-            lbl_title, lbl_content = self.page_labels[i]
-            lbl_title.setText(tr(t_key))
-            lbl_content.setText(tr(c_key))
-
-    def next_page(self):
-        """切换到下一个向导页面（无限循环）。"""
-        self.current_idx = (self.current_idx + 1) % len(self.pages_config)
-        self.view.setCurrentIndex(self.current_idx)
 
 
 # --- 主窗口 (Win11 风格) ---
@@ -245,6 +120,8 @@ class MainWindow(FluentWindow):
         self.init_ui()
         self.retranslate_ui()
         self.apply_min_window_size()
+        # 设置编排控制器：在 init_ui 完成后构造（依赖全部控件），再调用现有方法
+        self.settings_controller = SettingsController(self)
         self.load_settings_to_ui()
         self.auto_clean_cache_startup()
         self.combo_encoder.currentIndexChanged.connect(self.on_encoder_changed)
@@ -608,113 +485,12 @@ class MainWindow(FluentWindow):
             self._wizard_running = False
 
     def load_settings_to_ui(self):
-        """从配置文件加载设置到UI。"""
-        data, loaded_encoder_settings = self.config_manager.load()
-        self.encoder_settings = loaded_encoder_settings
-
-        # 旧版本遗留的中文标签值迁移到规范值（仅影响旧配置文件）
-        data["save_mode"] = self.OLD_VALUE_MAP.get(data["save_mode"], data["save_mode"])
-        for enc_conf in self.encoder_settings.values():
-            enc_conf["loudnorm_mode"] = self.OLD_VALUE_MAP.get(
-                enc_conf["loudnorm_mode"], enc_conf["loudnorm_mode"]
-            )
-
-        if not os.path.exists(self.config_manager.config_path):
-            self.is_first_run = True
-            self.save_settings_file(DEFAULT_SETTINGS, self.encoder_settings)
-        else:
-            self.is_first_run = False
-
-        enc_idx = 0
-        if ENC_NVENC in data["encoder"]:
-            enc_idx = 1
-        elif ENC_AMF in data["encoder"]:
-            enc_idx = 2
-
-        self.last_encoder_name = self.combo_encoder.itemText(enc_idx)
-        self.combo_encoder.setCurrentIndex(enc_idx)
-        self.load_encoder_settings_to_ui(self.last_encoder_name)
-
-        try:
-            self.combo_theme.setCurrentIndex(THEMES.index(data["theme"]))
-        except ValueError:
-            self.combo_theme.setCurrentIndex(0)
-        self.on_theme_changed(self.combo_theme.currentIndex())
-
-        save_mode_index = self.combo_save_mode.findData(data["save_mode"])
-        if save_mode_index > -1:
-            self.combo_save_mode.setCurrentIndex(save_mode_index)
-        self.line_export.setText(data.get("export_dir", ""))
-        self.toggle_export_ui()
-
-        concurrency_mode_index = self.combo_transcode_mode.findData(
-            data.get("transcode_concurrency_mode", "auto")
-        )
-        if concurrency_mode_index > -1:
-            self.combo_transcode_mode.setCurrentIndex(concurrency_mode_index)
-        try:
-            concurrency = int(data.get("transcode_concurrency", "2"))
-        except (TypeError, ValueError):
-            concurrency = 2
-        self.spin_transcode_concurrency.setValue(max(1, min(4, concurrency)))
-        self.toggle_transcode_concurrency_ui()
-
-        color_mode_index = self.combo_color.findData(data.get("color_mode", "Auto"))
-        if color_mode_index > -1:
-            self.combo_color.setCurrentIndex(color_mode_index)
-
-        self.global_settings = data
-
-        # 初始加载后同步日志块数上限；非法值回退 LOG_MAX_BLOCKS
-        try:
-            self.log_manager.set_log_cap(int(data.get("log_cap")))
-        except (TypeError, ValueError):
-            self.log_manager.set_log_cap(LOG_MAX_BLOCKS)
-
-        # Load settings to the new settings interface
-        if hasattr(self, "settings_interface"):
-            self.settings_interface.load_settings(data)
+        """从配置文件加载设置到UI（委托给 SettingsController）。"""
+        self.settings_controller.load_settings_to_ui()
 
     def load_encoder_settings_to_ui(self, enc_name):
-        """加载指定编码器的设置到UI。"""
-        settings = self.encoder_settings.get(enc_name, ENCODER_CONFIGS.get(enc_name))
-        if not settings:
-            return
-
-        self.block_signals_for_settings(True)
-
-        self.line_vmaf.setText(settings["vmaf"])
-        self.line_audio.setText(settings["audio_bitrate"])
-        self.line_loudnorm.setText(settings["loudnorm"])
-
-        loudnorm_mode_index = self.combo_loudnorm.findData(settings["loudnorm_mode"])
-        if loudnorm_mode_index > -1:
-            self.combo_loudnorm.setCurrentIndex(loudnorm_mode_index)
-
-        self.sw_nv_aq.setChecked(settings["nv_aq"] == "True")
-        self.spin_offset.setValue(int(settings.get("amf_offset", 0)))
-
-        idx = self.combo_preset.findText(settings["preset"])
-        if idx >= 0:
-            self.combo_preset.setCurrentIndex(idx)
-        else:
-            self.combo_preset.setCurrentIndex(3)
-
-        self.block_signals_for_settings(False)
-
-        if ENC_NVENC in enc_name:
-            self.lbl_aq.setText(tr("home.settings_card.nv_aq.label.nvidia"))
-        elif ENC_AMF in enc_name:
-            self.lbl_aq.setText(tr("home.settings_card.nv_aq.label.amd"))
-        else:
-            self.lbl_aq.setText(tr("home.settings_card.nv_aq.label.intel"))
-        self.sw_nv_aq.setEnabled(True)
-
-        is_hw = (
-            (ENC_AMF in enc_name) or (ENC_NVENC in enc_name) or (ENC_QSV in enc_name)
-        )
-        self.lbl_offset.setEnabled(is_hw)
-        self.spin_offset.setEnabled(is_hw)
+        """加载指定编码器的设置到UI（委托给 SettingsController）。"""
+        self.settings_controller.load_encoder_settings_to_ui(enc_name)
 
     def block_signals_for_settings(self, block):
         """阻止或取消阻止设置控件的信号，以避免在加载设置时触发不必要的操作。"""
@@ -794,277 +570,32 @@ class MainWindow(FluentWindow):
         self.config_manager.save(settings_dict, encoder_settings)
 
     def save_current_settings(self, show_tip=False):
-        """保存当前UI上的所有设置到文件。"""
-        curr_enc = self.combo_encoder.currentText()
-        if curr_enc in self.encoder_settings:
-            self.encoder_settings[curr_enc].update(
-                {
-                    "vmaf": self.line_vmaf.text(),
-                    "audio_bitrate": self.line_audio.text(),
-                    "preset": self.combo_preset.text(),
-                    "loudnorm": self.line_loudnorm.text(),
-                    "loudnorm_mode": self.combo_loudnorm.currentData(),
-                    "nv_aq": str(self.sw_nv_aq.isChecked()),
-                    "amf_offset": str(self.spin_offset.value()),
-                }
-            )
-        settings = {
-            "encoder": curr_enc,
-            "theme": THEMES[self.combo_theme.currentIndex()],
-            "save_mode": self.combo_save_mode.currentData(),
-            "export_dir": self.line_export.text().strip(),
-            "language": translator.current_lang,
-            "color_mode": self.combo_color.currentData() or "Auto",
-            "transcode_concurrency_mode": self.combo_transcode_mode.currentData()
-            or "auto",
-            "transcode_concurrency": str(self.spin_transcode_concurrency.value()),
-        }
-        if hasattr(self, "global_settings"):
-            self.global_settings.update(settings)
-        self.save_settings_file(settings, self.encoder_settings)
-        if show_tip:
-            orig_text = self.btn_save_conf.text()
-            self.btn_save_conf.setText(tr("button.save.saved"))
-            self.btn_save_conf.setStyleSheet("color: #FB7299; font-weight: bold;")
-
-            QTimer.singleShot(
-                1000,
-                lambda: [
-                    self.btn_save_conf.setText(orig_text),
-                    self.btn_save_conf.setStyleSheet(""),
-                ],
-            )
-
-            InfoBar.success(
-                tr("infobar.success.settings_saved.title"),
-                tr("infobar.success.settings_saved.content"),
-                parent=self,
-                position=InfoBarPosition.TOP,
-            )
+        """保存当前UI上的所有设置到文件（委托给 SettingsController）。"""
+        self.settings_controller.save_current_settings(show_tip=show_tip)
 
     def restore_defaults(self):
-        """恢复所有设置为默认值。"""
-        self._auto_save_blocked = True
-        self.setUpdatesEnabled(False)
-
-        widgets_to_block = [
-            self.combo_encoder,
-            self.combo_preset,
-            self.combo_theme,
-            self.combo_save_mode,
-            self.combo_loudnorm,
-            self.sw_nv_aq,
-            self.line_vmaf,
-            self.line_audio,
-            self.line_loudnorm,
-            self.line_export,
-            self.spin_offset,
-            self.combo_color,
-            self.combo_transcode_mode,
-            self.spin_transcode_concurrency,
-        ]
-        for w in widgets_to_block:
-            w.blockSignals(True)
-
-        # 从 ConfigManager 获取默认配置（深拷贝，不污染全局常量）
-        default_settings, default_encoder_settings = self.config_manager.reset()
-        self.encoder_settings = default_encoder_settings
-
-        current_enc = self.combo_encoder.currentText()
-        self.load_encoder_settings_to_ui(current_enc)
-
-        self.combo_theme.setCurrentIndex(0)
-        self.on_theme_changed(0)
-
-        self.combo_save_mode.setCurrentIndex(
-            self.combo_save_mode.findData(SAVE_MODE_OVERWRITE)
-        )
-        self.line_export.clear()
-        self.combo_color.setCurrentIndex(self.combo_color.findData("Auto"))
-        self.combo_transcode_mode.setCurrentIndex(
-            self.combo_transcode_mode.findData("auto")
-        )
-        self.spin_transcode_concurrency.setValue(2)
-        # 直接应用默认全局设置到内存，保证 reset 返回值真实生效
-        self.global_settings = default_settings
-        # 恢复默认后同步日志块数上限；非法值回退 LOG_MAX_BLOCKS
-        try:
-            self.log_manager.set_log_cap(int(default_settings.get("log_cap")))
-        except (TypeError, ValueError):
-            self.log_manager.set_log_cap(LOG_MAX_BLOCKS)
-        # 同步系统设置页控件，避免后续保存把旧值写回。
-        # 屏蔽语言/主题控件的信号：避免 setCurrentIndex 触发 on_language_changed 弹模态框
-        # 或 on_theme_changed 强制切换语言/主题；仅同步其余系统设置控件。
-        # DEFAULT_SETTINGS 无 language 键，load_settings 会回落到 zh_CN，
-        # 因此加载默认值后需把设置页语言下拉框恢复到当前语言，避免后续保存写回 zh_CN。
-        if hasattr(self, "settings_interface"):
-            sig_blocks = [
-                self.settings_interface.combo_lang,
-                self.settings_interface.combo_theme,
-            ]
-            orig_lang_data = self.settings_interface.combo_lang.currentData()
-            try:
-                for sig_w in sig_blocks:
-                    sig_w.blockSignals(True)
-                self.settings_interface.load_settings(default_settings)
-            finally:
-                # 恢复语言下拉框（仍在信号屏蔽窗口内，不触发任何槽）
-                if orig_lang_data is not None:
-                    lang_idx = self.settings_interface.combo_lang.findData(
-                        orig_lang_data
-                    )
-                    if lang_idx >= 0:
-                        self.settings_interface.combo_lang.setCurrentIndex(lang_idx)
-                for sig_w in sig_blocks:
-                    sig_w.blockSignals(False)
-
-        for w in widgets_to_block:
-            w.blockSignals(False)
-
-        self.toggle_export_ui()
-        self.toggle_transcode_concurrency_ui()
-        self.setUpdatesEnabled(True)
-        self._auto_save_blocked = False
-
-        self.save_current_settings(show_tip=False)
-
-        orig_text = self.btn_reset_conf.text()
-        self.btn_reset_conf.setText(tr("button.reset.restored"))
-        self.btn_reset_conf.setStyleSheet("color: #FB7299; font-weight: bold;")
-        QTimer.singleShot(
-            1000,
-            lambda: [
-                self.btn_reset_conf.setText(orig_text),
-                self.btn_reset_conf.setStyleSheet(""),
-            ],
-        )
-
-        InfoBar.info(
-            tr("infobar.info.settings_reset.title"),
-            tr("infobar.info.settings_reset.content"),
-            parent=self,
-            position=InfoBarPosition.TOP,
-        )
-
-        QApplication.processEvents()
-
-        if self.transcode_controller.is_running():
-            InfoBar.warning(
-                tr("infobar.warning.dependency_check_skipped.title"),
-                tr("infobar.warning.dependency_check_skipped.content"),
-                parent=self,
-                position=InfoBarPosition.TOP,
-            )
-        else:
-            self.log(tr("log.recalibrating"), "info")
-            QTimer.singleShot(200, self.check_dependencies)
+        """恢复所有设置为默认值（委托给 SettingsController）。"""
+        self.settings_controller.restore_defaults()
 
     def apply_preset_light(self):
-        """启用轻量洗版术模板"""
-        self.line_vmaf.setText("91.0")
-        idx = self.combo_preset.findText("5")
-        if idx >= 0:
-            self.combo_preset.setCurrentIndex(idx)
-        InfoBar.success(
-            tr("infobar.success.preset_light.title"),
-            tr("infobar.success.preset_light.content"),
-            parent=self,
-            position=InfoBarPosition.TOP,
-        )
-        self.auto_save_settings()
+        """启用轻量洗版术模板（委托给 SettingsController）。"""
+        self.settings_controller.apply_preset_light()
 
     def apply_preset_balanced(self):
-        """启用黄金均衡法则模板"""
-        self.line_vmaf.setText("93.0")
-        idx = self.combo_preset.findText("4")
-        if idx >= 0:
-            self.combo_preset.setCurrentIndex(idx)
-        InfoBar.success(
-            tr("infobar.success.preset_balanced.title"),
-            tr("infobar.success.preset_balanced.content"),
-            parent=self,
-            position=InfoBarPosition.TOP,
-        )
-        self.auto_save_settings()
+        """启用黄金均衡法则模板（委托给 SettingsController）。"""
+        self.settings_controller.apply_preset_balanced()
 
     def apply_preset_heavenly(self):
-        """启用圣殿至高典藏模板"""
-        self.line_vmaf.setText("95.5")
-        idx = self.combo_preset.findText("3")
-        if idx >= 0:
-            self.combo_preset.setCurrentIndex(idx)
-        InfoBar.success(
-            tr("infobar.success.preset_heavenly.title"),
-            tr("infobar.success.preset_heavenly.content"),
-            parent=self,
-            position=InfoBarPosition.TOP,
-        )
-        self.auto_save_settings()
+        """启用圣殿至高典藏模板（委托给 SettingsController）。"""
+        self.settings_controller.apply_preset_heavenly()
 
     def on_theme_changed(self, index):
-        """当用户在设置中更改主题时调用。"""
-        if index == 0:
-            setTheme(Theme.AUTO)
-        elif index == 1:
-            setTheme(Theme.LIGHT)
-        elif index == 2:
-            setTheme(Theme.DARK)
-        setThemeColor("#FB7299")
-
-        combos = [self.combo_theme]
-        if hasattr(self, "info_interface"):
-            combos.append(self.info_interface.combo_theme)
-        if hasattr(self, "profile_interface"):
-            combos.append(self.profile_interface.combo_theme)
-        if hasattr(self, "credits_interface"):
-            combos.append(self.credits_interface.combo_theme)
-        if hasattr(self, "settings_interface"):
-            combos.append(self.settings_interface.combo_theme)
-        for c in combos:
-            if c.currentIndex() != index:
-                c.blockSignals(True)
-                c.setCurrentIndex(index)
-                c.blockSignals(False)
-
-        QTimer.singleShot(50, self._update_card_style)
-
-        QTimer.singleShot(0, self.update_selected_zone_border)
-        QTimer.singleShot(120, self.update_selected_zone_border)
+        """当用户在设置中更改主题时调用（委托给 SettingsController）。"""
+        self.settings_controller.on_theme_changed(index)
 
     def on_settings_save_requested(self, settings):
-        """处理设置页面的保存请求。"""
-        # 在现有已持久化设置的基础上合并本次修改，并写盘
-        current_settings = self.config_manager.merge_settings(settings)
-        self.global_settings = current_settings
-
-        # 同步日志块数上限；非法值回退 LOG_MAX_BLOCKS
-        try:
-            self.log_manager.set_log_cap(int(self.global_settings.get("log_cap")))
-        except (TypeError, ValueError):
-            self.log_manager.set_log_cap(LOG_MAX_BLOCKS)
-
-        # Save to file
-        self.save_settings_file(current_settings, self.encoder_settings)
-
-        # Apply theme and language changes immediately
-        if "theme" in settings:
-            try:
-                idx = THEMES.index(settings["theme"])
-                self.combo_theme.setCurrentIndex(idx)
-                self.on_theme_changed(idx)
-            except ValueError:
-                pass
-
-        if "language" in settings:
-            lang_code = settings["language"]
-            self.on_language_changed(self.combo_lang.findData(lang_code))
-
-        InfoBar.success(
-            tr("infobar.success.settings_saved.title"),
-            tr("infobar.success.settings_saved.content"),
-            parent=self,
-            position=InfoBarPosition.TOP,
-        )
+        """处理设置页面的保存请求（委托给 SettingsController）。"""
+        self.settings_controller.on_settings_save_requested(settings)
 
     def _update_card_style(self):
         """根据主题调整卡片样式 (解决浅色模式太白的问题)。"""
