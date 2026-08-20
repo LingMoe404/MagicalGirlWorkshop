@@ -1,20 +1,15 @@
-import configparser
 import copy
 import os
 import random
 import subprocess
 import time
-from collections import OrderedDict
 
-from PySide6.QtCore import QMutex, QSize, Qt, QTimer, QUrl
+from PySide6.QtCore import QMutex, Qt, QTimer, QUrl
 from PySide6.QtGui import (
     QColor,
     QDesktopServices,
     QGuiApplication,
     QIcon,
-    QPainter,
-    QPainterPath,
-    QPixmap,
 )
 from PySide6.QtWidgets import (
     QAbstractItemView,
@@ -22,7 +17,6 @@ from PySide6.QtWidgets import (
     QFileDialog,
     QGraphicsDropShadowEffect,
     QHBoxLayout,
-    QListWidgetItem,
     QSplitter,
     QStackedWidget,
     QVBoxLayout,
@@ -36,7 +30,6 @@ from qfluentwidgets import (
     ComboBox,
     FluentIcon,
     FluentWindow,
-    IconWidget,
     InfoBar,
     InfoBarPosition,
     LineEdit,
@@ -68,32 +61,29 @@ from config import (
     LOUDNORM_MODE_ALWAYS,
     LOUDNORM_MODE_AUTO,
     LOUDNORM_MODE_DISABLE,
-    MAX_DURATION_WORKERS,
-    MAX_THUMBNAIL_CACHE_SIZE,
-    MAX_THUMBNAIL_WORKERS,
     MIN_WINDOW_SIZE,
     NAV_EXPAND_WIDTH,
     SAVE_MODE_OVERWRITE,
     SAVE_MODE_REMAIN,
     SAVE_MODE_SAVE_AS,
     THEMES,
-    VIDEO_EXTS,
 )
 from i18n.translator import tr, translator
-from ui.common import ClickableBodyLabel, DroppableBodyLabel, DroppableListWidget
+from ui.common import DroppableBodyLabel, DroppableListWidget
+from ui.config_manager import ConfigManager
+from ui.file_list_manager import FileListManager
 from ui.interfaces import (
     CreditsInterface,
     MediaInfoInterface,
     ProfileInterface,
     SettingsInterface,
 )
-from utils import get_config_path, get_default_cache_dir, resource_path
+from utils import get_default_cache_dir, resource_path
 from workers import (
     DependencyWorker,
-    DurationWorker,
     EncodingCoordinator,
-    ThumbnailWorker,
 )
+from workers.transcode_paths import cleanup_stale_sessions
 
 
 # --- 初次运行欢迎向导 ---
@@ -223,7 +213,7 @@ class MainWindow(FluentWindow):
         "仅立体声/单声道 (Stereo/Mono Only)": LOUDNORM_MODE_AUTO,
     }
 
-    def __init__(self):
+    def __init__(self, config_manager=None):
         super().__init__()
 
         self._base_min_size = MIN_WINDOW_SIZE
@@ -254,19 +244,8 @@ class MainWindow(FluentWindow):
 
         # 核心变量
         self.worker = None  # 编码工作线程
-        self.selected_files = []  # 待处理的文件列表
-        self._drag_over_source_zone = False  # 拖拽状态标志
         self._auto_save_blocked = False  # 自动保存状态标志
         self.dep_worker = None  # 依赖检查工作线程
-        self.active_dur_workers = {}  # 正在运行的时长线程
-        self.pending_dur_tasks = []  # 等待中的时长任务
-        self.active_thumb_workers = {}  # 正在运行的缩略图线程
-        self.pending_thumb_tasks = []  # 等待中的缩略图任务
-        self.cached_durations = {}  # 视频时长缓存
-        self.cached_thumbnails = OrderedDict()  # 视频缩略图LRU缓存
-        self.MAX_THUMBNAIL_CACHE = MAX_THUMBNAIL_CACHE_SIZE
-        self.path_to_item = {}  # 文件路径到列表项的映射
-        self.file_metadata = {}  # 媒体元数据缓存
 
         # 日志缓冲队列，优化高频日志性能
         self.log_mutex = QMutex()
@@ -278,6 +257,7 @@ class MainWindow(FluentWindow):
         # 编码器配置管理
         self.last_encoder_name = "Intel QSV"
         self.encoder_settings = copy.deepcopy(ENCODER_CONFIGS)
+        self.config_manager = config_manager or ConfigManager()
 
         # 初始化 UI
         self.init_ui()
@@ -1009,9 +989,40 @@ class MainWindow(FluentWindow):
         )
         self.list_selected_files.itemDoubleClicked.connect(self.open_file_location)
         selected_layout.addWidget(self.list_selected_files)
-        self.update_selected_count()
+
+        # 实例化 FileListManager：显式注入列表控件与回调。
+        # thread_limit_getter 读取当前线程限制并转为 int，缺失/非法回退 4。
+        # status_text_callback 恢复旧的 ab-av1/探测 分支：探测阶段改写 lbl_current，
+        # 普通编码恢复翻译后的当前标签。
+        # remove_callback 在文件被移除时通知宿主。
+        self.file_list_manager = FileListManager(
+            list_widget=self.list_selected_files,
+            placeholder=self.lbl_selected_placeholder,
+            count_label=self.lbl_selected_count_right,
+            thread_limit_getter=self._get_thread_limit,
+            status_text_callback=self._on_file_stats_text,
+            remove_callback=self._on_file_removed,
+        )
+        self.file_list_manager.update_selected_count()
 
         self.right_column.addWidget(self.card_selected_files)
+
+    def _get_thread_limit(self):
+        """读取当前线程限制；global_settings['thread_limit'] 缺失或非法时回退 4。"""
+        try:
+            return int(self.global_settings.get("thread_limit", "4"))
+        except (TypeError, ValueError):
+            return 4
+
+    def _on_file_stats_text(self, speed, eta):
+        """状态文本回调：恢复旧的 ab-av1/探测 分支的状态栏行为。"""
+        if "ab-av1" in speed or "探测" in speed:
+            self.lbl_current.setText(f"✨ 寻觅最优魔法参数 ({speed} · {eta}):")
+        else:
+            self.lbl_current.setText(tr("home.status_bar.current_label"))
+
+    def _on_file_removed(self, file_path):
+        """文件从列表中移除时的回调（当前为宿主预留，暂无额外行为）。"""
 
     def _init_status_bar(self):
         """初始化状态栏（进度条）。"""
@@ -1198,51 +1209,21 @@ class MainWindow(FluentWindow):
 
     def load_settings_to_ui(self):
         """从配置文件加载设置到UI。"""
-        cfg_path = get_config_path()
-        config = configparser.ConfigParser()
+        data, loaded_encoder_settings = self.config_manager.load()
+        self.encoder_settings = loaded_encoder_settings
 
-        data = DEFAULT_SETTINGS.copy()
+        # 旧版本遗留的中文标签值迁移到规范值（仅影响旧配置文件）
+        data["save_mode"] = self.OLD_VALUE_MAP.get(data["save_mode"], data["save_mode"])
+        for enc_conf in self.encoder_settings.values():
+            enc_conf["loudnorm_mode"] = self.OLD_VALUE_MAP.get(
+                enc_conf["loudnorm_mode"], enc_conf["loudnorm_mode"]
+            )
 
-        if os.path.exists(cfg_path):
-            self.is_first_run = False
-            try:
-                config.read(cfg_path, encoding="utf-8")
-                if "Settings" in config:
-                    sect = config["Settings"]
-                    for k, v in DEFAULT_SETTINGS.items():
-                        data[k] = sect.get(k, v)
-                    raw_save_mode = sect.get("save_mode", DEFAULT_SETTINGS["save_mode"])
-                    data["save_mode"] = self.OLD_VALUE_MAP.get(
-                        raw_save_mode, raw_save_mode
-                    )
-
-                for enc_name in self.encoder_settings:
-                    if enc_name in config:
-                        sect = config[enc_name]
-                        defaults = ENCODER_CONFIGS[enc_name]
-                        raw_loudnorm_mode = sect.get(
-                            "loudnorm_mode", defaults["loudnorm_mode"]
-                        )
-                        self.encoder_settings[enc_name] = {
-                            "vmaf": sect.get("vmaf", defaults["vmaf"]),
-                            "audio_bitrate": sect.get(
-                                "audio_bitrate", defaults["audio_bitrate"]
-                            ),
-                            "preset": sect.get("preset", defaults["preset"]),
-                            "loudnorm": sect.get("loudnorm", defaults["loudnorm"]),
-                            "loudnorm_mode": self.OLD_VALUE_MAP.get(
-                                raw_loudnorm_mode, raw_loudnorm_mode
-                            ),
-                            "nv_aq": sect.get("nv_aq", defaults["nv_aq"]),
-                            "amf_offset": sect.get(
-                                "amf_offset", defaults.get("amf_offset", "0")
-                            ),
-                        }
-            except Exception:  # noqa: S110, BLE001
-                pass
-        else:
+        if not os.path.exists(self.config_manager.config_path):
             self.is_first_run = True
             self.save_settings_file(DEFAULT_SETTINGS, self.encoder_settings)
+        else:
+            self.is_first_run = False
 
         enc_idx = 0
         if ENC_NVENC in data["encoder"]:
@@ -1404,26 +1385,7 @@ class MainWindow(FluentWindow):
 
     def save_settings_file(self, settings_dict, encoder_settings=None):
         """将设置字典写入配置文件。"""
-        config = configparser.ConfigParser()
-
-        if os.path.exists(get_config_path()):
-            config.read(get_config_path(), encoding="utf-8")
-
-        if "Settings" not in config:
-            config["Settings"] = {}
-
-        for key, value in settings_dict.items():
-            config["Settings"][key] = str(value)
-
-        if encoder_settings:
-            for enc_name, enc_conf in encoder_settings.items():
-                if enc_name not in config:
-                    config[enc_name] = {}
-                for key, value in enc_conf.items():
-                    config[enc_name][key] = str(value)
-
-        with open(get_config_path(), "w", encoding="utf-8") as f:
-            config.write(f)
+        self.config_manager.save(settings_dict, encoder_settings)
 
     def save_current_settings(self, show_tip=False):
         """保存当前UI上的所有设置到文件。"""
@@ -1498,7 +1460,9 @@ class MainWindow(FluentWindow):
         for w in widgets_to_block:
             w.blockSignals(True)
 
-        self.encoder_settings = copy.deepcopy(ENCODER_CONFIGS)
+        # 从 ConfigManager 获取默认配置（深拷贝，不污染全局常量）
+        default_settings, default_encoder_settings = self.config_manager.reset()
+        self.encoder_settings = default_encoder_settings
 
         current_enc = self.combo_encoder.currentText()
         self.load_encoder_settings_to_ui(current_enc)
@@ -1515,6 +1479,33 @@ class MainWindow(FluentWindow):
             self.combo_transcode_mode.findData("auto")
         )
         self.spin_transcode_concurrency.setValue(2)
+        # 直接应用默认全局设置到内存，保证 reset 返回值真实生效
+        self.global_settings = default_settings
+        # 同步系统设置页控件，避免后续保存把旧值写回。
+        # 屏蔽语言/主题控件的信号：避免 setCurrentIndex 触发 on_language_changed 弹模态框
+        # 或 on_theme_changed 强制切换语言/主题；仅同步其余系统设置控件。
+        # DEFAULT_SETTINGS 无 language 键，load_settings 会回落到 zh_CN，
+        # 因此加载默认值后需把设置页语言下拉框恢复到当前语言，避免后续保存写回 zh_CN。
+        if hasattr(self, "settings_interface"):
+            sig_blocks = [
+                self.settings_interface.combo_lang,
+                self.settings_interface.combo_theme,
+            ]
+            orig_lang_data = self.settings_interface.combo_lang.currentData()
+            try:
+                for sig_w in sig_blocks:
+                    sig_w.blockSignals(True)
+                self.settings_interface.load_settings(default_settings)
+            finally:
+                # 恢复语言下拉框（仍在信号屏蔽窗口内，不触发任何槽）
+                if orig_lang_data is not None:
+                    lang_idx = self.settings_interface.combo_lang.findData(
+                        orig_lang_data
+                    )
+                    if lang_idx >= 0:
+                        self.settings_interface.combo_lang.setCurrentIndex(lang_idx)
+                for sig_w in sig_blocks:
+                    sig_w.blockSignals(False)
 
         for w in widgets_to_block:
             w.blockSignals(False)
@@ -1631,16 +1622,8 @@ class MainWindow(FluentWindow):
 
     def on_settings_save_requested(self, settings):
         """处理设置页面的保存请求。"""
-        # Update global settings
-        current_settings = DEFAULT_SETTINGS.copy()
-        cfg_path = get_config_path()
-        config = configparser.ConfigParser()
-        if os.path.exists(cfg_path):
-            config.read(cfg_path, encoding="utf-8")
-            if "Settings" in config:
-                current_settings.update(dict(config["Settings"]))
-
-        current_settings.update(settings)
+        # 在现有已持久化设置的基础上合并本次修改，并写盘
+        current_settings = self.config_manager.merge_settings(settings)
         self.global_settings = current_settings
 
         # Save to file
@@ -1731,35 +1714,8 @@ class MainWindow(FluentWindow):
             line_edit.setText(folder)
 
     def add_source_paths(self, paths):
-        """将给定的路径（文件或文件夹）添加到待处理文件列表中。"""
-        existing = set(self.selected_files)
-        added = 0
-
-        for raw in paths:
-            if not raw:
-                continue
-            p = os.path.normpath(raw)
-
-            if os.path.isdir(p):
-                for dp, _, filenames in os.walk(p):
-                    for f in filenames:
-                        fp = os.path.join(dp, f)
-                        if fp.lower().endswith(VIDEO_EXTS) and fp not in existing:
-                            self.selected_files.append(fp)
-                            existing.add(fp)
-                            added += 1
-            elif (
-                os.path.isfile(p)
-                and p.lower().endswith(VIDEO_EXTS)
-                and p not in existing
-            ):
-                self.selected_files.append(p)
-                existing.add(p)
-                added += 1
-
-        if added > 0:
-            self.update_selected_count()
-        return added
+        """将给定的路径（文件或文件夹）添加到待处理文件列表中（委托给 manager）。"""
+        return self.file_list_manager.add_source_paths(paths)
 
     def handle_dropped_paths(self, paths):
         """处理拖放的文件路径。"""
@@ -1780,79 +1736,19 @@ class MainWindow(FluentWindow):
             )
 
     def clear_selected_list_visual_state(self):
-        """清除文件列表的视觉选择状态。"""
-        if hasattr(self, "list_selected_files"):
-            self.list_selected_files.clearSelection()
-            self.list_selected_files.setCurrentRow(-1)
+        """清除文件列表的视觉选择状态（委托给 manager）。"""
+        if hasattr(self, "file_list_manager"):
+            self.file_list_manager.clear_selected_list_visual_state()
 
     def on_selected_zone_drag_active_changed(self, active):
-        """当拖拽进入或离开文件列表区域时调用。"""
-        self._drag_over_source_zone = bool(active)
-        self.update_selected_zone_border()
+        """当拖拽进入或离开文件列表区域时调用（委托给 manager）。"""
+        if hasattr(self, "file_list_manager"):
+            self.file_list_manager.set_drag_active(active)
 
     def update_selected_zone_border(self):
-        """更新文件列表区域的边框样式，以响应拖拽状态。"""
-        if not hasattr(self, "lbl_selected_placeholder") or not hasattr(
-            self, "list_selected_files"
-        ):
-            return
-
-        show_hint_border = self._drag_over_source_zone or (
-            len(self.selected_files) == 0
-        )
-        border_css = (
-            "2px dashed rgba(251, 114, 153, 0.90)"
-            if show_hint_border
-            else "1px solid transparent"
-        )
-        bg_css = (
-            "rgba(251, 114, 153, 0.1)"
-            if show_hint_border
-            else "rgba(128, 128, 128, 0.05)"
-        )
-
-        self.lbl_selected_placeholder.setStyleSheet(
-            f"border: {border_css}; border-radius: 10px; background: {bg_css}; padding: 8px; color: #FB7299; font-size: 18px; font-weight: 700;"
-        )
-
-        self.list_selected_files.setStyleSheet(f"""
-            ListWidget {{
-                background: {bg_css};
-                border: {border_css};
-                border-radius: 10px;
-                outline: none;
-            }}
-            ListWidget::item {{
-                background: transparent;
-                border: none;
-                margin: 0px;
-                padding: 0px;
-            }}
-            ListWidget::item:hover {{
-                background: transparent;
-            }}
-            ListWidget::item:selected {{
-                background: transparent;
-            }}
-            QListWidget {{
-                background: {bg_css};
-                border: {border_css};
-                border-radius: 10px;
-                outline: none;
-            }}
-            QListWidget::item {{
-                background: transparent;
-                border: none;
-                margin: 0px;
-                padding: 0px;
-            }}
-            QListWidget::item:hover {{
-                background: transparent;
-            }}
-            QListWidget::item:selected {{
-                background: transparent;
-            }}
-        """)
+        """更新文件列表区域的边框样式，以响应拖拽状态（委托给 manager）。"""
+        if hasattr(self, "file_list_manager"):
+            self.file_list_manager.update_selected_zone_border()
 
     def choose_source_folder(self):
         """弹出文件夹选择对话框以选择源文件夹。"""
@@ -1893,128 +1789,59 @@ class MainWindow(FluentWindow):
         if not item:
             return
         row = self.list_selected_files.row(item)
-        if 0 <= row < len(self.selected_files):
-            path = self.selected_files[row]
+        selected_files = self.file_list_manager.selected_files
+        if 0 <= row < len(selected_files):
+            path = selected_files[row]
             try:
                 subprocess.Popen(f'explorer /select,"{os.path.normpath(path)}"')
             except Exception:  # noqa: S110, BLE001
                 pass
 
     def process_duration_queue(self):
-        """处理等待中的视频时长分析任务。"""
-        limit = (
-            int(self.global_settings.get("thread_limit", "4"))
-            if hasattr(self, "global_settings")
-            else MAX_DURATION_WORKERS
-        )
-        while len(self.active_dur_workers) < limit and self.pending_dur_tasks:
-            path = self.pending_dur_tasks.pop(0)
-            self.start_duration_worker(path)
+        """处理等待中的视频时长分析任务（委托给 manager）。"""
+        self.file_list_manager.process_duration_queue()
 
     def start_duration_worker(self, path):
-        """启动一个新的线程来分析视频时长。"""
-        worker = DurationWorker(path)
-        worker.result.connect(self.update_file_duration_label)
-        worker.finished.connect(worker.deleteLater)
-        worker.finished.connect(lambda: self.on_duration_worker_finished(path))
-        self.active_dur_workers[path] = worker
-        worker.start()
-        self.set_duration_text_in_list(path, "...")
+        """启动一个新的线程来分析视频时长（委托给 manager）。"""
+        self.file_list_manager.start_duration_worker(path)
 
     def on_duration_worker_finished(self, path):
-        """视频时长分析线程完成时的清理工作。"""
-        self.active_dur_workers.pop(path, None)
-        self.process_duration_queue()
+        """视频时长分析线程完成时的清理工作（委托给 manager）。"""
+        self.file_list_manager.on_duration_worker_finished(path)
 
     def get_file_duration(self, path):
-        """请求获取指定文件的视频时长。"""
-        if path in self.pending_dur_tasks:
-            return
-
-        self.pending_dur_tasks.append(path)
-        self.process_duration_queue()
+        """请求获取指定文件的视频时长（委托给 manager）。"""
+        self.file_list_manager.get_file_duration(path)
 
     def update_file_duration_label(self, path, duration_str, duration_sec, meta=None):
-        """更新文件列表中的视频时长标签。"""
-        self.cached_durations[path] = (duration_str, duration_sec)
-        if meta:
-            self.file_metadata[path] = {**meta, "duration": duration_sec}
-
-        self.set_duration_text_in_list(path, duration_str)
-
-        if path not in self.cached_thumbnails:
-            self.get_file_thumbnail(path, duration_sec)
+        """更新文件列表中的视频时长标签（委托给 manager）。"""
+        self.file_list_manager.update_file_duration_label(
+            path, duration_str, duration_sec, meta
+        )
 
     def process_thumbnail_queue(self):
-        """处理等待中的视频缩略图生成任务。"""
-        limit = (
-            int(self.global_settings.get("thread_limit", "4"))
-            if hasattr(self, "global_settings")
-            else MAX_THUMBNAIL_WORKERS
-        )
-        while len(self.active_thumb_workers) < limit and self.pending_thumb_tasks:
-            path, duration = self.pending_thumb_tasks.pop(0)
-            self.start_thumbnail_worker(path, duration)
+        """处理等待中的视频缩略图生成任务（委托给 manager）。"""
+        self.file_list_manager.process_thumbnail_queue()
 
     def start_thumbnail_worker(self, path, duration_sec):
-        """启动一个新的线程来生成视频缩略图。"""
-        worker = ThumbnailWorker(path, duration_sec)
-        worker.result.connect(self.update_file_thumbnail)
-        worker.finished.connect(worker.deleteLater)
-        worker.finished.connect(lambda: self.on_thumbnail_worker_finished(path))
-        self.active_thumb_workers[path] = worker
-        worker.start()
+        """启动一个新的线程来生成视频缩略图（委托给 manager）。"""
+        self.file_list_manager.start_thumbnail_worker(path, duration_sec)
 
     def on_thumbnail_worker_finished(self, path):
-        """视频缩略图生成线程完成时的清理工作。"""
-        self.active_thumb_workers.pop(path, None)
-        self.process_thumbnail_queue()
+        """视频缩略图生成线程完成时的清理工作（委托给 manager）。"""
+        self.file_list_manager.on_thumbnail_worker_finished(path)
 
     def get_file_thumbnail(self, path, duration_sec):
-        """请求获取指定文件的视频缩略图。"""
-        if path in self.active_thumb_workers:
-            return
-        for p, _ in self.pending_thumb_tasks:
-            if p == path:
-                return
-
-        self.pending_thumb_tasks.append((path, duration_sec))
-        self.process_thumbnail_queue()
+        """请求获取指定文件的视频缩略图（委托给 manager）。"""
+        self.file_list_manager.get_file_thumbnail(path, duration_sec)
 
     def update_file_thumbnail(self, path, image):
-        """更新文件列表中的视频缩略图。"""
-        if not image.isNull():
-            pixmap = QPixmap.fromImage(image)
-
-            rounded = QPixmap(pixmap.size())
-            rounded.fill(Qt.GlobalColor.transparent)
-
-            painter = QPainter(rounded)
-            painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-            painter_path = QPainterPath()
-            painter_path.addRoundedRect(0, 0, pixmap.width(), pixmap.height(), 6, 6)
-            painter.setClipPath(painter_path)
-            painter.drawPixmap(0, 0, pixmap)
-            painter.end()
-
-            if path in self.cached_thumbnails:
-                self.cached_thumbnails.move_to_end(path)
-            self.cached_thumbnails[path] = QIcon(rounded)
-
-            if len(self.cached_thumbnails) > self.MAX_THUMBNAIL_CACHE:
-                self.cached_thumbnails.popitem(last=False)
-
-            item = self.path_to_item.get(path)
-            if item:
-                widget = self.list_selected_files.itemWidget(item)
-                if widget:
-                    icon_w = widget.findChild(IconWidget, "video_icon")
-                    if icon_w:
-                        icon_w.setIcon(self.cached_thumbnails[path])
+        """更新文件列表中的视频缩略图（委托给 manager）。"""
+        self.file_list_manager.update_file_thumbnail(path, image)
 
     def clear_all_selected_files(self):
         """清空所有已选择的文件。"""
-        if not self.selected_files:
+        if not self.file_list_manager.selected_files:
             return
 
         if self.worker and self.worker.isRunning():
@@ -2034,261 +1861,37 @@ class MainWindow(FluentWindow):
         if not dialog.exec():
             return
 
-        self.selected_files.clear()
-        self.path_to_item.clear()
-        self.list_selected_files.clear()
-        self.pending_dur_tasks.clear()
-        self.pending_thumb_tasks.clear()
-        self.cached_durations.clear()
-        self.cached_thumbnails.clear()
-        self.file_metadata.clear()
-        self.update_selected_count()
+        self.file_list_manager.clear()
         self.log(tr("log.list_cleared"), "info")
 
     def set_duration_text_in_list(self, path, text):
-        """在文件列表中设置指定文件的时长文本。"""
-        for i in range(self.list_selected_files.count()):
-            if i < len(self.selected_files) and self.selected_files[i] == path:
-                item = self.list_selected_files.item(i)
-                widget = self.list_selected_files.itemWidget(item)
-                if widget:
-                    btn = widget.findChild(ClickableBodyLabel, "btn_duration")
-                    if btn:
-                        btn.setText(text)
-                        if text not in ["...", tr("list.item.duration_button")]:
-                            btn.setEnabled(False)
-                            btn.setCursor(Qt.CursorShape.ArrowCursor)
+        """在文件列表中设置指定文件的时长文本（委托给 manager）。"""
+        self.file_list_manager.set_duration_text_in_list(path, text)
 
     def remove_selected_file(self, file_path):
-        """从文件列表中移除指定的文件。"""
-        self.selected_files = [p for p in self.selected_files if p != file_path]
-
-        if file_path in self.path_to_item:
-            item = self.path_to_item.pop(file_path)
-            row = self.list_selected_files.row(item)
-            taken_item = self.list_selected_files.takeItem(row)
-            del taken_item
-
-        self.cached_durations.pop(file_path, None)
-        self.cached_thumbnails.pop(file_path, None)
-        self.file_metadata.pop(file_path, None)
-
-        if file_path in self.pending_dur_tasks:
-            self.pending_dur_tasks.remove(file_path)
-        self.pending_thumb_tasks = [
-            t for t in self.pending_thumb_tasks if t[0] != file_path
-        ]
-
-        self.update_selected_count()
+        """从文件列表中移除指定的文件（委托给 manager）。"""
+        self.file_list_manager.remove_selected_file(file_path)
 
     def format_file_size(self, size_bytes):
-        """格式化文件大小为可读字符串。"""
-        for unit in ["B", "KB", "MB", "GB", "TB"]:
-            if size_bytes < 1024:
-                return f"{size_bytes:.1f} {unit}"
-            size_bytes /= 1024
-        return f"{size_bytes:.1f} PB"
+        """格式化文件大小为可读字符串（委托给 manager）。"""
+        return self.file_list_manager.format_file_size(size_bytes)
 
     def update_selected_count(self):
-        """更新文件列表中的文件数量显示，并切换占位符和列表的可见性。"""
-        count = len(self.selected_files)
-        if hasattr(self, "lbl_selected_count_right"):
-            self.lbl_selected_count_right.setText(str(count))
-
-        is_empty = count == 0
-        self.lbl_selected_placeholder.setVisible(is_empty)
-        self.list_selected_files.setVisible(not is_empty)
-        self.update_selected_zone_border()
-
-        if is_empty:
-            self.list_selected_files.clear()
-            self.path_to_item.clear()
-            return
-
-        for p in self.selected_files:
-            if p in self.path_to_item:
-                continue
-
-            item = QListWidgetItem(self.list_selected_files)
-            item.setSizeHint(QSize(0, 60))
-            self.path_to_item[p] = item
-
-            item_widget = QWidget(self.list_selected_files)
-            item_widget.setObjectName("item_tile")
-            item_widget.setStyleSheet("""
-                QWidget#item_tile {
-                    background-color: rgba(251, 114, 153, 0.05);
-                    border: 1px solid rgba(251, 114, 153, 0.1);
-                    border-radius: 8px;
-                    margin: 2px 4px;
-                }
-                QWidget#item_tile:hover {
-                    background-color: rgba(251, 114, 153, 0.12);
-                    border: 1px solid rgba(251, 114, 153, 0.3);
-                }
-            """)
-            container = QVBoxLayout(item_widget)
-            container.setContentsMargins(4, 2, 4, 2)
-            container.setSpacing(0)
-
-            row = QWidget(item_widget)
-            row.setFixedHeight(44)
-            row_layout = QHBoxLayout(row)
-            row_layout.setContentsMargins(6, 4, 6, 4)
-            row_layout.setSpacing(0)
-
-            status_icon = IconWidget(FluentIcon.HISTORY, row)
-            status_icon.setFixedSize(16, 16)
-            status_icon.setObjectName("status_icon")
-
-            display_icon = self.cached_thumbnails.get(p, FluentIcon.VIDEO)
-            icon_widget = IconWidget(display_icon, row)
-            icon_widget.setFixedSize(24, 24)
-            icon_widget.setObjectName("video_icon")
-
-            row_layout.addWidget(status_icon)
-            row_layout.addSpacing(4)
-            row_layout.addWidget(icon_widget)
-            row_layout.addSpacing(8)
-
-            try:
-                f_size = os.path.getsize(p)
-                size_str = self.format_file_size(f_size)
-            except Exception:  # noqa: BLE001
-                size_str = "Unknown"
-
-            name_label = BodyLabel(os.path.basename(p) or p, row)
-            name_label.setToolTip(p)
-
-            btn_remove = ClickableBodyLabel(tr("list.item.remove_button"), row)
-            btn_remove.setCursor(Qt.CursorShape.PointingHandCursor)
-            btn_remove.setStyleSheet("font-weight: 700; background: transparent;")
-            btn_remove.setTextColor(QColor("#D93652"), QColor("#FF8FA1"))
-            btn_remove.clicked.connect(lambda path=p: self.remove_selected_file(path))
-
-            dur_text = tr("list.item.duration_button")
-            if p in self.cached_durations:
-                dur_text = self.cached_durations[p][0]
-
-            btn_duration = ClickableBodyLabel(dur_text, row)
-            btn_duration.setObjectName("btn_duration")
-            btn_duration.setFixedWidth(60)
-            btn_duration.setAlignment(
-                Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
-            )
-
-            size_label = BodyLabel(size_str, row)
-            size_label.setTextColor(QColor("#999999"), QColor("#999999"))
-            size_label.setFixedWidth(80)
-            size_label.setAlignment(
-                Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
-            )
-
-            row_layout.addWidget(name_label, 1)
-            row_layout.addSpacing(12)
-            row_layout.addWidget(btn_duration)
-            row_layout.addSpacing(0)
-            row_layout.addWidget(size_label)
-            row_layout.addSpacing(12)
-            row_layout.addWidget(btn_remove)
-
-            container.addWidget(row)
-
-            stats_layout = QHBoxLayout()
-            stats_layout.setContentsMargins(6, 0, 12, 4)
-            stats_layout.setSpacing(10)
-
-            pbar = ProgressBar(item_widget)
-            pbar.setFixedHeight(4)
-            pbar.setValue(0)
-            pbar.hide()
-            pbar.setObjectName("pbar")
-
-            lbl_stats = BodyLabel("", item_widget)
-            lbl_stats.setObjectName("lbl_stats")
-            lbl_stats.setStyleSheet(
-                "font-size: 11px; font-weight: bold; color: #FB7299;"
-            )
-            lbl_stats.hide()
-
-            stats_layout.addWidget(pbar, 1)
-            stats_layout.addWidget(lbl_stats)
-
-            container.addLayout(stats_layout)
-
-            self.list_selected_files.setItemWidget(item, item_widget)
-            if p not in self.cached_durations:
-                self.get_file_duration(p)
-
-        self.clear_selected_list_visual_state()
+        """更新文件列表中的文件数量显示（委托给 manager）。"""
+        if hasattr(self, "file_list_manager"):
+            self.file_list_manager.update_selected_count()
 
     def update_file_progress(self, filepath, percent):
-        """更新指定文件的进度条。"""
-        item = self.path_to_item.get(filepath)
-        if not item:
-            return
-        widget = self.list_selected_files.itemWidget(item)
-        if widget:
-            pbar = widget.findChild(ProgressBar, "pbar")
-            if pbar:
-                if pbar.isHidden():
-                    pbar.show()
-                pbar.setValue(percent)
+        """更新指定文件的进度条（委托给 manager）。"""
+        self.file_list_manager.update_file_progress(filepath, percent)
 
     def update_file_stats(self, filepath, speed, eta):
-        """更新指定文件的统计信息（速度和剩余时间）。"""
-        item = self.path_to_item.get(filepath)
-        if not item:
-            return
-        widget = self.list_selected_files.itemWidget(item)
-        if widget:
-            lbl = widget.findChild(BodyLabel, "lbl_stats")
-            pbar = widget.findChild(ProgressBar, "pbar")
-            if lbl:
-                if lbl.isHidden():
-                    lbl.show()
-                lbl.setText(f"{speed} | {eta}")
-            if pbar and pbar.isHidden():
-                pbar.show()
-
-        # 如果是 ab-av1 探测阶段，动态更改主界面的当前任务标签
-        if "ab-av1" in speed or "探测" in speed:
-            self.lbl_current.setText(f"✨ 寻觅最优魔法参数 ({speed} · {eta}):")
-        else:
-            self.lbl_current.setText(tr("home.status_bar.current_label"))
+        """更新指定文件的统计信息（委托给 manager）。"""
+        self.file_list_manager.update_file_stats(filepath, speed, eta)
 
     def update_file_status(self, filepath, status):
-        """更新指定文件的状态图标。"""
-        item = self.path_to_item.get(filepath)
-        if not item:
-            return
-        widget = self.list_selected_files.itemWidget(item)
-        if widget:
-            icon_w = widget.findChild(IconWidget, "status_icon")
-            pbar = widget.findChild(ProgressBar, "pbar")
-            lbl_stats = widget.findChild(BodyLabel, "lbl_stats")
-            if icon_w:
-                if status == "processing":
-                    icon_w.setIcon(FluentIcon.SYNC)
-                    if lbl_stats:
-                        lbl_stats.setStyleSheet(
-                            "font-size: 11px; font-weight: bold; color: #FB7299;"
-                        )
-                elif status == "success":
-                    icon_w.setIcon(FluentIcon.ACCEPT)
-                    if pbar:
-                        pbar.hide()
-                    if lbl_stats:
-                        lbl_stats.setStyleSheet(
-                            "font-size: 11px; font-weight: bold; color: #55E555;"
-                        )
-                        lbl_stats.show()
-                elif status == "error":
-                    icon_w.setIcon(FluentIcon.CANCEL)
-                    if pbar:
-                        pbar.hide()
-                    if lbl_stats:
-                        lbl_stats.hide()
+        """更新指定文件的状态图标（委托给 manager）。"""
+        self.file_list_manager.update_file_status(filepath, status)
 
     def toggle_export_ui(self):
         """根据保存模式显示或隐藏导出路径UI。"""
@@ -2420,21 +2023,14 @@ class MainWindow(FluentWindow):
             cache_path = self.line_cache.text().strip() or get_default_cache_dir()
             if not os.path.exists(cache_path):
                 return
-            count = 0
-            for f in os.listdir(cache_path):
-                if f.endswith(".temp.mkv") or f.startswith(".ab-av1-") or "ab-av1" in f:
-                    full_path = os.path.join(cache_path, f)
-                    if os.path.isfile(full_path):
-                        os.remove(full_path)
-                        count += 1
-                    elif os.path.isdir(full_path):
-                        import shutil
-
-                        shutil.rmtree(full_path, ignore_errors=True)
-                        count += 1
-            if count > 0:
+            removed = cleanup_stale_sessions(
+                cache_path,
+                active_session_ids=(),
+                min_age_seconds=24 * 60 * 60,
+            )
+            if removed:
                 self.log(
-                    f"🧹 [自动肃清] 成功清除缓存目录下的 {count} 个临时残渣文件/文件夹。",
+                    f"🧹 [自动肃清] 成功清除缓存目录下的 {len(removed)} 个临时会话目录。",
                     "info",
                 )
         except Exception as e:  # noqa: BLE001
@@ -2483,7 +2079,8 @@ class MainWindow(FluentWindow):
 
     def start_task(self):
         """开始编码任务。"""
-        if not self.selected_files:
+        selected_files, file_metadata = self.file_list_manager.snapshot()
+        if not selected_files:
             InfoBar.warning(
                 title=tr("infobar.warning.no_files_selected.title"),
                 content=tr("infobar.warning.no_files_selected.content"),
@@ -2517,14 +2114,14 @@ class MainWindow(FluentWindow):
             return
 
         config = {
-            "selected_files": self.selected_files[:],
+            "selected_files": selected_files,
             "encoder": self.combo_encoder.currentText(),
             "export_dir": export_dir,
             "save_mode": self.combo_save_mode.currentData(),
             "cache_dir": self.line_cache.text().strip() or get_default_cache_dir(),
             "preset": self.combo_preset.text(),
             "vmaf": vmaf_val,
-            "metadata": self.file_metadata.copy(),
+            "metadata": file_metadata,
             "audio_bitrate": self.line_audio.text(),
             "loudnorm": self.line_loudnorm.text(),
             "nv_aq": self.sw_nv_aq.isChecked(),
@@ -2547,9 +2144,13 @@ class MainWindow(FluentWindow):
         self.worker.log_signal.connect(self.log)
         self.worker.progress_total_signal.connect(self.pbar_total.setValue)
         self.worker.progress_current_signal.connect(self.pbar_current.setValue)
-        self.worker.file_progress_signal.connect(self.update_file_progress)
-        self.worker.file_stats_signal.connect(self.update_file_stats)
-        self.worker.file_status_signal.connect(self.update_file_status)
+        self.worker.file_progress_signal.connect(
+            self.file_list_manager.update_file_progress
+        )
+        self.worker.file_stats_signal.connect(self.file_list_manager.update_file_stats)
+        self.worker.file_status_signal.connect(
+            self.file_list_manager.update_file_status
+        )
         self.worker.finished_signal.connect(self.on_finished)
         self.worker.ask_error_decision.connect(self.on_worker_error)
         self.worker.concurrency_status_signal.connect(
@@ -2784,20 +2385,8 @@ class MainWindow(FluentWindow):
             except Exception:  # noqa: S110, BLE001
                 pass
 
-        self.pending_dur_tasks.clear()
-        self.pending_thumb_tasks.clear()
-
-        for worker in self.active_dur_workers.values():
-            try:
-                worker.stop()
-            except RuntimeError:
-                pass
-
-        for worker in self.active_thumb_workers.values():
-            try:
-                worker.stop()
-            except RuntimeError:
-                pass
+        # 停止文件列表的时长/缩略图 worker（委托给 manager）
+        self.file_list_manager.stop_workers()
 
         self.info_interface.stop_worker()
         super().closeEvent(event)
