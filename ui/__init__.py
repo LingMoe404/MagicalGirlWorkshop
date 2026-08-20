@@ -5,6 +5,7 @@ from .common import (  # noqa: F401
 )
 from .config_manager import ConfigManager  # noqa: F401
 from .file_list_manager import FileListManager  # noqa: F401
+from .home_ui_builder import build_home_ui  # noqa: F401
 from .interfaces import (  # noqa: F401
     CreditsInterface,
     MediaInfoInterface,

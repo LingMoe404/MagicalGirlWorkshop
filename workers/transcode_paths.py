@@ -77,6 +77,14 @@ def find_output_conflicts(inputs, save_mode, export_dir):
                 involved.append(matched_input)
 
         unique_inputs = tuple(dict.fromkeys(involved))
+        if (
+            save_mode == SAVE_MODE_OVERWRITE
+            and os.path.exists(entry["output_path"])
+            and _normalize(entry["output_path"])
+            not in {_normalize(path) for path in entry["producers"]}
+        ):
+            unique_inputs = tuple(dict.fromkeys([*unique_inputs, entry["output_path"]]))
+
         if len(entry["producers"]) > 1 or len(unique_inputs) > 1:
             conflicts.append(
                 OutputConflict(

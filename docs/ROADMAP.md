@@ -1,7 +1,7 @@
 ﻿# 🗺️ 魔法少女工坊 · 技术优化路线图
 
 > **文档版本**: 1.0  
-> **更新日期**: 2026-08-04  
+> **更新日期**: 2026-08-20  
 > **对应版本**: v1.4.0  
 > **状态**: 📋 规划中 → 🔄 进行中 → ✅ 已完成
 
@@ -28,15 +28,20 @@
 
 | 任务 | 文件 | 当前大小 | 拆分方案 | 优先级 | 状态 |
 |------|------|---------|---------|--------|------|
-| `MainWindow` 分解 | `ui/main_window.py` | ~3000 行 / 110KB | 拆分为 `FileListManager`、`ConfigManager`、`LogManager`、`TranscodeController` 等 Mixin/Controller | 🔴 最高 | ⏳ 进行中 |
-| `EncoderWorker.run()` 拆分 | `workers/encoder.py` | ~760 行 / 40KB | 拆分为 `_probe_vmaf()`、`_execute_ffmpeg()`、`_handle_output()`、`_cleanup()` | 🔴 最高 | ✅ 已完成 |
-| 配置逻辑抽取 | `ui/main_window.py` 中的配置部分 | ~500 行 | 抽取独立 `ConfigManager` 类，管理 config.ini 读写、迁移、缓存 | 🟡 高 | ⏳ 未开始 |
-| 日志系统抽取 | `ui/main_window.py` 中的日志部分 | ~200 行 | 抽取独立 `LogManager` 类，线程安全队列 + 定时刷新 | 🟡 高 | ⏳ 未开始 |
+| `MainWindow` 分解 | `ui/main_window.py` | ~3000 行 / 110KB | 拆分为 `FileListManager`、`ConfigManager`、`LogManager`、`TranscodeController`、`HomeUiBuilder`、`SettingsController`、`WelcomeWizard` 等 Controller/Builder | 🔴 最高 | ✅ 已完成（当前 1258 行） |
+| `EncoderWorker.run()` 拆分 | `workers/encoder.py` | ~760 行 / 40KB | 拆分为 `_probe_vmaf()`、`_execute_ffmpeg()`、`_handle_output()`、`_cleanup()`；输出策略已抽至 `workers/output_strategy.py` | 🔴 最高 | ✅ 已完成 |
+| 配置逻辑抽取 | `ui/main_window.py` 中的配置部分 | ~500 行 | 抽取独立 `ConfigManager` 类，管理 config.ini 读写、迁移、缓存 | 🟡 高 | ✅ 已完成 |
+| 文件列表抽取 | `ui/main_window.py` 中的文件列表部分 | ~500 行 | 抽取独立 `FileListManager`，管理扫描、去重、worker 队列和列表状态 | 🟡 高 | ✅ 已完成 |
+| 日志系统抽取 | `ui/main_window.py` 中的日志部分 | ~200 行 | 抽取独立 `LogManager` 类，线程安全队列 + 定时刷新 | 🟡 高 | ✅ 已完成 |
+| 转码控制抽取 | `ui/main_window.py` 中的转码生命周期部分 | ~250 行 | 抽取 `TranscodeController` 门面，复用 `EncodingCoordinator` 调度逻辑 | 🟡 高 | ✅ 已完成 |
+| 主页布局抽取 | `ui/main_window.py` 中的 UI 构建部分 | ~500 行 | 抽取 `home_ui_builder.py`，集中构建主页控件并注入管理器 | 🟡 高 | ✅ 已完成 |
+| 设置与欢迎流程抽取 | `ui/main_window.py` 中的设置/向导部分 | ~500 行 | 抽取 `SettingsController` 与 `WelcomeWizard`，保留主窗口薄转发 | 🟡 高 | ✅ 已完成 |
+| 媒体报告渲染抽取 | `workers/analyzer.py` 中的 HTML 报告 | ~170 行 | 抽取独立 `media_report.py` 纯渲染模块 | 🟡 高 | ✅ 已完成 |
 
 **验收标准**：
-- [ ] `main_window.py` 缩减至 1500 行以内
+- [x] `main_window.py` 缩减至 1500 行以内（当前 1258 行）
 - [x] `encoder.py` 的 `run()` 方法缩减至 200 行以内
-- [ ] 每个拆分模块有独立的 `__init__.py` 导出
+- [x] 每个拆分模块通过所属包的 `__init__.py` 导出（`ui` / `workers`）
 
 ### 1.2 类型注解补全
 
@@ -55,20 +60,22 @@
 
 | 任务 | 当前状态 | 目标 | 优先级 |
 |------|---------|------|--------|
-| `EncoderWorker` 单元测试 | ⚠️ 部分 | 已添加结构验证测试（17 个）；`run()` 直接运行测试因 `iter(bound_method, sentinel)` 兼容性问题暂未覆盖 | 🔴 最高 |
-| `AnalysisWorker` 单元测试 | ✅ 完成 | 已添加 18 个测试覆盖 HTML 报告生成、缩略图生成、时长解析 | 🟡 高 |
-| UI 组件测试 | ✅ 完成 | 已添加 9 个测试覆盖文件拖拽、文件列表交互、点击事件 | 🟡 高 |
-| 集成测试 | ✅ 完成 | 已添加 6 个测试，使用真实 ffmpeg 合成 5 秒视频验证完整转码流水线 | 🟢 中 |
-| 现有测试增强 | ⚠️ 部分 | 已新增测试；`test_coordinator.py` 和 `test_concurrency_policy.py` 边界场景待补齐 | 🟢 中 |
+| `EncoderWorker` 单元测试 | ✅ 完成 | 已添加输出落盘失败、跨磁盘回退、重试与编码流程测试；当前编码器测试覆盖 22 项 | 🔴 最高 |
+| `AnalysisWorker` 单元测试 | ✅ 完成 | 已添加媒体报告渲染、缩略图生成、时长解析和错误路径测试 | 🟡 高 |
+| UI 组件测试 | ✅ 完成 | 已添加文件列表、日志、主页布局、设置控制器、欢迎向导和转码接入测试 | 🟡 高 |
+| 集成测试 | ✅ 完成 | 已添加 MainWindow 与文件列表、日志、转码控制器的接入回归测试 | 🟢 中 |
+| 现有测试增强 | ✅ 完成 | 已补齐路径冲突、缓存清理边界、依赖探测超时回收、媒体报告 HTML 转义与配置百分号回归测试；当前全套测试 302 项 | 🟢 中 |
 
 **工具建议**：`pytest` + `pytest-qt` + `pytest-mock`
 
 **验收标准**：
-- [ ] 整体测试覆盖率 ≥ 70%
+- [ ] 整体测试覆盖率 ≥ 70%（当前已验证 302 项测试通过，覆盖率尚未统计）
 - [ ] 每个核心模块有至少一个测试文件
 - [ ] CI 中测试步骤在 5 分钟内完成
 
 ### 1.4 异常处理细化
+
+> 2026-08-19 已完成本轮输出落盘失败状态、依赖探测超时回收、缓存清理边界和报告 HTML 转义修复；宽泛异常捕获的全量替换仍未完成。
 
 | 任务 | 说明 | 优先级 |
 |------|------|--------|
@@ -368,9 +375,9 @@ Phase 4 (架构现代化)
 
 | 技术债务项 | 引入版本 | 计划修复阶段 | 状态 |
 |-----------|---------|-------------|------|
-| `main_window.py` 过大 | v1.0.0 | Phase 1 | 📋 待办 |
-| `encoder.py` 的巨型 `run()` | v1.0.0 | Phase 1 | 📋 待办 |
-| 宽泛异常捕获 | v1.0.0 | Phase 1 | 📋 待办 |
+| `main_window.py` 过大 | v1.0.0 | Phase 1 | ✅ 已完成 |
+| `encoder.py` 的巨型 `run()` | v1.0.0 | Phase 1 | ✅ 已完成 |
+| 宽泛异常捕获 | v1.0.0 | Phase 1 | 🔄 部分修复 |
 | 缺少类型注解 | v1.0.0 | Phase 1 | 📋 待办 |
 | 缺失 HEVC 编码器 | v1.0.0 | Phase 2 | 📋 待办 |
 | 硬编码预设配置 | v1.0.0 | Phase 2 | 📋 待办 |
