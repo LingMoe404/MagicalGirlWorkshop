@@ -659,3 +659,5 @@ def _init_sub_interfaces(window):
     window.addSubInterface(
         window.settings_interface, FluentIcon.SETTING, tr("settings.title")
     )
+    # 设置页点击"保存设置"后通过 saveRequested 通知主窗口写盘
+    window.settings_interface.saveRequested.connect(window.on_settings_save_requested)

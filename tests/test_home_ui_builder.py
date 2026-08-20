@@ -94,6 +94,9 @@ class _WindowStub(QWidget):
     def restore_defaults(self):
         pass
 
+    def on_settings_save_requested(self, settings):
+        pass
+
     def apply_preset_light(self):
         pass
 
@@ -323,6 +326,38 @@ class HomeUiBuilderStructureTests(unittest.TestCase):
             w.btn_stop.setEnabled(True)
             w.btn_stop.click()
             stop.assert_called_once_with()
+
+    # --- 7. 设置页保存信号接线：on_settings_save_requested ---
+    def test_settings_save_clicked_emits_to_handler(self):
+        """真实点击 on_save_clicked -> saveRequested -> on_settings_save_requested。
+
+        回归：layout 抽取丢失了 settings_interface.saveRequested 连接，
+        导致设置页保存无效。必须经过真实信号链路，不能只直接调用 handler。
+        """
+        with (
+            mock.patch.object(MainWindow, "on_settings_save_requested") as handler,
+            mock.patch.object(MainWindow, "save_settings_file"),
+            mock.patch.object(MainWindow, "on_language_changed"),
+        ):
+            w = self._make_window()
+            handler.assert_not_called()
+            # 走真实点击路径：btn_save.clicked -> on_save_clicked -> saveRequested.emit
+            w.settings_interface.on_save_clicked()
+            handler.assert_called_once()
+            settings = handler.call_args.args[0]
+            self.assertIn("log_cap", settings)
+            self.assertIn("thread_limit", settings)
+
+    def test_settings_save_requested_emits_to_handler(self):
+        """直接 emit saveRequested 也应到达 MainWindow.on_settings_save_requested。"""
+        with (
+            mock.patch.object(MainWindow, "on_settings_save_requested") as handler,
+            mock.patch.object(MainWindow, "save_settings_file"),
+            mock.patch.object(MainWindow, "on_language_changed"),
+        ):
+            w = self._make_window()
+            w.settings_interface.saveRequested.emit({"log_cap": "5000"})
+            handler.assert_called_once_with({"log_cap": "5000"})
 
 
 if __name__ == "__main__":
