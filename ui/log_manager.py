@@ -41,6 +41,21 @@ _ICONS = {"info": "💡", "success": "✨", "warning": "⚠️", "error": "💢"
 _BOLD_LEVELS = ("error", "warning", "success")
 
 
+def _escape_html(msg):
+    """对日志消息做 HTML 转义，与主窗口原实现一致：& < > 换行与双空格。
+
+    普通消息与 blockCount 超限时的重置文案共用同一转义规则。
+    """
+    return (
+        str(msg)
+        .replace("&", "&amp;")
+        .replace("<", "&lt;")
+        .replace(">", "&gt;")
+        .replace("\n", "<br>")
+        .replace("  ", "&nbsp;&nbsp;")
+    )
+
+
 class LogManager:
     """线程安全的日志缓冲与刷新管理器（flush 作为主线程定时器槽）。"""
 
@@ -89,14 +104,7 @@ class LogManager:
                 timestamp = time.strftime("%H:%M:%S", time.localtime(t))
                 msg_color = c.get(level, c["info"])
                 icon = _ICONS.get(level, "•")
-                safe_msg = (
-                    str(msg)
-                    .replace("&", "&amp;")
-                    .replace("<", "&lt;")
-                    .replace(">", "&gt;")
-                    .replace("\n", "<br>")
-                    .replace("  ", "&nbsp;&nbsp;")
-                )
+                safe_msg = _escape_html(msg)
                 weight = "600" if level in _BOLD_LEVELS else "normal"
                 html = (
                     f"<span style=\"color:{ts_color}; font-family: 'Cascadia Code', "
@@ -108,21 +116,24 @@ class LogManager:
 
             text_log = self._text_log
             text_log.setUpdatesEnabled(False)
-            cursor = text_log.textCursor()
-            cursor.movePosition(cursor.MoveOperation.End)
-            cursor.insertHtml("".join(html_buffer))
-            text_log.setTextCursor(cursor)
-            text_log.ensureCursorVisible()
+            try:
+                cursor = text_log.textCursor()
+                cursor.movePosition(cursor.MoveOperation.End)
+                cursor.insertHtml("".join(html_buffer))
+                text_log.setTextCursor(cursor)
+                text_log.ensureCursorVisible()
 
-            # 块数超过 cap 时清空并追加一条翻译后的重置消息
-            if text_log.document().blockCount() > self._log_cap:
-                text_log.clear()
-                text_log.append(
-                    f"<div style=\"color:{c['info']}; font-family: 'Cascadia Code'; "
-                    f'font-size: 11px;">{self._translate("log.reset")}</div>'
-                )
-
-            text_log.setUpdatesEnabled(True)
+                # 块数超过 cap 时清空并追加一条翻译后的重置消息
+                if text_log.document().blockCount() > self._log_cap:
+                    text_log.clear()
+                    text_log.append(
+                        f"<div style=\"color:{c['info']}; font-family: 'Cascadia Code'; "
+                        f'font-size: 11px;">{_escape_html(self._translate("log.reset"))}</div>'
+                    )
+            finally:
+                # 无论 insertHtml/document/append 是否抛异常，都恢复控件更新，
+                # 避免控件长期停留在 setUpdatesEnabled(False) 导致不再刷新。
+                text_log.setUpdatesEnabled(True)
         except Exception as e:  # noqa: BLE001
             print(f"Log UI update error: {e}")
 

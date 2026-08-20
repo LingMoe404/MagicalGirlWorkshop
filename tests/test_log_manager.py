@@ -6,11 +6,14 @@
 - 通过注入 theme_fn 选择明/暗主题颜色
 - flush() 使用 fake text edit，且具备异常安全行为（不依赖真实窗口）
 - set_log_cap() 与 stop()
+- 未知 level 回退到默认 info 颜色与 • 图标
+- 后台线程并发 log() + 主线程反复 flush() 无异常、队列一致
 
 不依赖真实 QTextEdit / MainWindow；使用 FakeTextEdit 与注入的 theme_fn/translate。
 """
 
 import os
+import threading
 import time
 import unittest
 
@@ -180,6 +183,21 @@ class LogManagerTests(unittest.TestCase):
         self.assertIn("#888888", text.html[0])  # light ts 颜色
         self.assertIn("#333333", text.html[0])  # light info 颜色
 
+    # --- 未知 level 回退（默认 info 颜色与 • 图标） ---
+    def test_unknown_level_falls_back_to_info_color_and_bullet(self):
+        text = FakeTextEdit()
+        mgr = self.make_manager(text_log=text, theme_fn=lambda: False)
+        mgr.log("mystery", "mystery-level")
+        mgr.flush()
+        html = text.html[0]
+        # 未知级别使用 info 颜色（light 主题 #333333）
+        self.assertIn("#333333", html)
+        # 未知级别使用默认 • 图标，而非任何已知图标
+        self.assertIn("•", html)
+        for icon in ("💡", "✨", "⚠️", "💢"):
+            self.assertNotIn(icon, html)
+        self.assertIn("mystery", html)
+
     # --- attach / 未绑定 text_log ---
     def test_flush_without_text_log_is_safe(self):
         mgr = self.make_manager()  # text_log=None
@@ -228,7 +246,8 @@ class LogManagerTests(unittest.TestCase):
         mgr.flush()
         self.assertTrue(text.cleared)
         self.assertEqual(len(text.appended), 1)
-        self.assertIn(TRANSLATIONS["log.reset"], text.appended[0])
+        # 重置文案按 HTML 转义规则处理：开头的 ">>>" 被转义为 "&gt;&gt;&gt;"
+        self.assertIn("&gt;&gt;&gt; History erased, log restarts.", text.appended[0])
 
     def test_no_reset_when_under_block_cap(self):
         text = FakeTextEdit(block_count=0)
@@ -239,6 +258,25 @@ class LogManagerTests(unittest.TestCase):
         self.assertFalse(text.cleared)
         self.assertEqual(text.appended, [])
 
+    def test_reset_message_is_html_escaped(self):
+        def translate_with_special(key, **kwargs):
+            return "History & <Lore>  reset"
+
+        text = FakeTextEdit(block_count=3)
+        mgr = self.make_manager(
+            text_log=text, log_cap=4, translate=translate_with_special
+        )
+        mgr.log("line-a", "info")
+        mgr.log("line-b", "info")
+        mgr.flush()
+        self.assertEqual(len(text.appended), 1)
+        appended = text.appended[0]
+        # 重置文案包含 & < > 等字符时也必须按同样规则转义，避免注入 HTML
+        self.assertIn("History &amp; &lt;Lore&gt;", appended)
+        self.assertNotIn("<Lore>", appended)
+        # 双空格同样转换为 &nbsp;&nbsp;
+        self.assertIn("&lt;Lore&gt;&nbsp;&nbsp;reset", appended)
+
     # --- 异常安全 ---
     def test_flush_is_exception_safe(self):
         text = FakeTextEdit()
@@ -246,10 +284,71 @@ class LogManagerTests(unittest.TestCase):
         mgr = self.make_manager(text_log=text)
         mgr.log("will fail", "info")
         mgr.flush()  # 不向上抛异常
+        # 即使 insertHtml 抛异常，setUpdatesEnabled(True) 也必须在 finally 中执行
+        self.assertTrue(text.updates)
+        self.assertTrue(text.updates[-1])
         text.fail_insert_html = False
         mgr.log("recovers", "info")
         mgr.flush()  # 后续调用仍正常工作
         self.assertTrue(any("recovers" in h for h in text.html))
+
+    def test_flush_re_enables_updates_when_append_raises(self):
+        """append()（重置行）抛异常时也应恢复 setUpdatesEnabled(True)。"""
+        text = FakeTextEdit(block_count=5)
+
+        def fail_append(_html):
+            raise RuntimeError("append boom")
+
+        text.append = fail_append
+        mgr = self.make_manager(text_log=text, log_cap=4)
+        mgr.log("over cap", "info")
+        mgr.flush()  # 不向上抛异常
+        # 虽然 append 失败，updates 仍以 True 结尾
+        self.assertTrue(text.updates)
+        self.assertTrue(text.updates[-1])
+
+    # --- 后台线程并发 log + 主线程反复 flush ---
+    def test_concurrent_log_and_flush_is_safe_and_consistent(self):
+        text = FakeTextEdit()
+        mgr = self.make_manager(text_log=text, log_cap=100000)
+        total = 2000
+        stop_flag = threading.Event()
+        errors = []
+
+        def producer():
+            try:
+                for i in range(total):
+                    mgr.log(f"t{i}", "info")
+                    if i % 10 == 0:
+                        time.sleep(0.0001)  # 让出 CPU，不构成时序断言
+            except Exception as e:  # noqa: BLE001
+                errors.append(e)
+            finally:
+                stop_flag.set()
+
+        producer_thread = threading.Thread(target=producer)
+        producer_thread.start()
+
+        try:
+            # 主线程在生产者运行期间反复 flush，直到生产者结束
+            while not stop_flag.is_set():
+                mgr.flush()
+            mgr.flush()  # 收尾消费剩余消息
+        except Exception as e:  # noqa: BLE001
+            errors.append(e)
+        producer_thread.join(timeout=10)
+        self.assertFalse(producer_thread.is_alive())
+
+        # 生产者线程不应抛出任何异常
+        self.assertEqual(errors, [])
+
+        # 队列最终应被消费为空
+        self.assertTrue(mgr._queue.empty())
+
+        # 所有消息最终可观察到（或至少队列一致：每条消息只被消费一次）
+        rendered = "".join(text.html)
+        for i in range(total):
+            self.assertIn(f"t{i}", rendered)
 
     # --- set_log_cap / stop ---
     def test_set_log_cap_updates_trimming(self):
