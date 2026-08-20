@@ -220,6 +220,24 @@ class AnalysisWorkerTests(unittest.TestCase):
         html, _ = worker.report_signal.emissions[0]
         self.assertIn("\U0001f4e6", html)
 
+    def test_report_escapes_external_html_values(self):
+        ffprobe_data = _make_ffprobe_output().decode("utf-8")
+        ffprobe_data = ffprobe_data.replace(
+            '"format_long_name": "QuickTime / MOV"',
+            '"format_long_name": "<script>alert(1)</script> & MOV"',
+        )
+        worker = self._run_analysis(
+            ffprobe_data.encode("utf-8"),
+            filepath='unsafe <script>alert("path")</script>.mp4',
+        )
+        html, _ = worker.report_signal.emissions[0]
+        self.assertNotIn("<script>", html)
+        self.assertIn("&lt;script&gt;alert(1)&lt;/script&gt; &amp; MOV", html)
+        self.assertIn(
+            "unsafe &lt;script&gt;alert(&quot;path&quot;)&lt;/script&gt;.mp4",
+            html,
+        )
+
     def test_ffprobe_failure_emits_error_html(self):
         worker = AnalysisWorker("nonexistent.mp4")
         worker.report_signal = FakeSignal()

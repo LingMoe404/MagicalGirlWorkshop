@@ -11,6 +11,15 @@ from utils import get_config_path, get_subprocess_flags, safe_decode, tool_path
 from .base import BaseWorker
 
 
+def _communicate_with_timeout(proc, timeout):
+    try:
+        return proc.communicate(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        proc.kill()
+        proc.communicate()
+        raise
+
+
 # --- 依赖检查线程 (启动优化) ---
 class DependencyWorker(BaseWorker):
     """
@@ -101,7 +110,7 @@ class DependencyWorker(BaseWorker):
                         stderr=subprocess.PIPE,
                         creationflags=get_subprocess_flags(),
                     ) as proc:
-                        _, stderr = proc.communicate(timeout=gpu_timeout)
+                        _, stderr = _communicate_with_timeout(proc, gpu_timeout)
                         if proc.returncode == 0:
                             has_qsv = True
                         else:
@@ -148,7 +157,7 @@ class DependencyWorker(BaseWorker):
                         stderr=subprocess.PIPE,
                         creationflags=get_subprocess_flags(),
                     ) as proc:
-                        _, stderr = proc.communicate(timeout=gpu_timeout)
+                        _, stderr = _communicate_with_timeout(proc, gpu_timeout)
                         if proc.returncode == 0:
                             has_nvenc = True
                         else:
@@ -194,7 +203,10 @@ class DependencyWorker(BaseWorker):
                                     stderr=subprocess.PIPE,
                                     creationflags=get_subprocess_flags(),
                                 ) as proc_hevc:
-                                    proc_hevc.communicate(timeout=gpu_timeout)
+                                    _communicate_with_timeout(
+                                        proc_hevc,
+                                        gpu_timeout,
+                                    )
                                     if proc_hevc.returncode == 0:
                                         self.log_signal.emit(
                                             tr("log.dependency.nvenc_unsupported_gpu"),
@@ -246,7 +258,7 @@ class DependencyWorker(BaseWorker):
                         stderr=subprocess.PIPE,
                         creationflags=get_subprocess_flags(),
                     ) as proc:
-                        _, stderr = proc.communicate(timeout=gpu_timeout)
+                        _, stderr = _communicate_with_timeout(proc, gpu_timeout)
                         if proc.returncode == 0:
                             has_amf = True
                         else:

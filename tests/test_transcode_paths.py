@@ -77,6 +77,26 @@ class TranscodePathTests(unittest.TestCase):
             conflicts[0].input_paths,
         )
 
+    def test_overwrite_rejects_existing_different_extension_target(self):
+        with tempfile.TemporaryDirectory() as root:
+            root_path = Path(root)
+            source = root_path / "movie.mp4"
+            existing_target = root_path / "movie.mkv"
+            source.touch()
+            existing_target.touch()
+
+            conflicts = find_output_conflicts(
+                [source],
+                save_mode=SAVE_MODE_OVERWRITE,
+                export_dir="",
+            )
+
+        self.assertEqual(len(conflicts), 1)
+        self.assertEqual(
+            set(conflicts[0].input_paths),
+            {str(source.absolute()), str(existing_target.absolute())},
+        )
+
     def test_task_paths_are_isolated_inside_session(self):
         with tempfile.TemporaryDirectory() as root:
             session_root = create_session_root(root, "batch-1")
@@ -96,7 +116,24 @@ class TranscodePathTests(unittest.TestCase):
             self.assertTrue(os.path.isdir(second.ab_av1_dir))
             self.assertTrue(first.temp_output.endswith("output.temp.mkv"))
 
-    def test_cleanup_removes_only_old_inactive_sessions(self):
+    def test_cleanup_keeps_user_ab_av1_directory(self):
+        with tempfile.TemporaryDirectory() as root:
+            old_session = Path(create_session_root(root, "old"))
+            user_directory = Path(root) / "ab-av1-user-data"
+            user_directory.mkdir()
+            old_time = time.time() - 7200
+            os.utime(old_session, (old_time, old_time))
+            os.utime(user_directory, (old_time, old_time))
+
+            removed = cleanup_stale_sessions(
+                root,
+                min_age_seconds=3600,
+                now=time.time(),
+            )
+
+            self.assertEqual(removed, (str(old_session),))
+            self.assertTrue(user_directory.exists())
+
         with tempfile.TemporaryDirectory() as root:
             active = Path(create_session_root(root, "active"))
             recent = Path(create_session_root(root, "recent"))

@@ -42,6 +42,10 @@ from .ffmpeg_retry import (
     is_hardware_resource_error,
     next_retry_state,
 )
+from .output_strategy import (
+    save_non_overwrite_output,
+    save_overwrite_output,
+)
 from .transcode_paths import TaskPaths, build_final_output
 
 
@@ -862,68 +866,29 @@ class EncoderWorker(BaseWorker):
             and os.path.getsize(lp_temp) > 1024
         ):
             try:
-                lp_dest = to_long_path(final_dest)
-                abs_src = os.path.normcase(os.path.abspath(filepath))
-                abs_dest = os.path.normcase(os.path.abspath(final_dest))
-                lp_src = to_long_path(filepath)
-
                 total_duration = time.time() - task_start_time - file_paused_time
 
                 if save_mode == SAVE_MODE_OVERWRITE:
-                    success = False
-                    for _ in range(3):
-                        try:
-                            if abs_src == abs_dest:
-                                bak_path = lp_src + ".bak"
-                                # [Fix] 增强重试逻辑：仅当源文件存在时才执行重命名（防止重试时因源文件已更名而报错）
-                                if os.path.exists(lp_src):
-                                    if os.path.exists(bak_path):
-                                        os.remove(bak_path)
-                                    os.replace(lp_src, bak_path)
-
-                                shutil.move(lp_temp, lp_dest)
-                                if os.path.exists(bak_path):
-                                    os.remove(bak_path)
-                            else:
-                                if os.path.exists(lp_dest):
-                                    os.remove(lp_dest)
-                                shutil.move(lp_temp, lp_dest)
-                                if os.path.exists(lp_src):
-                                    os.remove(lp_src)
-                            success = True
-                            break
-                        except Exception:  # noqa: BLE001
-                            time.sleep(1)
-
-                    if success:
-                        self.log_signal.emit(
-                            tr(
-                                "log.encoder.success_overwrite",
-                                encode_duration=encode_duration,
-                                total_duration=total_duration,
-                            ),
-                            "success",
-                        )
-                        self.file_stats_signal.emit(
-                            filepath,
-                            tr("log.encoder.status_done"),
-                            tr(
-                                "log.encoder.status_duration",
-                                total_duration=total_duration,
-                            ),
-                        )
-                        self.file_status_signal.emit(filepath, "success")
-                    else:
-                        raise OSError(tr("log.encoder.error_move_overwrite"))
+                    save_overwrite_output(filepath, temp_file, final_dest)
+                    self.log_signal.emit(
+                        tr(
+                            "log.encoder.success_overwrite",
+                            encode_duration=encode_duration,
+                            total_duration=total_duration,
+                        ),
+                        "success",
+                    )
+                    self.file_stats_signal.emit(
+                        filepath,
+                        tr("log.encoder.status_done"),
+                        tr(
+                            "log.encoder.status_duration",
+                            total_duration=total_duration,
+                        ),
+                    )
+                    self.file_status_signal.emit(filepath, "success")
                 else:
-                    for _ in range(3):
-                        try:
-                            if os.path.exists(lp_dest):
-                                os.remove(lp_dest)
-                            shutil.move(lp_temp, lp_dest)
-                            break
-                        except Exception:  # noqa: BLE001
-                            time.sleep(1)
+                    save_non_overwrite_output(temp_file, final_dest)
 
                     if save_mode == SAVE_MODE_REMAIN:
                         self.log_signal.emit(
@@ -952,7 +917,12 @@ class EncoderWorker(BaseWorker):
                     )
                     self.file_status_signal.emit(filepath, "success")
             except Exception as e:  # noqa: BLE001
-                self.log_signal.emit(tr("log.encoder.error_move", error=e), "error")
+                if save_mode == SAVE_MODE_OVERWRITE:
+                    self.log_signal.emit(
+                        tr("log.encoder.error_move_overwrite"), "error"
+                    )
+                else:
+                    self.log_signal.emit(tr("log.encoder.error_move", error=e), "error")
                 self.file_status_signal.emit(filepath, "error")
             return False, file_paused_time
         else:

@@ -7,6 +7,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from workers.encoder import EncoderWorker
+from workers.output_strategy import move_with_retries
 from workers.transcode_paths import TaskPaths
 
 
@@ -359,7 +360,56 @@ class EncoderWorkerTests(unittest.TestCase):
             (self.test_file, "success"),
         )
 
-    # ---- Skip AV1 ----
+    def test_move_with_retries_falls_back_across_devices(self):
+        with (
+            patch(
+                "workers.output_strategy.os.replace",
+                side_effect=OSError(18, "cross-device"),
+            ),
+            patch("workers.output_strategy.shutil.move") as mock_move,
+        ):
+            self.assertTrue(
+                move_with_retries(
+                    "source.tmp",
+                    "destination.mkv",
+                    replace_existing=True,
+                    retries=1,
+                )
+            )
+
+        mock_move.assert_called_once_with("source.tmp", "destination.mkv")
+
+        worker = self.make_worker()
+        destination = Path(self.task_paths.final_output)
+        destination.write_bytes(b"existing output")
+        with (
+            patch("os.path.exists", return_value=True),
+            patch("os.path.getsize", return_value=2048),
+            patch("shutil.move", side_effect=OSError("move failed")),
+            patch("time.sleep"),
+        ):
+            result = worker._handle_output(
+                self.test_file,
+                "test_video.mp4",
+                self.task_paths.temp_output,
+                self.task_paths.final_output,
+                "Save As",
+                0.0,
+                0.0,
+                1.0,
+                True,
+                [],
+            )
+
+        self.assertEqual(result, (False, 0.0))
+        self.assertEqual(
+            worker.file_status_signal.emissions[-1], (self.test_file, "error")
+        )
+        self.assertNotIn(
+            (self.test_file, "success"),
+            worker.file_status_signal.emissions,
+        )
+        self.assertEqual(destination.read_bytes(), b"existing output")
 
     def test_skip_already_av1(self):
         worker = self.make_worker(
@@ -409,6 +459,7 @@ class EncoderWorkerTests(unittest.TestCase):
             replacer.add_process(make_ffmpeg_process())
             with (
                 patch("time.sleep"),
+                patch("shutil.move"),
                 patch("os.path.exists", return_value=True),
                 patch("os.path.getsize", return_value=2048),
             ):
