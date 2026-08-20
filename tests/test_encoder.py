@@ -1071,6 +1071,31 @@ class EncoderCommandCaptureTests(unittest.TestCase):
         self.assertNotIn("-color_primaries", ff_cmd)
         self.assertNotIn("-color_trc", ff_cmd)
         self.assertNotIn("-colorspace", ff_cmd)
+        # ToneMap+HDR must omit the explicit -pix_fmt p010le (the zscale
+        # filter chain sets format=yuv420p10le itself)
+        self.assertNotIn("-pix_fmt", ff_cmd)
+
+    def test_hdr_force_sdr_no_color_args_keeps_pix_fmt(self):
+        # Force SDR (COLOR_MODE_SDR): even on an HDR source, no tone-map / color
+        # tags are emitted, and -pix_fmt p010le is still applied.
+        worker = self.make_worker(
+            color_mode="SDR",
+            metadata=self._hdr_metadata(),
+        )
+        cmds = self.capture(
+            worker,
+            [
+                make_capture_ab_av1_process([(30, 93.69, 84)]),
+                make_capture_ffmpeg_process(),
+            ],
+        )
+        ff_cmd = cmds[1]
+        self.assertNotIn("-vf", ff_cmd)
+        self.assertNotIn("-color_primaries", ff_cmd)
+        self.assertNotIn("-color_trc", ff_cmd)
+        self.assertNotIn("-colorspace", ff_cmd)
+        self.assertIn("-pix_fmt", ff_cmd)
+        self.assertEqual(ff_cmd[ff_cmd.index("-pix_fmt") + 1], "p010le")
 
     def test_sdr_no_color_args(self):
         worker = self.make_worker(
