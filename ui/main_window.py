@@ -2,9 +2,8 @@ import copy
 import os
 import random
 import subprocess
-import time
 
-from PySide6.QtCore import QMutex, Qt, QTimer, QUrl
+from PySide6.QtCore import Qt, QTimer, QUrl
 from PySide6.QtGui import (
     QColor,
     QDesktopServices,
@@ -78,6 +77,7 @@ from ui.interfaces import (
     ProfileInterface,
     SettingsInterface,
 )
+from ui.log_manager import LogManager
 from utils import get_default_cache_dir, resource_path
 from workers import (
     DependencyWorker,
@@ -247,9 +247,7 @@ class MainWindow(FluentWindow):
         self._auto_save_blocked = False  # 自动保存状态标志
         self.dep_worker = None  # 依赖检查工作线程
 
-        # 日志缓冲队列，优化高频日志性能
-        self.log_mutex = QMutex()
-        self.log_queue = []
+        # 日志刷新定时器：由 MainWindow 持有，调用 process_log_queue 转发到 LogManager.flush
         self.log_timer = QTimer(self)
         self.log_timer.timeout.connect(self.process_log_queue)
         self.log_timer.start(LOG_UPDATE_INTERVAL)
@@ -1056,6 +1054,9 @@ class MainWindow(FluentWindow):
         """)
         self.main_layout.addWidget(self.text_log)
 
+        # LogManager：在 text_log 创建后 attach，flush 作为主线程定时器槽
+        self.log_manager = LogManager(text_log=self.text_log)
+
     def _init_footer(self):
         """初始化窗口底部区域（版权信息）。"""
         self.footer = BodyLabel(
@@ -1264,6 +1265,12 @@ class MainWindow(FluentWindow):
             self.combo_color.setCurrentIndex(color_mode_index)
 
         self.global_settings = data
+
+        # 初始加载后同步日志块数上限；非法值回退 LOG_MAX_BLOCKS
+        try:
+            self.log_manager.set_log_cap(int(data.get("log_cap")))
+        except (TypeError, ValueError):
+            self.log_manager.set_log_cap(LOG_MAX_BLOCKS)
 
         # Load settings to the new settings interface
         if hasattr(self, "settings_interface"):
@@ -1481,6 +1488,11 @@ class MainWindow(FluentWindow):
         self.spin_transcode_concurrency.setValue(2)
         # 直接应用默认全局设置到内存，保证 reset 返回值真实生效
         self.global_settings = default_settings
+        # 恢复默认后同步日志块数上限；非法值回退 LOG_MAX_BLOCKS
+        try:
+            self.log_manager.set_log_cap(int(default_settings.get("log_cap")))
+        except (TypeError, ValueError):
+            self.log_manager.set_log_cap(LOG_MAX_BLOCKS)
         # 同步系统设置页控件，避免后续保存把旧值写回。
         # 屏蔽语言/主题控件的信号：避免 setCurrentIndex 触发 on_language_changed 弹模态框
         # 或 on_theme_changed 强制切换语言/主题；仅同步其余系统设置控件。
@@ -1625,6 +1637,12 @@ class MainWindow(FluentWindow):
         # 在现有已持久化设置的基础上合并本次修改，并写盘
         current_settings = self.config_manager.merge_settings(settings)
         self.global_settings = current_settings
+
+        # 同步日志块数上限；非法值回退 LOG_MAX_BLOCKS
+        try:
+            self.log_manager.set_log_cap(int(self.global_settings.get("log_cap")))
+        except (TypeError, ValueError):
+            self.log_manager.set_log_cap(LOG_MAX_BLOCKS)
 
         # Save to file
         self.save_settings_file(current_settings, self.encoder_settings)
@@ -1911,106 +1929,12 @@ class MainWindow(FluentWindow):
         self.lbl_transcode_count.setEnabled(is_manual)
 
     def log(self, msg, level="info"):
-        """将日志消息添加到队列中以便稍后处理。"""
-        # 使用 tryLock(timeout) 防止在 log 本身发生死锁
-        # 如果 50ms 内拿不到锁，直接放弃这条日志，防止卡死主线程
-        if not self.log_mutex.tryLock(50):
-            print(f"Warning: Log mutex locked, dropping message: {msg}")
-            return
-
-        try:
-            self.log_queue.append((time.time(), msg, level))
-        finally:
-            self.log_mutex.unlock()
+        """将日志消息交给 LogManager 缓冲（线程安全，供 worker 信号连接）。"""
+        self.log_manager.log(msg, level)
 
     def process_log_queue(self):
-        """定期处理日志队列并将消息显示在日志区域。"""
-        # 使用 tryLock 防止死锁
-        if not self.log_mutex.tryLock():
-            return
-
-        limit_blocks = (
-            int(self.global_settings.get("log_cap", "2000"))
-            if hasattr(self, "global_settings")
-            else LOG_MAX_BLOCKS
-        )
-        batch = []
-        try:
-            if self.log_queue:
-                if len(self.log_queue) > limit_blocks // 2:
-                    self.log_queue = self.log_queue[-(limit_blocks // 2) :]
-                batch = self.log_queue[:]
-                self.log_queue.clear()
-        except Exception as e:  # noqa: BLE001
-            print(f"Log queue error: {e}")
-        finally:
-            self.log_mutex.unlock()
-
-        if not batch:
-            return
-
-        try:
-            # 将 UI 更新逻辑放在 try 块中，防止报错导致循环
-            is_dark = isDarkTheme()
-            colors = {
-                "dark": {
-                    "ts": "#707070",
-                    "info": "#DCDCDC",
-                    "success": "#A6E22E",
-                    "warning": "#E6DB74",
-                    "error": "#FF5277",
-                },
-                "light": {
-                    "ts": "#888888",
-                    "info": "#333333",
-                    "success": "#228B22",
-                    "warning": "#B8860B",
-                    "error": "#D93652",
-                },
-            }
-
-            theme = "dark" if is_dark else "light"
-            c = colors[theme]
-            ts_color = c["ts"]
-
-            icons = {"info": "💡", "success": "✨", "warning": "⚠️", "error": "💢"}
-
-            html_buffer = []
-            for t, msg, level in batch:
-                timestamp = time.strftime("%H:%M:%S", time.localtime(t))
-                msg_color = c.get(level, c["info"])
-                icon = icons.get(level, "•")
-                msg = (
-                    str(msg)
-                    .replace("&", "&amp;")
-                    .replace("<", "&lt;")
-                    .replace(">", "&gt;")
-                    .replace("\n", "<br>")
-                    .replace("  ", "&nbsp;&nbsp;")
-                )
-                html = (
-                    f"<span style=\"color:{ts_color}; font-family: 'Cascadia Code', 'Consolas', monospace; font-size: 11px;\">[{timestamp}]</span>&nbsp;"
-                    f'<span style="color:{msg_color}; font-weight: {"600" if level in ["error", "warning", "success"] else "normal"};">'
-                    f"{icon} {msg}</span><br>"
-                )
-                html_buffer.append(html)
-
-            self.text_log.setUpdatesEnabled(False)
-            cursor = self.text_log.textCursor()
-            cursor.movePosition(cursor.MoveOperation.End)
-            cursor.insertHtml("".join(html_buffer))
-            self.text_log.setTextCursor(cursor)
-            self.text_log.ensureCursorVisible()
-
-            if self.text_log.document().blockCount() > limit_blocks:
-                self.text_log.clear()
-                self.text_log.append(
-                    f"<div style=\"color:{c['info']}; font-family: 'Cascadia Code'; font-size: 11px;\">>>> 历史因果已抹除，日志重新开始记录。</div>"
-                )
-
-            self.text_log.setUpdatesEnabled(True)
-        except Exception as e:  # noqa: BLE001
-            print(f"Log UI update error: {e}")
+        """定期将 LogManager 队列中的日志刷新到日志区域（定时器槽）。"""
+        self.log_manager.flush()
 
     def auto_clean_cache_startup(self):
         """启动时静默清除ab-av1生成的临时缓存文件。"""
@@ -2389,4 +2313,9 @@ class MainWindow(FluentWindow):
         self.file_list_manager.stop_workers()
 
         self.info_interface.stop_worker()
+
+        # 停止日志刷新定时器与 LogManager，关闭后不再消费新日志
+        self.log_timer.stop()
+        self.log_manager.stop()
+
         super().closeEvent(event)
