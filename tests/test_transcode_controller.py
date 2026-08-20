@@ -47,6 +47,7 @@ class FakeCoordinator:
 
     def __init__(self, config, parent=None):
         self.config = config
+        self.parent = parent
         self.started = False
         self.start_calls = 0
         self.stopped = False
@@ -231,6 +232,31 @@ class TranscodeControllerTests(unittest.TestCase):
         self.assertIsNotNone(controller.coordinator)
         self.assertIsNot(controller.coordinator, first)
         self.assertEqual(len(self.factory.instances), 2)
+
+    # --- coordinator 生命周期：无 Qt parent，避免批次累积 ---
+    def test_coordinator_created_without_qt_parent(self):
+        """coordinator 不应以控制器为 Qt parent，finished 后即完全释放。"""
+        controller = self.make_controller()
+        controller.start(self.config)
+        coord = controller.coordinator
+        self.assertIsNotNone(coord)
+        self.assertIsNone(coord.parent)
+
+    def test_finished_coordinator_fully_released(self):
+        """finished 后控制器清空 coordinator 引用，无 Qt parent 即可被回收。"""
+        controller = self.make_controller()
+        controller.start(self.config)
+        coord = controller.coordinator
+        self.assertIsNotNone(coord)
+        self.assertIsNone(coord.parent)
+
+        coord.finished_signal.emit()
+
+        self.assertIsNone(controller.coordinator)
+        self.assertFalse(controller.is_running())
+        # finished 后可再次 start 创建全新实例，旧引用不残留
+        self.assertTrue(controller.start(self.config))
+        self.assertIsNot(controller.coordinator, coord)
 
     # --- finished_signal 清理引用并透传 ---
     def test_finished_signal_clears_reference_and_is_forwarded(self):

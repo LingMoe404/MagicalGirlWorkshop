@@ -51,7 +51,10 @@ class TranscodeController(QObject):
         if coordinator is not None and coordinator.isRunning():
             return True
 
-        new_coordinator = self._coordinator_factory(config, self)
+        # 不把 coordinator 挂到控制器（或 UI）的 Qt 父级下：每个批次都是独立
+        # 生命周期，finished 后清空引用即可完全释放，避免批次累积。
+        # 信号透传由 _connect 建立，无 parent 不影响跨线程转发。
+        new_coordinator = self._coordinator_factory(config, None)
         self.coordinator = new_coordinator
         self._connect(new_coordinator)
         new_coordinator.start()

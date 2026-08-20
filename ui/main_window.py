@@ -81,7 +81,7 @@ from ui.log_manager import LogManager
 from utils import get_default_cache_dir, resource_path
 from workers import (
     DependencyWorker,
-    EncodingCoordinator,
+    TranscodeController,
 )
 from workers.transcode_paths import cleanup_stale_sessions
 
@@ -213,7 +213,7 @@ class MainWindow(FluentWindow):
         "仅立体声/单声道 (Stereo/Mono Only)": LOUDNORM_MODE_AUTO,
     }
 
-    def __init__(self, config_manager=None):
+    def __init__(self, config_manager=None, transcode_controller=None):
         super().__init__()
 
         self._base_min_size = MIN_WINDOW_SIZE
@@ -243,9 +243,13 @@ class MainWindow(FluentWindow):
             self.setWindowIcon(icon)
 
         # 核心变量
-        self.worker = None  # 编码工作线程
+        # 转码生命周期由 TranscodeController 门面管理：内部创建/清理
+        # EncodingCoordinator，start_task 只做 UI 校验 + config 构建 + controller.start。
+        # 不直接持有 self.worker，避免两套转码生命周期并存。
         self._auto_save_blocked = False  # 自动保存状态标志
         self.dep_worker = None  # 依赖检查工作线程
+        # 转码控制器：信号接线在 init_ui 之后（依赖 pbar/文件列表等控件）
+        self.transcode_controller = transcode_controller or TranscodeController()
 
         # 日志刷新定时器：由 MainWindow 持有，调用 process_log_queue 转发到 LogManager.flush
         self.log_timer = QTimer(self)
@@ -265,6 +269,9 @@ class MainWindow(FluentWindow):
         self.auto_clean_cache_startup()
         self.combo_encoder.currentIndexChanged.connect(self.on_encoder_changed)
         self.bind_auto_save_signals()
+
+        # 连接转码控制器的全部信号（依赖 init_ui 创建的控件）
+        self._connect_transcode_signals()
 
         # 连接所有页面的主题切换信号
         for interface in [
@@ -401,7 +408,7 @@ class MainWindow(FluentWindow):
             self.combo_transcode_mode,
             self.transcode_modes,
         )
-        if not (self.worker and self.worker.isRunning()):
+        if not self.transcode_controller.is_running():
             self.lbl_concurrency_status.setText(tr("home.action_card.concurrency.idle"))
         self.line_export.setPlaceholderText(
             tr("home.action_card.export_path_placeholder")
@@ -1549,7 +1556,7 @@ class MainWindow(FluentWindow):
 
         QApplication.processEvents()
 
-        if self.worker and self.worker.isRunning():
+        if self.transcode_controller.is_running():
             InfoBar.warning(
                 tr("infobar.warning.dependency_check_skipped.title"),
                 tr("infobar.warning.dependency_check_skipped.content"),
@@ -1862,7 +1869,7 @@ class MainWindow(FluentWindow):
         if not self.file_list_manager.selected_files:
             return
 
-        if self.worker and self.worker.isRunning():
+        if self.transcode_controller.is_running():
             InfoBar.warning(
                 tr("infobar.warning.task_running.title"),
                 tr("infobar.warning.task_running.content"),
@@ -2001,6 +2008,30 @@ class MainWindow(FluentWindow):
                 position=InfoBarPosition.TOP,
             )
 
+    def _connect_transcode_signals(self):
+        """连接 TranscodeController 的全部信号到既有 UI/日志/文件列表处理器。"""
+        self.transcode_controller.log_signal.connect(self.log)
+        self.transcode_controller.progress_total_signal.connect(
+            self.pbar_total.setValue
+        )
+        self.transcode_controller.progress_current_signal.connect(
+            self.pbar_current.setValue
+        )
+        self.transcode_controller.file_progress_signal.connect(
+            self.file_list_manager.update_file_progress
+        )
+        self.transcode_controller.file_stats_signal.connect(
+            self.file_list_manager.update_file_stats
+        )
+        self.transcode_controller.file_status_signal.connect(
+            self.file_list_manager.update_file_status
+        )
+        self.transcode_controller.finished_signal.connect(self.on_finished)
+        self.transcode_controller.ask_error_decision.connect(self.on_worker_error)
+        self.transcode_controller.concurrency_status_signal.connect(
+            self.lbl_concurrency_status.setText
+        )
+
     def start_task(self):
         """开始编码任务。"""
         selected_files, file_metadata = self.file_list_manager.snapshot()
@@ -2064,26 +2095,9 @@ class MainWindow(FluentWindow):
         }
         os.makedirs(config["cache_dir"], exist_ok=True)
 
-        self.worker = EncodingCoordinator(config)
-        self.worker.log_signal.connect(self.log)
-        self.worker.progress_total_signal.connect(self.pbar_total.setValue)
-        self.worker.progress_current_signal.connect(self.pbar_current.setValue)
-        self.worker.file_progress_signal.connect(
-            self.file_list_manager.update_file_progress
-        )
-        self.worker.file_stats_signal.connect(self.file_list_manager.update_file_stats)
-        self.worker.file_status_signal.connect(
-            self.file_list_manager.update_file_status
-        )
-        self.worker.finished_signal.connect(self.on_finished)
-        self.worker.ask_error_decision.connect(self.on_worker_error)
-        self.worker.concurrency_status_signal.connect(
-            self.lbl_concurrency_status.setText
-        )
-
-        coordinator = self.worker
-        coordinator.start()
-        if self.worker is not coordinator or not coordinator.isRunning():
+        # 委托给 TranscodeController 创建/绑定/启动 coordinator；不再直接构造
+        # EncodingCoordinator，也不持有 self.worker。
+        if not self.transcode_controller.start(config):
             return
 
         self.btn_start.setEnabled(False)
@@ -2123,26 +2137,25 @@ class MainWindow(FluentWindow):
         timer.stop()
 
         decision = "continue" if res else "stop"
-        if self.worker:
-            self.worker.receive_error_decision(task_id, decision)
+        self.transcode_controller.decide_error(task_id, decision)
 
     def stop_task(self):
         """停止当前正在运行的编码任务。"""
-        if self.worker:
+        if self.transcode_controller.is_running():
             self.log(tr("log.task_stop_request"), "error")
-            self.worker.stop()
+            self.transcode_controller.stop()
             self.btn_pause.setEnabled(False)
             self.btn_stop.setEnabled(False)
 
     def pause_task(self):
         """暂停或恢复当前正在运行的编码任务。"""
-        if self.worker:
-            if self.worker.is_paused:
-                self.worker.set_paused(False)
+        if self.transcode_controller.is_running():
+            if self.transcode_controller.is_paused:
+                self.transcode_controller.set_paused(False)
                 self.btn_pause.setText(tr("home.action_card.pause_button"))
                 self.log(tr("log.task_resume"), "info")
             else:
-                self.worker.set_paused(True)
+                self.transcode_controller.set_paused(True)
                 self.btn_pause.setText(tr("home.action_card.pause_button"))
                 self.log(tr("log.task_pause"), "info")
 
@@ -2158,7 +2171,8 @@ class MainWindow(FluentWindow):
         self.combo_transcode_mode.setEnabled(True)
         self.toggle_transcode_concurrency_ui()
         self.lbl_concurrency_status.setText(tr("home.action_card.concurrency.idle"))
-        self.worker = None
+        # coordinator 的引用清理由 TranscodeController 在 finished 回调中完成，
+        # 这里不再置空 worker/coordinator。
 
     def apply_encoder_availability(self, has_qsv, has_nvenc, has_amf):
         """根据可用的编码器更新编码器选择下拉框。"""
@@ -2176,7 +2190,7 @@ class MainWindow(FluentWindow):
             self.combo_encoder.setEnabled(False)
             return None
 
-        if not (self.worker and self.worker.isRunning()):
+        if not self.transcode_controller.is_running():
             self.combo_encoder.setEnabled(True)
 
         current = self.combo_encoder.currentText()
@@ -2276,7 +2290,7 @@ class MainWindow(FluentWindow):
 
     def closeEvent(self, event):
         """窗口关闭事件，确保所有后台线程都已停止。"""
-        if self.worker and self.worker.isRunning():
+        if self.transcode_controller.is_running():
             title = tr("dialog.close_warning.title") or "⚠️ 结界强行切断警告"
             content = (
                 tr("dialog.close_warning.content")
@@ -2293,9 +2307,9 @@ class MainWindow(FluentWindow):
                 event.ignore()
                 return
 
-            self.worker.stop()
-            # 给予充裕的时间强杀后台进程 (2秒)，保证系统级安全
-            self.worker.wait(2000)
+            # 委托 TranscodeController 异步停止并等待（默认 2000ms），
+            # 保证系统级安全强杀后台进程；不再直接操作 coordinator/worker。
+            self.transcode_controller.shutdown(2000)
 
         # 强杀依赖自检线程，杜绝关闭后残留
         if (

@@ -9,7 +9,7 @@
   非法值回退 LOG_MAX_BLOCKS；初始加载/恢复默认后同步 log_cap
 - closeEvent 停止日志 timer 与 manager
 
-不依赖真实 ffprobe/ffmpeg：通过 mock 替换 EncodingCoordinator。
+不依赖真实 ffprobe/ffmpeg。
 不依赖真实 QTextEdit 渲染：通过替换 text_log 验证 flush 被调用。
 """
 
@@ -47,34 +47,6 @@ class _RecordingSignal:
 
     def count(self):
         return len(self._connected)
-
-
-class _FakeCoordinator:
-    """模拟 EncodingCoordinator：捕获 config，不启动真实线程。"""
-
-    def __init__(self, config):
-        self.config = config
-        self.log_signal = _RecordingSignal()
-        self.progress_total_signal = _RecordingSignal()
-        self.progress_current_signal = _RecordingSignal()
-        self.file_progress_signal = _RecordingSignal()
-        self.file_stats_signal = _RecordingSignal()
-        self.file_status_signal = _RecordingSignal()
-        self.finished_signal = _RecordingSignal()
-        self.ask_error_decision = _RecordingSignal()
-        self.concurrency_status_signal = _RecordingSignal()
-
-    def start(self):
-        pass
-
-    def isRunning(self):
-        return True
-
-    def stop(self):
-        pass
-
-    def wait(self, timeout):
-        return True
 
 
 class _FakeWorker:
@@ -286,8 +258,12 @@ class MainWindowLogIntegrationTests(unittest.TestCase):
 
     def test_close_event_with_running_worker_prompts(self):
         w = self._make_window()
-        w.worker = _FakeCoordinator(config=None)  # isRunning() -> True
-        with mock.patch("ui.main_window.MessageDialog", autospec=True) as m_dlg:
+        with (
+            mock.patch.object(
+                w.transcode_controller, "is_running", return_value=True
+            ) as m_run,
+            mock.patch("ui.main_window.MessageDialog", autospec=True) as m_dlg,
+        ):
             dlg = m_dlg.return_value
             dlg.yesButton = mock.Mock()
             dlg.cancelButton = mock.Mock()
@@ -295,7 +271,7 @@ class MainWindowLogIntegrationTests(unittest.TestCase):
             w.closeEvent(QCloseEvent())
         # 用户取消关闭时不停止日志，事件被 ignore
         self.assertTrue(dlg.exec.called)
-        w.worker = None
+        self.assertEqual(m_run.call_count, 1)
 
 
 if __name__ == "__main__":

@@ -7,15 +7,14 @@
 - thread_limit_getter 把 global_settings['thread_limit'] 转 int，缺失/非法回退 4
 - status_text_callback 恢复 ab-av1/探测 分支的状态栏行为
 - closeEvent 路径使用 manager.stop_workers()
-- Coordinator 信号连接到 manager 方法
+- Controller 信号连接到 manager 方法
 
-不依赖真实 ffprobe/ffmpeg：通过 mock 替换 EncodingCoordinator。
+不依赖真实 ffprobe/ffmpeg：通过注入 FakeController 隔离转码批次。
 """
 
 import os
 import tempfile
 import unittest
-from unittest import mock
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
@@ -49,11 +48,20 @@ class _RecordingSignal:
         return len(self._connected)
 
 
-class _FakeCoordinator:
-    """模拟 EncodingCoordinator：捕获 config，不启动真实线程。"""
+class FakeController:
+    """模拟 TranscodeController：捕获 start(config) 并暴露记录信号。"""
 
-    def __init__(self, config):
-        self.config = config
+    def __init__(self, parent=None, coordinator_factory=None):
+        self.parent = parent
+        self.coordinator_factory = coordinator_factory
+        self.start_calls = []
+        self.stop_calls = 0
+        self.pause_calls = []
+        self.decisions = []
+        self.shutdown_calls = []
+        self.is_paused = False
+        self.coordinator = None
+
         self.log_signal = _RecordingSignal()
         self.progress_total_signal = _RecordingSignal()
         self.progress_current_signal = _RecordingSignal()
@@ -64,11 +72,26 @@ class _FakeCoordinator:
         self.ask_error_decision = _RecordingSignal()
         self.concurrency_status_signal = _RecordingSignal()
 
-    def start(self):
-        pass
-
-    def isRunning(self):
+    def start(self, config):
+        self.start_calls.append(config)
         return True
+
+    def stop(self):
+        self.stop_calls += 1
+
+    def set_paused(self, paused):
+        self.pause_calls.append(paused)
+        self.is_paused = paused
+
+    def decide_error(self, task_id, decision):
+        self.decisions.append((task_id, decision))
+
+    def shutdown(self, timeout=2000):
+        self.shutdown_calls.append(timeout)
+        return True
+
+    def is_running(self):
+        return bool(self.start_calls) and not self.stop_calls
 
 
 class _FakeWorker:
@@ -108,8 +131,11 @@ class MainWindowFileListIntegrationTests(unittest.TestCase):
             f.write("x")
         return path
 
-    def _make_window(self, use_fake_workers=True):
-        w = MainWindow(config_manager=ConfigManager(config_path=self.cfg_path))
+    def _make_window(self, use_fake_workers=True, controller=None):
+        w = MainWindow(
+            config_manager=ConfigManager(config_path=self.cfg_path),
+            transcode_controller=controller,
+        )
         if use_fake_workers:
             # 注入桩 worker 工厂，避免真实 ffprobe/ffmpeg 线程导致 teardown 崩溃
             w.file_list_manager.duration_worker_cls = _FakeWorker
@@ -169,26 +195,20 @@ class MainWindowFileListIntegrationTests(unittest.TestCase):
 
     # --- 4. snapshot 构建转码 config ---
     def test_start_task_config_uses_manager_snapshot(self):
-        w = self._make_window()
+        controller = FakeController()
+        w = self._make_window(controller=controller)
         p = self._mkfile("snap.mkv")
         w.add_source_paths([p])
         w.file_list_manager.file_metadata[p] = {"codec": "h264", "duration": 120.0}
 
-        captured = {}
+        w.start_task()
 
-        def factory(config):
-            fake = _FakeCoordinator(config)
-            captured["fake"] = fake
-            return fake
-
-        with mock.patch("ui.main_window.EncodingCoordinator", side_effect=factory):
-            w.start_task()
-
-        fake = captured["fake"]
-        self.assertEqual(fake.config["selected_files"], [p])
-        self.assertEqual(fake.config["metadata"], w.file_list_manager.file_metadata)
+        self.assertEqual(len(controller.start_calls), 1)
+        config = controller.start_calls[0]
+        self.assertEqual(config["selected_files"], [p])
+        self.assertEqual(config["metadata"], w.file_list_manager.file_metadata)
         # 快照应相互独立：修改返回的列表不影响 manager
-        fake.config["selected_files"].append("bogus.mkv")
+        config["selected_files"].append("bogus.mkv")
         self.assertNotIn("bogus.mkv", w.file_list_manager.selected_files)
 
     # --- 5. thread_limit_getter 转 int / 回退 4 ---
@@ -219,29 +239,28 @@ class MainWindowFileListIntegrationTests(unittest.TestCase):
         self.assertNotIn("ab-av1", w.lbl_current.text())
         self.assertEqual(w.lbl_current.text(), tr("home.status_bar.current_label"))
 
-    # --- 7. Coordinator 信号连接到 manager 方法 ---
+    # --- 7. Controller 信号连接到 manager 方法 ---
     def test_coordinator_file_signals_connected_to_manager(self):
-        w = self._make_window()
+        controller = FakeController()
+        w = self._make_window(controller=controller)
         p = self._mkfile("sig.mkv")
         w.add_source_paths([p])
 
-        fake = _FakeCoordinator(config=None)
-        with mock.patch("ui.main_window.EncodingCoordinator", return_value=fake):
-            w.start_task()
-
-        self.assertEqual(fake.file_progress_signal.count(), 1)
-        self.assertEqual(fake.file_stats_signal.count(), 1)
-        self.assertEqual(fake.file_status_signal.count(), 1)
-        # 连接的是 manager 的方法
+        # 控制器信号在窗口初始化时连接；验证文件列表信号连到 manager 方法
+        self.assertEqual(controller.file_progress_signal.count(), 1)
+        self.assertEqual(controller.file_stats_signal.count(), 1)
+        self.assertEqual(controller.file_status_signal.count(), 1)
         self.assertIn(
             w.file_list_manager.update_file_progress,
-            fake.file_progress_signal._connected,
+            controller.file_progress_signal._connected,
         )
         self.assertIn(
-            w.file_list_manager.update_file_stats, fake.file_stats_signal._connected
+            w.file_list_manager.update_file_stats,
+            controller.file_stats_signal._connected,
         )
         self.assertIn(
-            w.file_list_manager.update_file_status, fake.file_status_signal._connected
+            w.file_list_manager.update_file_status,
+            controller.file_status_signal._connected,
         )
 
     def test_coordinator_file_signals_drive_manager_updates(self):
