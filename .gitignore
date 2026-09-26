@@ -20,6 +20,16 @@ __pycache__/
 .mypy_cache/
 .superpowers/
 
+# --- 代理私有状态（锚定根目录：保留 .agents/skills/ 下的 skill 本身可提交） ---
+/.agent-state/
+/.harness-state/
+/auth.json
+/memories/
+/.agents/auth.json
+/.agents/logs/
+/.agents/history/
+/.agents/memories/
+
 # --- Nuitka 打包产物与构建目录 (强化防御) ---
 build/
 *.build/
