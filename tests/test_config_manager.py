@@ -5,6 +5,7 @@ import tempfile
 import unittest
 
 from config import DEFAULT_SETTINGS, ENC_AMF, ENC_NVENC, ENC_QSV, ENCODER_CONFIGS
+from tests import drain_deferred_deletes
 from ui.config_manager import ConfigManager
 
 
@@ -153,7 +154,15 @@ class ConfigManagerUIResetTests(unittest.TestCase):
         from ui.main_window import MainWindow
 
         mgr = ConfigManager(config_path=self.config_path)
-        return MainWindow(config_manager=mgr)
+        w = MainWindow(config_manager=mgr)
+
+        def _cleanup_window():
+            # deleteLater 在无事件循环的 headless 测试里不会真正释放，需手动排空
+            w.deleteLater()
+            drain_deferred_deletes()
+
+        self.addCleanup(_cleanup_window)
+        return w
 
     def test_restore_defaults_uses_config_manager_reset(self):
         w = self._make_window()

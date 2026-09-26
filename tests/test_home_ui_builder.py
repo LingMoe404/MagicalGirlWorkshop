@@ -20,6 +20,7 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 from PySide6.QtWidgets import QApplication, QWidget
 
+from tests import drain_deferred_deletes
 from ui.config_manager import ConfigManager
 from ui.home_ui_builder import build_home_ui
 from ui.main_window import MainWindow
@@ -257,7 +258,13 @@ class HomeUiBuilderStructureTests(unittest.TestCase):
         w.file_list_manager.duration_worker_cls = _FakeWorker
         w.file_list_manager.thumbnail_worker_cls = _FakeWorker
         self.addCleanup(w.file_list_manager.stop_workers)
-        self.addCleanup(w.deleteLater)
+
+        def _cleanup_window():
+            # deleteLater 在无事件循环的 headless 测试里不会真正释放，需手动排空
+            w.deleteLater()
+            drain_deferred_deletes()
+
+        self.addCleanup(_cleanup_window)
         return w
 
     # --- 1. build_home_ui 可导入且可独立调用 ---
