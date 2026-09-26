@@ -10,6 +10,8 @@ from PySide6.QtCore import Signal
 
 from config import (
     AUDIO_CODEC,
+    COLOR_MODE_AUTO,
+    COLOR_MODE_TONEMAP,
     ENC_AMF,
     ENC_NVENC,
     LOUDNORM_MODE_ALWAYS,
@@ -35,6 +37,14 @@ from utils import (
 from .ab_av1_result import AbAv1ResultParser, SearchResultMode
 from .base import BaseWorker
 from .batch_progress import map_encode_progress, map_probe_progress
+from .command_builder import (
+    build_ab_av1_search_cmd,
+    build_audio_args,
+    build_color_args,
+    build_subtitle_args,
+    build_video_encoder_args,
+    should_apply_loudnorm,
+)
 from .ffmpeg_retry import (
     FailureKind,
     RetryState,
@@ -269,24 +279,16 @@ class EncoderWorker(BaseWorker):
                 self.file_stats_signal.emit(filepath, "ab-av1", "探知最强术式中...")
 
             search_max_crf = "63" if s_enc in ["libsvtav1", "libaom-av1"] else "51"
-            cmd_search = [
+            cmd_search = build_ab_av1_search_cmd(
                 ab_av1,
-                "crf-search",
-                "-i",
                 std_filepath,
-                "--encoder",
                 s_enc,
-                "--pix-format",
                 enc_pix_fmt,
-                "--min-vmaf",
-                str(target_vmaf),
-                "--preset",
+                target_vmaf,
                 s_preset,
-                "--max-crf",
                 search_max_crf,
-            ]
-            if cache_dir and os.path.isdir(cache_dir):
-                cmd_search.extend(["--temp-dir", cache_dir])
+                cache_dir=cache_dir,
+            )
 
             current_log = []
             parser = AbAv1ResultParser()
@@ -520,22 +522,32 @@ class EncoderWorker(BaseWorker):
         if fname.lower().endswith((".mp4", ".mov", ".m4v")):
             sub_codec = SUBTITLE_CODEC_SRT
 
-        audio_args = ["-c:a", AUDIO_CODEC, "-b:a", audio_bitrate, "-ar", SAMPLE_RATE]
+        audio_args = build_audio_args(
+            audio_bitrate,
+            loudnorm,
+            loudnorm_mode,
+            source_audio_channels,
+            audio_codec=AUDIO_CODEC,
+            sample_rate=SAMPLE_RATE,
+            loudnorm_mode_always=LOUDNORM_MODE_ALWAYS,
+            loudnorm_mode_auto=LOUDNORM_MODE_AUTO,
+        )
         if source_audio_channels and source_audio_channels > 2:
             self.log_signal.emit(
                 tr("log.encoder.info_multichannel", channels=source_audio_channels),
                 "success",
             )
 
-        should_apply_loudnorm = (loudnorm_mode == LOUDNORM_MODE_ALWAYS) or (
-            loudnorm_mode == LOUDNORM_MODE_AUTO
-            and (source_audio_channels is None or source_audio_channels <= 2)
-        )
-
         # 收集音频滤镜，解决 libopus 5.1/7.1 非标声道布局导致的转码失败错误
-        audio_filters = []
-        if should_apply_loudnorm and loudnorm:
-            audio_filters.append(loudnorm)
+        if (
+            should_apply_loudnorm(
+                loudnorm_mode,
+                source_audio_channels,
+                LOUDNORM_MODE_ALWAYS,
+                LOUDNORM_MODE_AUTO,
+            )
+            and loudnorm
+        ):
             self.log_signal.emit(
                 tr("log.encoder.info_loudnorm_enabled", mode=loudnorm_mode), "info"
             )
@@ -543,14 +555,6 @@ class EncoderWorker(BaseWorker):
             self.log_signal.emit(
                 tr("log.encoder.info_loudnorm_skipped", mode=loudnorm_mode), "info"
             )
-
-        if source_audio_channels == 6:
-            audio_filters.append("aformat=channel_layouts=5.1")
-        elif source_audio_channels == 8:
-            audio_filters.append("aformat=channel_layouts=7.1")
-
-        if audio_filters:
-            audio_args.extend(["-af", ",".join(audio_filters)])
 
         # 音频和字幕
         ffmpeg_success = False
@@ -580,103 +584,54 @@ class EncoderWorker(BaseWorker):
             cmd.extend(["-i", std_filepath])
 
             # 视频色彩控制参数
-            color_mode = self.config.get("color_mode", "Auto")
-            is_input_hdr = (
-                color_transfer in ["smpte2084", "arib-std-b67"]
-                or "bt2020" in color_space
-                or "bt2020" in color_primaries
-                or has_dovi
+            color_mode = self.config.get("color_mode", COLOR_MODE_AUTO)
+            color_args, is_input_hdr = build_color_args(
+                color_mode,
+                color_transfer,
+                color_space,
+                color_primaries,
+                has_dovi,
+                color_mode_auto=COLOR_MODE_AUTO,
+                color_mode_tonemap=COLOR_MODE_TONEMAP,
             )
 
-            color_args = []
-            if color_mode == "Auto" and is_input_hdr:
-                if attempt == 0:
-                    self.log_signal.emit(
-                        "🌈 [色彩同调] 检测到 HDR/杜比视界 源视频，已自动激活色彩无损保留术式。",
-                        "success",
-                    )
-                primaries = color_primaries if color_primaries else "bt2020"
-                transfer = color_transfer if color_transfer else "smpte2084"
-                space = color_space if color_space else "bt2020nc"
-                color_args.extend(
-                    [
-                        "-color_primaries",
-                        primaries,
-                        "-color_trc",
-                        transfer,
-                        "-colorspace",
-                        space,
-                    ]
+            if color_mode == COLOR_MODE_AUTO and is_input_hdr and attempt == 0:
+                self.log_signal.emit(
+                    "🌈 [色彩同调] 检测到 HDR/杜比视界 源视频，已自动激活色彩无损保留术式。",
+                    "success",
                 )
-            elif color_mode == "ToneMap" and is_input_hdr:
-                if attempt == 0:
-                    self.log_signal.emit(
-                        "🔮 [色彩同调] 检测到 HDR/杜比视界 源视频，已施展高精度 32-bit 色调映射术式 (HDR to SDR)...",
-                        "success",
-                    )
-                color_args.extend(
-                    [
-                        "-vf",
-                        "zscale=t=linear:npl=100,format=gbrpf32,zscale=p=bt709:t=bt709:m=bt709:r=limited,format=yuv420p10le",
-                    ]
+            elif color_mode == COLOR_MODE_TONEMAP and is_input_hdr and attempt == 0:
+                self.log_signal.emit(
+                    "🔮 [色彩同调] 检测到 HDR/杜比视界 源视频，已施展高精度 32-bit 色调映射术式 (HDR to SDR)...",
+                    "success",
                 )
-            elif color_mode == "ToneMap" and not is_input_hdr:
-                if attempt == 0:
-                    self.log_signal.emit(
-                        "⚠️ [色彩同调] 虽启用了色调映射，但源视频并非 HDR/杜比视界，已跳过映射滤镜。",
-                        "warning",
-                    )
+            elif color_mode == COLOR_MODE_TONEMAP and not is_input_hdr and attempt == 0:
+                self.log_signal.emit(
+                    "⚠️ [色彩同调] 虽启用了色调映射，但源视频并非 HDR/杜比视界，已跳过映射滤镜。",
+                    "warning",
+                )
 
             # 视频编码参数
             cmd.extend(["-c:v", enc_name])
-            if not (color_mode == "ToneMap" and is_input_hdr):
+            if not (color_mode == COLOR_MODE_TONEMAP and is_input_hdr):
                 cmd.extend(["-pix_fmt", PIX_FMT_10BIT])
 
             cmd.extend(color_args)
 
-            if enc_name == "av1_qsv":
-                cmd.extend(
-                    [
-                        "-global_quality:v",
-                        str(best_icq),
-                        "-preset",
-                        enc_preset,
-                        "-look_ahead",
-                        "1",
-                    ]
+            cmd.extend(
+                build_video_encoder_args(
+                    enc_name,
+                    best_icq,
+                    enc_preset,
+                    nv_aq=self.config.get("nv_aq", True),
                 )
-            elif enc_name == "av1_nvenc":
-                cmd.extend(["-cq", str(best_icq), "-preset", enc_preset, "-b:v", "0"])
-                if self.config.get("nv_aq", True):
-                    cmd.extend(["-spatial-aq", "1", "-temporal-aq", "1"])
-            elif enc_name == "av1_amf":
-                cmd.extend(
-                    [
-                        "-usage",
-                        "transcoding",
-                        "-quality",
-                        enc_preset,
-                        "-rc",
-                        "vbr_latency",
-                        "-qvbr_quality_level",
-                        str(best_icq),
-                    ]
-                )
-                if self.config.get(
-                    "nv_aq", True
-                ):  # 复用 nv_aq 开关作为 AMD PreAnalysis
-                    cmd.extend(["-preanalysis", "true"])
+            )
 
             # 音频
             cmd.extend(audio_args)
 
             # 只有确认字幕流错误后才丢弃字幕
-            if not retry_state.include_subtitles:
-                cmd.extend(["-sn"])
-                cmd.extend(["-map", "0:v:0", "-map", "0:a"])
-            else:
-                cmd.extend(["-c:s", sub_codec])
-                cmd.extend(["-map", "0:v:0", "-map", "0:a", "-map", "0:s?"])
+            cmd.extend(build_subtitle_args(retry_state.include_subtitles, sub_codec))
 
             # 输出文件
             cmd.append(temp_file)

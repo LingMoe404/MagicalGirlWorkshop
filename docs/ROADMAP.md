@@ -158,7 +158,7 @@
   - `_probe_vmaf` 与 `_execute_ffmpeg` 的子进程读循环骨架（kill/pause/readline/poll）几乎逐行重复（约 40 行 × 2）；
   - 所有构造逻辑与信号发射交织，无法脱离 Qt 对象单测。
 - 建议的职责边界：**纯函数模块**（不导入 Qt、不发信号、可独立单测），模仿已有 `output_strategy.py` / `ffmpeg_retry.py` 的模式：
-  - `workers/command_builder.py`：`build_audio_args()`、`build_color_args()`、`build_video_encoder_args()`、`build_subtitle_map_args()`、`build_ab_av1_search_cmd()`、`resolve_encoder()`（约 180 行）；
+  - `workers/command_builder.py`：`build_audio_args()`、`build_color_args()`、`build_video_encoder_args()`、`build_subtitle_map_args()`、`build_ab_av1_search_cmd()`、`resolve_encoder()`（约 210 行）；
   - `workers/progress_parser.py`：`parse_ffmpeg_progress_line()`（Duration/time=/speed= 正则，约 60 行）；
   - `_execute_ffmpeg`/`_probe_vmaf` 保留信号发射与 `is_running`/`is_paused`/`current_proc` 状态，缩为编排层（目标各 ≤ 150 行）。
 - 不建议拆分的部分：信号发射、`stop()`/`set_paused()`/`receive_decision()`、`run()` 的任务循环、`_handle_output`（已薄）、重试决策（已在 `ffmpeg_retry.py`）。
@@ -284,9 +284,9 @@ P3-* ──> 空闲期或顺手处理
 7. **预期新增测试**：6–10 项（三编码器 + 音频/色彩/字幕/ab-av1 探测命令）。
 8. **验证**：`uv run ruff check . && uv run ruff format . && uv run python -m unittest discover -s tests && uv run python check_lang.py`。
 9. **locale 更新**：不需要（无用户可见字符串变化）。
-10. **Qt 线程边界**：不涉及。纯函数模块禁止导入 PySide6。
+10. **Qt 线程边界**：不涉及。纯函数模块禁止导入 PySide6；`command_builder.py` 只依赖标准库 `os`，不导入 `config.py`（避免经 config -> PySide6 的传递性 Qt 依赖），协议常量（音频编码器/采样率、loudnorm/色彩模式）由 `EncoderWorker` 从 `config` 透传显式参数。
 11. **风险与回滚**：参数顺序漂移--靠逐参数断言防护；单提交 revert。
-12. **完成判定**：`_execute_ffmpeg` ≤ 250 行；新模块无 Qt import；三绿。
+12. **完成判定**：命令构造段抽离后 `_execute_ffmpeg` 的编排规模以**抽取后实测行数为准**（约 330 行）；`command_builder.py` 无 Qt import（且不导入 config）；三绿。
 
 #### 步骤 S2：进度解析抽取（对应 P1-1，第 2/3 提交）
 
@@ -298,7 +298,7 @@ P3-* ──> 空闲期或顺手处理
 6. **预期新增测试**：8–12 项。
 7. **验证/locale/线程边界**：同 S1；解析函数为纯函数。
 8. **风险与回滚**：进度区间映射错位--表驱动测试锁定 15%/100% 边界；单提交 revert。
-9. **完成判定**：`_execute_ffmpeg` ≤ 180 行；进度断言测试通过。
+9. **完成判定**：`_execute_ffmpeg` ≤ 180 行（S2 专属目标，与 S1 的 ~330 行区分）；进度断言测试通过。
 
 #### 步骤 S3：探测命令与编码器映射抽取（对应 P1-1，第 3/3 提交）
 
@@ -390,7 +390,7 @@ P3-* ──> 空闲期或顺手处理
 | `AnalysisWorker` 单元测试 | ✅ 完成 | 已添加媒体报告渲染、缩略图生成、时长解析和错误路径测试 | 🟡 高 |
 | UI 组件测试 | ✅ 完成 | 已添加文件列表、日志、主页布局、设置控制器、欢迎向导和转码接入测试 | 🟡 高 |
 | 集成测试 | ✅ 完成 | 已添加 MainWindow 与文件列表、日志、转码控制器的接入回归测试 | 🟢 中 |
-| 现有测试增强 | ✅ 完成 | 已补齐路径冲突、缓存清理边界、依赖探测超时回收、媒体报告 HTML 转义与配置百分号回归测试；当前全套测试 302 项 | 🟢 中 |
+| 现有测试增强 | ✅ 完成 | 已补齐路径冲突、缓存清理边界、依赖探测超时回收、媒体报告 HTML 转义与配置百分号回归测试；当前全套测试 355 项 | 🟢 中 |
 
 **工具建议**：`pytest` + `pytest-qt` + `pytest-mock`
 

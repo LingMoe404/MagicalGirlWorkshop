@@ -1,5 +1,13 @@
 from .analyzer import AnalysisWorker, DurationWorker, ThumbnailWorker  # noqa: F401
 from .base import BaseWorker  # noqa: F401
+from .command_builder import (  # noqa: F401
+    build_ab_av1_search_cmd,
+    build_audio_args,
+    build_color_args,
+    build_subtitle_args,
+    build_video_encoder_args,
+    should_apply_loudnorm,
+)
 from .coordinator import EncodingCoordinator  # noqa: F401
 from .dependency import DependencyWorker  # noqa: F401
 from .encoder import EncoderWorker  # noqa: F401

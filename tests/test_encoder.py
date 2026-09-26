@@ -6,6 +6,11 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
+from config import (
+    SAVE_MODE_OVERWRITE,
+    SAVE_MODE_REMAIN,
+    SAVE_MODE_SAVE_AS,
+)
 from workers.encoder import EncoderWorker
 from workers.output_strategy import move_with_retries
 from workers.transcode_paths import TaskPaths
@@ -136,6 +141,95 @@ class PopenReplacer:
         sp_mod.Popen = self._original
 
 
+class CaptureProcess(FakeProcess):
+    """FakeProcess that additionally records the argv handed to subprocess.Popen."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.argv = None
+        self.spawn_kwargs = {}
+
+
+class PopenReplacerWithCapture(PopenReplacer):
+    """PopenReplacer that snapshots the argv/kwargs for every spawned process."""
+
+    def _handler(self, *args, **kwargs):
+        proc = super()._handler(*args, **kwargs)
+        if isinstance(proc, CaptureProcess):
+            proc.argv = list(args[0]) if args else None
+            proc.spawn_kwargs = dict(kwargs)
+        return proc
+
+
+def make_capture_ab_av1_process(crf_tuples):
+    return CaptureProcess(
+        [
+            f"crf {crf} VMAF {vmaf} predicted video stream size "
+            f"1.00 GiB ({pct}%) taking 10 minutes"
+            for crf, vmaf, pct in crf_tuples
+        ]
+        + [f"crf {crf_tuples[-1][0]} successful"],
+        returncode=0,
+    )
+
+
+def make_capture_ffmpeg_process():
+    return CaptureProcess(["frame=  100 fps=30.0 speed=2.5x"], returncode=0, text=True)
+
+
+class RecordingFakeSignal(FakeSignal):
+    """FakeSignal that also records raw *args (including callback re-emit)."""
+
+    def __init__(self):
+        super().__init__()
+        self.raw_emissions = []
+
+    def emit(self, *args):
+        self.raw_emissions.append(args)
+        super().emit(*args)
+
+
+def launch_worker(worker, processes, launcher=None, mocks=None):
+    """Run a worker while capturing the argv of every spawned subprocess.
+
+    Captured argv lists are returned in spawn order, with one entry per
+    subprocess (per ffmpeg retry attempt, when applicable). When ``mocks`` is
+    provided, the patched ``shutil.move`` mock is stored under ``mocks["move"]``.
+    """
+    captured = []
+    with PopenReplacerWithCapture() as replacer:
+        for proc in processes:
+            replacer.add_process(proc)
+        with (
+            patch("time.sleep"),
+            patch("shutil.move") as mock_move,
+            patch("os.replace"),
+            patch("os.path.exists", side_effect=_temp_only_exists),
+            patch("os.path.getsize", side_effect=_temp_only_getsize),
+        ):
+            worker.run()
+            for proc in replacer._processes:
+                if isinstance(proc, CaptureProcess) and proc.argv is not None:
+                    captured.append(proc.argv)
+    if launcher is not None:
+        launcher(captured)
+    if mocks is not None:
+        mocks["move"] = mock_move
+    return captured
+
+
+def _temp_only_exists(path):
+    """os.path.exists that only "sees" the temp output file (plus real dirs)."""
+    return ".temp.mkv" in str(path) or os.path.isdir(str(path))
+
+
+def _temp_only_getsize(path):
+    """os.path.getsize that returns a plausible size for the temp output file."""
+    if ".temp.mkv" in str(path):
+        return 2048
+    return os.path.getsize(path)
+
+
 class EncoderWorkerTests(unittest.TestCase):
     """Tests for EncoderWorker.run() with mocked subprocesses."""
 
@@ -210,7 +304,7 @@ class EncoderWorkerTests(unittest.TestCase):
             "encoding_speed_signal",
             "resource_error_signal",
         ):
-            setattr(w, attr, FakeSignal())
+            setattr(w, attr, RecordingFakeSignal())
         w.ask_error_decision.connect(lambda title, content: w.receive_decision("skip"))
         return w
 
@@ -232,7 +326,7 @@ class EncoderWorkerTests(unittest.TestCase):
                 return 2048
             return orig_getsize(path)
 
-        with PopenReplacer() as replacer:
+        with PopenReplacerWithCapture() as replacer:
             for p in processes:
                 replacer.add_process(p)
             with (
@@ -609,6 +703,643 @@ class EncoderWorkerTests(unittest.TestCase):
                 worker.run()
         mock_rmtree.assert_called_once_with(
             self.task_paths.task_dir, ignore_errors=True
+        )
+
+
+class EncoderCommandCaptureTests(unittest.TestCase):
+    """Snapshot tests: capture the exact ab-av1 / ffmpeg argv produced by
+    EncoderWorker for representative branches. No real binaries, GPU, or Qt
+    event loop required; subprocess.Popen is replaced by CaptureProcess."""
+
+    def setUp(self):
+        self.temp_dir = tempfile.TemporaryDirectory()
+        self.root = Path(self.temp_dir.name)
+        self.source_dir = self.root / "source"
+        self.source_dir.mkdir(parents=True, exist_ok=True)
+        self.test_file = str(self.source_dir / "test_video.mkv")
+        Path(self.test_file).write_bytes(b"fake video content")
+
+        self.task_dir = self.root / "task-0"
+        self.task_dir.mkdir(parents=True, exist_ok=True)
+        self.ab_av1_dir = self.task_dir / "ab-av1"
+        self.ab_av1_dir.mkdir(parents=True, exist_ok=True)
+        self.task_paths = TaskPaths(
+            task_dir=str(self.task_dir),
+            ab_av1_dir=str(self.ab_av1_dir),
+            temp_output=str(self.task_dir / "output.temp.mkv"),
+            final_output=str(self.root / "output.mkv"),
+        )
+
+        self.base_config = {
+            "selected_files": [self.test_file],
+            "encoder": "Intel QSV",
+            "export_dir": str(self.root / "export"),
+            "cache_dir": str(self.root / "cache"),
+            "save_mode": SAVE_MODE_SAVE_AS,
+            "preset": "4",
+            "vmaf": "93.0",
+            "audio_bitrate": "96k",
+            "loudnorm": "loudnorm=I=-16:TP=-1.5:LRA=11",
+            "loudnorm_mode": "Stereo/Mono Only",
+            "metadata": {
+                self.test_file: {
+                    "codec": "h264",
+                    "duration": 5.0,
+                    "channels": 2,
+                    "pix_fmt": "yuv420p",
+                    "color_space": "bt709",
+                    "color_transfer": "bt709",
+                    "color_primaries": "bt709",
+                    "has_dovi": False,
+                }
+            },
+            "task_paths": self.task_paths,
+            "manage_system_awake": False,
+            "gpu_cooling_time": 0,
+            "hw_decoding": True,
+            "nv_aq": True,
+            "color_mode": "Auto",
+        }
+
+    def tearDown(self):
+        self.temp_dir.cleanup()
+
+    def make_worker(self, **overrides):
+        config = {**self.base_config, **overrides}
+        w = EncoderWorker(config)
+        for attr in (
+            "log_signal",
+            "progress_total_signal",
+            "progress_current_signal",
+            "file_progress_signal",
+            "file_stats_signal",
+            "file_status_signal",
+            "finished_signal",
+            "ask_error_decision",
+            "stage_signal",
+            "encoding_speed_signal",
+            "resource_error_signal",
+        ):
+            setattr(w, attr, RecordingFakeSignal())
+        w.ask_error_decision.connect(lambda title, content: w.receive_decision("skip"))
+        return w
+
+    def capture(self, worker, processes, mocks=None):
+        return launch_worker(worker, processes, mocks=mocks)
+
+    def assert_is_ffmpeg_cmd(self, argv):
+        self.assertTrue(argv[0].endswith("ffmpeg.exe"), f"expected ffmpeg, got {argv}")
+
+    def assert_exe(self, argv, exe_suffix):
+        self.assertTrue(
+            argv[0].endswith(exe_suffix), f"expected {exe_suffix}, got {argv[0]}"
+        )
+
+    def assert_ab_av1_flags(self, argv, exp_encoder, exp_preset, exp_max_crf):
+        """Assert the ab-av1 crf-search option/value pairs in order, allowing
+        a wildcard (-1) for the path-ish args that vary by run."""
+        opts = ["--encoder", "--pix-format", "--min-vmaf", "--preset", "--max-crf"]
+        seq = [
+            ("--encoder", exp_encoder),
+            ("--pix-format", "yuv420p10le"),
+            ("--min-vmaf", "93.0"),
+            ("--preset", exp_preset),
+            ("--max-crf", exp_max_crf),
+        ]
+        for opt in opts:
+            self.assertIn(opt, argv, f"missing {opt} in ab-av1 cmd: {argv}")
+        positions = [argv.index(opt) for opt in opts]
+        self.assertEqual(
+            positions, sorted(positions), f"ab-av1 options out of order: {argv}"
+        )
+        for opt, exp in seq:
+            idx = argv.index(opt)
+            self.assertEqual(argv[idx + 1], exp, f"{opt} value mismatch in {argv}")
+        # crf-search subcommand comes immediately after the exe path
+        self.assertEqual(argv[1], "crf-search", argv)
+        # input file present with a value after -i
+        self.assertIn("-i", argv)
+        self.assertEqual(argv[argv.index("-i") + 1], os.path.abspath(self.test_file))
+        # --temp-dir must point at the session ab-av1 dir when it exists
+        self.assertIn("--temp-dir", argv)
+        self.assertEqual(argv[argv.index("--temp-dir") + 1], str(self.ab_av1_dir))
+
+    def assert_ffmpeg_layout(self, argv, exp_hw, exp_cv, exp_preset, exp_video_tail):
+        """Assert the ffmpeg argv layout in order:
+        exe, -y, -hide_banner, hw-decode block, -i <input>, -c:v <encoder>,
+        <video-tail (pix/color/encoder params)>, audio args, subtitle args,
+        output path. Path-ish values are validated by pattern/position rather
+        than exact equality so runs are deterministic."""
+        self.assert_exe(argv, "ffmpeg.exe")
+        self.assertEqual(argv[1], "-y")
+        self.assertEqual(argv[2], "-hide_banner")
+        idx = 3
+        for hw_arg in exp_hw:
+            self.assertEqual(argv[idx], hw_arg, f"hw arg {hw_arg} at {idx}: {argv}")
+            idx += 1
+        # build_hw_decode_args always appends -v verbose to the hw block
+        self.assertEqual(argv[idx], "-v")
+        self.assertEqual(argv[idx + 1], "verbose")
+        idx += 2
+        self.assertEqual(argv[idx], "-i")
+        input_idx = idx + 1
+        self.assertTrue(
+            argv[input_idx].endswith("test_video.mkv"),
+            f"unexpected input at {input_idx}: {argv}",
+        )
+        idx = input_idx + 1
+        self.assertEqual(argv[idx], "-c:v")
+        self.assertEqual(argv[idx + 1], exp_cv)
+        idx += 2
+        # video-tail: expected option/value sequence (exact order)
+        for vid_arg in exp_video_tail:
+            self.assertEqual(
+                argv[idx], vid_arg, f"video tail {vid_arg} at {idx}: {argv}"
+            )
+            idx += 1
+        # audio block (exact order + values)
+        self.assertEqual(argv[idx], "-c:a")
+        self.assertEqual(argv[idx + 1], "libopus")
+        self.assertEqual(argv[idx + 2], "-b:a")
+        self.assertEqual(argv[idx + 3], "96k")
+        self.assertEqual(argv[idx + 4], "-ar")
+        self.assertEqual(argv[idx + 5], "48000")
+        idx += 6
+        self.assertEqual(argv[idx], "-af")
+        loudnorm_val = argv[idx + 1]
+        self.assertTrue(
+            loudnorm_val.startswith("loudnorm=I="), f"unexpected -af value: {argv}"
+        )
+        idx += 2
+        # subtitle block
+        self.assertEqual(argv[idx], "-c:s")
+        self.assertEqual(argv[idx + 1], "copy")
+        idx += 2
+        for map_arg in ("-map", "0:v:0", "-map", "0:a", "-map", "0:s?"):
+            self.assertEqual(argv[idx], map_arg, f"map {map_arg} at {idx}: {argv}")
+            idx += 1
+        # trailing output path (the only remaining positional)
+        self.assertEqual(idx, len(argv) - 1)
+        self.assertTrue(
+            argv[idx].endswith("output.temp.mkv"),
+            f"unexpected output path: {argv}",
+        )
+
+    # ---- QSV / NVENC / AMF video-encoder branches ----
+
+    def test_qsv_argv(self):
+        worker = self.make_worker()
+        cmds = self.capture(
+            worker,
+            [
+                make_capture_ab_av1_process([(30, 93.69, 84)]),
+                make_capture_ffmpeg_process(),
+            ],
+        )
+        self.assertEqual(len(cmds), 2, cmds)
+        ab_cmd, ff_cmd = cmds
+        self.assert_ab_av1_flags(
+            ab_cmd, exp_encoder="av1_qsv", exp_preset="4", exp_max_crf="51"
+        )
+        self.assert_ffmpeg_layout(
+            ff_cmd,
+            exp_hw=[
+                "-init_hw_device",
+                "qsv=hw",
+                "-filter_hw_device",
+                "hw",
+                "-hwaccel",
+                "qsv",
+            ],
+            exp_cv="av1_qsv",
+            exp_preset="4",
+            exp_video_tail=[
+                "-pix_fmt",
+                "p010le",
+                "-global_quality:v",
+                "30",
+                "-preset",
+                "4",
+                "-look_ahead",
+                "1",
+            ],
+        )
+        self.assertEqual(
+            worker.file_status_signal.emissions[-1], (self.test_file, "success")
+        )
+
+    def test_nvenc_argv(self):
+        worker = self.make_worker(encoder="NVIDIA NVENC", preset="4")
+        cmds = self.capture(
+            worker,
+            [
+                make_capture_ab_av1_process([(30, 93.69, 84)]),
+                make_capture_ffmpeg_process(),
+            ],
+        )
+        self.assertEqual(len(cmds), 2, cmds)
+        ab_cmd, ff_cmd = cmds
+        self.assert_ab_av1_flags(
+            ab_cmd, exp_encoder="av1_nvenc", exp_preset="p4", exp_max_crf="51"
+        )
+        self.assert_ffmpeg_layout(
+            ff_cmd,
+            exp_hw=["-hwaccel", "cuda"],
+            exp_cv="av1_nvenc",
+            exp_preset="p4",
+            exp_video_tail=[
+                "-pix_fmt",
+                "p010le",
+                "-cq",
+                "30",
+                "-preset",
+                "p4",
+                "-b:v",
+                "0",
+                "-spatial-aq",
+                "1",
+                "-temporal-aq",
+                "1",
+            ],
+        )
+
+    def test_nvenc_nv_aq_disabled(self):
+        worker = self.make_worker(encoder="NVIDIA NVENC", nv_aq=False)
+        cmds = self.capture(
+            worker,
+            [
+                make_capture_ab_av1_process([(30, 93.69, 84)]),
+                make_capture_ffmpeg_process(),
+            ],
+        )
+        self.assertEqual(len(cmds), 2, cmds)
+        ff_cmd = cmds[1]
+        self.assertNotIn("-spatial-aq", ff_cmd)
+        self.assertNotIn("-temporal-aq", ff_cmd)
+        # Preset mapping must hold without the AQ flags
+        self.assertEqual(ff_cmd[ff_cmd.index("-preset") + 1], "p4")
+        self.assertEqual(ff_cmd[ff_cmd.index("-cq") + 1], "30")
+        self.assertEqual(ff_cmd[ff_cmd.index("-b:v") + 1], "0")
+
+    def test_amf_argv(self):
+        worker = self.make_worker(encoder="AMD AMF", preset="4")
+        cmds = self.capture(
+            worker,
+            [
+                make_capture_ab_av1_process([(30, 93.69, 84)]),
+                make_capture_ffmpeg_process(),
+            ],
+        )
+        self.assertEqual(len(cmds), 2, cmds)
+        ab_cmd, ff_cmd = cmds
+        # AMF: hardware search strategy is skipped -> first strategy is CPU SVT-AV1
+        self.assert_ab_av1_flags(
+            ab_cmd, exp_encoder="libsvtav1", exp_preset="9", exp_max_crf="63"
+        )
+        self.assert_ffmpeg_layout(
+            ff_cmd,
+            exp_hw=["-hwaccel", "auto"],
+            exp_cv="av1_amf",
+            exp_preset="balanced",
+            exp_video_tail=[
+                "-pix_fmt",
+                "p010le",
+                "-usage",
+                "transcoding",
+                "-quality",
+                "balanced",
+                "-rc",
+                "vbr_latency",
+                "-qvbr_quality_level",
+                "30",
+                "-preanalysis",
+                "true",
+            ],
+        )
+
+    # ---- HDR Auto / HDR ToneMap / SDR color branches ----
+
+    def _hdr_metadata(self):
+        return {
+            self.test_file: {
+                "codec": "h264",
+                "duration": 5.0,
+                "channels": 2,
+                "pix_fmt": "yuv420p10le",
+                "color_space": "bt2020nc",
+                "color_transfer": "smpte2084",
+                "color_primaries": "bt2020",
+                "has_dovi": False,
+            }
+        }
+
+    def test_hdr_auto_color_args(self):
+        worker = self.make_worker(
+            color_mode="Auto",
+            metadata=self._hdr_metadata(),
+        )
+        cmds = self.capture(
+            worker,
+            [
+                make_capture_ab_av1_process([(30, 93.69, 84)]),
+                make_capture_ffmpeg_process(),
+            ],
+        )
+        ff_cmd = cmds[1]
+        self.assertIn("-color_primaries", ff_cmd)
+        self.assertIn("-color_trc", ff_cmd)
+        self.assertIn("-colorspace", ff_cmd)
+        self.assertIsNotNone(ff_cmd[ff_cmd.index("-color_primaries") + 1])
+        self.assertIsNotNone(ff_cmd[ff_cmd.index("-color_trc") + 1])
+        self.assertIsNotNone(ff_cmd[ff_cmd.index("-colorspace") + 1])
+
+    def test_hdr_tonemap_filter_args(self):
+        worker = self.make_worker(
+            color_mode="ToneMap",
+            metadata=self._hdr_metadata(),
+        )
+        cmds = self.capture(
+            worker,
+            [
+                make_capture_ab_av1_process([(30, 93.69, 84)]),
+                make_capture_ffmpeg_process(),
+            ],
+        )
+        ff_cmd = cmds[1]
+        self.assertIn("-vf", ff_cmd)
+        self.assertIsNotNone(ff_cmd[ff_cmd.index("-vf") + 1])
+        self.assertNotIn("-color_primaries", ff_cmd)
+        self.assertNotIn("-color_trc", ff_cmd)
+        self.assertNotIn("-colorspace", ff_cmd)
+        # ToneMap+HDR must omit the explicit -pix_fmt p010le (the zscale
+        # filter chain sets format=yuv420p10le itself)
+        self.assertNotIn("-pix_fmt", ff_cmd)
+
+    def test_hdr_force_sdr_no_color_args_keeps_pix_fmt(self):
+        # Force SDR (COLOR_MODE_SDR): even on an HDR source, no tone-map / color
+        # tags are emitted, and -pix_fmt p010le is still applied.
+        worker = self.make_worker(
+            color_mode="SDR",
+            metadata=self._hdr_metadata(),
+        )
+        cmds = self.capture(
+            worker,
+            [
+                make_capture_ab_av1_process([(30, 93.69, 84)]),
+                make_capture_ffmpeg_process(),
+            ],
+        )
+        ff_cmd = cmds[1]
+        self.assertNotIn("-vf", ff_cmd)
+        self.assertNotIn("-color_primaries", ff_cmd)
+        self.assertNotIn("-color_trc", ff_cmd)
+        self.assertNotIn("-colorspace", ff_cmd)
+        self.assertIn("-pix_fmt", ff_cmd)
+        self.assertEqual(ff_cmd[ff_cmd.index("-pix_fmt") + 1], "p010le")
+
+    def test_sdr_no_color_args(self):
+        worker = self.make_worker(
+            color_mode="Auto",
+            metadata={
+                self.test_file: {
+                    "codec": "h264",
+                    "duration": 5.0,
+                    "channels": 2,
+                    "pix_fmt": "yuv420p",
+                    "color_space": "bt709",
+                    "color_transfer": "bt709",
+                    "color_primaries": "bt709",
+                    "has_dovi": False,
+                }
+            },
+        )
+        cmds = self.capture(
+            worker,
+            [
+                make_capture_ab_av1_process([(30, 93.69, 84)]),
+                make_capture_ffmpeg_process(),
+            ],
+        )
+        ff_cmd = cmds[1]
+        self.assertNotIn("-vf", ff_cmd)
+        self.assertNotIn("-color_primaries", ff_cmd)
+        self.assertNotIn("-color_trc", ff_cmd)
+        self.assertNotIn("-colorspace", ff_cmd)
+        self.assertIn("-pix_fmt", ff_cmd)
+        self.assertEqual(ff_cmd[ff_cmd.index("-pix_fmt") + 1], "p010le")
+
+    # ---- Subtitle included / excluded ----
+
+    def test_subtitles_included(self):
+        worker = self.make_worker()
+        cmds = self.capture(
+            worker,
+            [
+                make_capture_ab_av1_process([(30, 93.69, 84)]),
+                make_capture_ffmpeg_process(),
+            ],
+        )
+        ff_cmd = cmds[1]
+        self.assertIn("-c:s", ff_cmd)
+        self.assertIsNotNone(ff_cmd[ff_cmd.index("-c:s") + 1])
+        self.assertIn("-map", ff_cmd)
+        self.assertIn("0:s?", ff_cmd)
+        self.assertNotIn("-sn", ff_cmd)
+
+    def test_subtitles_excluded(self):
+        worker = self.make_worker()
+        fail_proc = CaptureProcess(
+            ["Error while decoding subtitle stream #0:2"], returncode=1
+        )
+        cmds = self.capture(
+            worker,
+            [
+                make_capture_ab_av1_process([(30, 93.69, 84)]),
+                fail_proc,
+                make_capture_ffmpeg_process(),
+            ],
+        )
+        # First ffmpeg attempt (subs included) fails, second (subs dropped) succeeds
+        self.assertEqual(len(cmds), 3, cmds)
+        self.assertIn("-c:s", cmds[1])
+        self.assertNotIn("-sn", cmds[1])
+        self.assertIn("-sn", cmds[2])
+        self.assertNotIn("-c:s", cmds[2])
+        self.assertIn("0:v:0", cmds[2])
+        self.assertIn("0:a", cmds[2])
+        self.assertNotIn("0:s?", cmds[2])
+
+    # ---- Audio: loudnorm + channel layout ----
+
+    def test_audio_loudnorm_and_channel_layout(self):
+        worker = self.make_worker(
+            loudnorm="loudnorm=I=-16:TP=-1.5:LRA=11",
+            loudnorm_mode="Always",
+            metadata={
+                self.test_file: {
+                    "codec": "h264",
+                    "duration": 5.0,
+                    "channels": 6,
+                    "pix_fmt": "yuv420p",
+                    "color_space": "bt709",
+                    "color_transfer": "bt709",
+                    "color_primaries": "bt709",
+                    "has_dovi": False,
+                }
+            },
+        )
+        cmds = self.capture(
+            worker,
+            [
+                make_capture_ab_av1_process([(30, 93.69, 84)]),
+                make_capture_ffmpeg_process(),
+            ],
+        )
+        ff_cmd = cmds[1]
+        self.assertEqual(ff_cmd[ff_cmd.index("-c:a") + 1], "libopus")
+        self.assertEqual(ff_cmd[ff_cmd.index("-b:a") + 1], "96k")
+        self.assertEqual(ff_cmd[ff_cmd.index("-ar") + 1], "48000")
+        self.assertIn("-af", ff_cmd)
+        self.assertIsNotNone(ff_cmd[ff_cmd.index("-af") + 1])
+
+    def test_audio_no_filters_when_disabled(self):
+        worker = self.make_worker(loudnorm_mode="Disable")
+        cmds = self.capture(
+            worker,
+            [
+                make_capture_ab_av1_process([(30, 93.69, 84)]),
+                make_capture_ffmpeg_process(),
+            ],
+        )
+        ff_cmd = cmds[1]
+        self.assertIn("-c:a", ff_cmd)
+        self.assertNotIn("-af", ff_cmd)
+
+    def test_audio_8ch_loudnorm(self):
+        worker = self.make_worker(
+            loudnorm="loudnorm=I=-16:TP=-1.5:LRA=11",
+            loudnorm_mode="Always",
+            metadata={
+                self.test_file: {
+                    "codec": "h264",
+                    "duration": 5.0,
+                    "channels": 8,
+                    "pix_fmt": "yuv420p",
+                    "color_space": "bt709",
+                    "color_transfer": "bt709",
+                    "color_primaries": "bt709",
+                    "has_dovi": False,
+                }
+            },
+        )
+        cmds = self.capture(
+            worker,
+            [
+                make_capture_ab_av1_process([(30, 93.69, 84)]),
+                make_capture_ffmpeg_process(),
+            ],
+        )
+        ff_cmd = cmds[1]
+        self.assertIn("-af", ff_cmd)
+        self.assertIsNotNone(ff_cmd[ff_cmd.index("-af") + 1])
+
+    # ---- Save-mode related mapping smoke tests ----
+
+    def test_save_mode_remain_smoke(self):
+        worker = self.make_worker(save_mode=SAVE_MODE_REMAIN)
+        cmds = self.capture(
+            worker,
+            [
+                make_capture_ab_av1_process([(30, 93.69, 84)]),
+                make_capture_ffmpeg_process(),
+            ],
+        )
+        self.assertEqual(len(cmds), 2, cmds)
+        # Must reach success status (probe + encode both completed)
+        self.assertEqual(
+            worker.file_status_signal.emissions[-1], (self.test_file, "success")
+        )
+        # Coordinated path: destination always comes from task_paths.final_output
+        self.assertEqual(
+            worker.task_paths.final_output,
+            os.path.abspath(str(self.root / "output.mkv")),
+        )
+
+    def test_save_mode_overwrite_smoke(self):
+        worker = self.make_worker(save_mode=SAVE_MODE_OVERWRITE)
+        cmds = self.capture(
+            worker,
+            [
+                make_capture_ab_av1_process([(30, 93.69, 84)]),
+                make_capture_ffmpeg_process(),
+            ],
+        )
+        self.assertEqual(len(cmds), 2, cmds)
+        # Must reach success status
+        self.assertEqual(
+            worker.file_status_signal.emissions[-1], (self.test_file, "success")
+        )
+        self.assertEqual(
+            worker.task_paths.final_output,
+            os.path.abspath(str(self.root / "output.mkv")),
+        )
+
+    def test_save_as_standalone_outputs_to_export_dir(self):
+        """Standalone path (task_paths=None): save mode drives the destination."""
+        export_dir = str(self.root / "export")
+        worker = self.make_worker(
+            save_mode=SAVE_MODE_SAVE_AS,
+            task_paths=None,
+            export_dir=export_dir,
+        )
+        mocks = {}
+        cmds = self.capture(
+            worker,
+            [
+                make_capture_ab_av1_process([(30, 93.69, 84)]),
+                make_capture_ffmpeg_process(),
+            ],
+            mocks=mocks,
+        )
+        self.assertEqual(len(cmds), 2, cmds)
+        self.assertEqual(
+            worker.file_status_signal.emissions[-1], (self.test_file, "success")
+        )
+        # Save As standalone: shutil.move receives the export-dir output path
+        # (wrapped via to_long_path on Windows -> strip the \\?\ prefix)
+        expected_dest = os.path.abspath(str(self.root / "export" / "test_video.mkv"))
+        actual_dest = mocks["move"].call_args.args[1].removeprefix("\\\\?\\")
+        self.assertEqual(
+            os.path.abspath(os.path.normpath(actual_dest)),
+            os.path.normpath(expected_dest),
+        )
+
+    def test_save_mode_remain_standalone_outputs_opt_suffix(self):
+        """Standalone path (task_paths=None): Remain maps to <name>_opt.mkv."""
+        worker = self.make_worker(
+            save_mode=SAVE_MODE_REMAIN,
+            task_paths=None,
+        )
+        mocks = {}
+        cmds = self.capture(
+            worker,
+            [
+                make_capture_ab_av1_process([(30, 93.69, 84)]),
+                make_capture_ffmpeg_process(),
+            ],
+            mocks=mocks,
+        )
+        self.assertEqual(len(cmds), 2, cmds)
+        self.assertEqual(
+            worker.file_status_signal.emissions[-1], (self.test_file, "success")
+        )
+        expected_dest = os.path.abspath(
+            str(self.root / "source" / "test_video_opt.mkv")
+        )
+        actual_dest = mocks["move"].call_args.args[1].removeprefix("\\\\?\\")
+        self.assertEqual(
+            os.path.abspath(os.path.normpath(actual_dest)),
+            os.path.normpath(expected_dest),
         )
 
 
