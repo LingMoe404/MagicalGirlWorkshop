@@ -1,0 +1,55 @@
+# .normalizer.toml — path → 最小 read set / 定向验证 路由
+# 供 project-normalizer 的 routing.py 读取，覆盖默认推断（默认会给出 pytest，本仓库不用 pytest）。
+# 注意：read 只能写具体文件路径（目录条目会被 context_for 静默丢弃）；
+#       [scan].exclude 反过来只接受目录名 / 相对路径前缀。
+
+[[routes]]
+path = "workers/encoder.py"
+read = ["workers/encoder.py", "workers/command_builder.py", "tests/test_encoder.py", "tests/test_command_builder.py"]
+verify = ["uv run python -m unittest tests.test_encoder tests.test_command_builder"]
+
+[[routes]]
+path = "workers/command_builder.py"
+read = ["workers/command_builder.py", "config.py", "tests/test_command_builder.py", "tests/test_encoder.py"]
+verify = ["uv run python -m unittest tests.test_command_builder tests.test_encoder"]
+
+[[routes]]
+path = "workers/**"
+read = ["workers/__init__.py", "config.py", "utils.py"]
+verify = ["uv run python -m unittest discover -s tests -p 'test_*.py'"]
+
+[[routes]]
+path = "ui/**"
+read = ["ui/__init__.py", "ui/main_window.py", "config.py"]
+verify = ["uv run python -m unittest discover -s tests -p 'test_*.py'"]
+
+[[routes]]
+path = "i18n/locales/**"
+read = ["i18n/locales/zh_CN.py", "check_lang.py"]
+verify = ["uv run python check_lang.py --check"]
+
+[[routes]]
+path = "check_lang.py"
+read = ["check_lang.py", "i18n/translator.py"]
+verify = ["uv run python check_lang.py --check"]
+
+[[routes]]
+path = ".github/workflows/**"
+read = [".github/workflows/autobuild.yml", "tests/test_packaging_config.py"]
+verify = ["uv run python -m unittest tests.test_packaging_config"]
+
+[[routes]]
+path = "installer/**"
+read = ["installer/MagicalGirlWorkshop.iss", "tests/test_packaging_config.py"]
+verify = ["uv run python -m unittest tests.test_packaging_config"]
+
+[[routes]]
+path = "tests/**"
+read = ["tests/__init__.py"]
+verify = ["uv run python -m unittest discover -s tests -p 'test_*.py'"]
+
+[delegation]
+language = "zh"
+
+[scan]
+exclude = ["tools", "build", "cache", ".ruff_cache", ".superpowers", ".venv"]

@@ -1,5 +1,7 @@
 # --- 本地配置与运行缓存 ---
 config.ini
+.env
+.env.*
 cache/
 *.log
 *.tmp

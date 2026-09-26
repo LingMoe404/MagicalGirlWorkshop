@@ -145,7 +145,7 @@
 
 #### P0：无（工作区已干净，无阻塞性问题）
 
-经核实 `git status` 为空、`docs/superpowers/` 计划/设计文档与全部测试均已被 git 跟踪、302 项 unittest 全绿、ruff 与 `check_lang.py` 通过。当前不存在阻塞干净检出、打包或运行的模块/依赖问题。**P0 置空**。
+经核实 `git status` 为空、`docs/superpowers/` 计划/设计文档与全部测试均已被 git 跟踪、355 项 unittest 全绿、ruff 与 `check_lang.py` 通过。当前不存在阻塞干净检出、打包或运行的模块/依赖问题。**P0 置空**。
 
 #### P1：职责明显混合、风险高、影响主流程
 
