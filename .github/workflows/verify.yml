@@ -1,0 +1,51 @@
+# ==========================================
+# 魔法少女工坊 (MagicalGirlWorkshop) 验证工作流
+# 作用：在 CI 中机械执行 lint / 单元测试 / i18n 校验，不产出任何打包资产。
+# ==========================================
+name: Verify
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  # 同一分支上的旧验证在新提交到达时即时取消，节约 CI 资源
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read # 最小权限：本工作流只读取代码，不需要写权限
+
+env:
+  # 测试需要 Qt 在无显示环境下运行，显式指定 offscreen 平台插件
+  QT_QPA_PLATFORM: offscreen
+
+jobs:
+  verify:
+    runs-on: windows-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup uv and Python 3.12
+        uses: astral-sh/setup-uv@v7
+        with:
+          python-version: "3.12"
+          enable-cache: true
+
+      # 注意：必须保留开发依赖（不能省略），否则 ruff 缺失会导致 lint 步骤失败
+      - name: Sync project dependencies
+        run: uv sync --locked
+
+      - name: Lint with ruff
+        run: uv run ruff check .
+
+      - name: Run unit tests
+        run: uv run python -m unittest discover -s tests
+
+      - name: Check i18n locales
+        run: uv run python check_lang.py --check

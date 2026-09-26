@@ -1,3 +1,4 @@
+import argparse
 import importlib.util
 import os
 import sys
@@ -34,8 +35,15 @@ def extract_placeholders(text):
         return set()
 
 
-def append_missing_keys(file_path, missing_items):
-    """将缺失的键追加到文件中的字典末尾"""
+def append_missing_keys(file_path, missing_items, write=True):
+    """将缺失的键追加到文件中的字典末尾
+
+    write=False 时（--check 只读模式）只报告、不写入文件，避免校验过程产生副作用。
+    """
+    if not write:
+        print(f"  ⏭️ (--check 模式：跳过自动补齐) {os.path.basename(file_path)}")
+        return
+
     try:
         with open(file_path, "r", encoding="utf-8") as f:
             lines = f.readlines()
@@ -108,7 +116,7 @@ def append_missing_keys(file_path, missing_items):
         print(f"  ❌ 自动修复失败: {e}")
 
 
-def check_languages(locales_dir):
+def check_languages(locales_dir, check_only=False):
     print(f"🔍 正在检查目录: {locales_dir} ...\n")
 
     files = [
@@ -130,7 +138,7 @@ def check_languages(locales_dir):
 
     if "zh_CN.py" not in languages:
         print("\n❌ 错误: 找不到基准语言文件 zh_CN.py，无法进行对比检查。")
-        return
+        return True
 
     base_lang = languages["zh_CN.py"]
     print("-" * 60)
@@ -150,9 +158,11 @@ def check_languages(locales_dir):
             for k in missing_keys:
                 print(f"    - {k}")
 
-            # 自动修复：追加缺失的 Key
+            # 自动修复：追加缺失的 Key（--check 只读模式下跳过写入）
             missing_items = {k: base_lang[k] for k in missing_keys}
-            append_missing_keys(os.path.join(locales_dir, filename), missing_items)
+            append_missing_keys(
+                os.path.join(locales_dir, filename), missing_items, write=not check_only
+            )
 
             file_has_issue = True
             has_error = True
@@ -187,13 +197,31 @@ def check_languages(locales_dir):
     else:
         print("\n🚫 发现问题，请修复后再运行程序。")
 
+    return has_error
+
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(
+        description="i18n 语言文件一致性校验（默认会自动补齐缺失 Key）"
+    )
+    parser.add_argument(
+        "--check",
+        action="store_true",
+        help="只读校验模式：不修改任何文件，发现问题时以非零退出码结束（供 CI 使用）",
+    )
+    args = parser.parse_args()
+
     # 自动定位到 i18n/locales 目录
     current_dir = os.path.dirname(os.path.abspath(__file__))
     locales_path = os.path.join(current_dir, "i18n", "locales")
 
-    if os.path.exists(locales_path):
-        check_languages(locales_path)
-    else:
+    if not os.path.exists(locales_path):
         print(f"错误: 找不到语言目录 {locales_path}")
+        # 目录缺失同样视为校验失败；默认模式保持现有的 0 退出码不变
+        sys.exit(1 if args.check else 0)
+
+    has_error = check_languages(locales_path, check_only=args.check)
+
+    # 仅 --check 模式改变退出码；默认无参模式保持原有行为（始终 0）
+    if args.check and has_error:
+        sys.exit(1)
