@@ -29,6 +29,13 @@ __pycache__/
 /.agents/logs/
 /.agents/history/
 /.agents/memories/
+/.zcode/auth.json
+/.zcode/logs/
+/.zcode/history/
+/.zcode/memories/
+# .normalizer 必须写成不带前导 / 的形式：checker 用 line.rstrip('/') == '.normalizer'
+# 精确比对，锚定形式 /.normalizer/ 无法通过它自己的 cache 门禁。
+.normalizer/
 
 # --- Nuitka 打包产物与构建目录 (强化防御) ---
 build/
